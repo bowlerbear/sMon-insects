@@ -18,7 +18,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 First step: read in the raw data file from the sMon data portal.
 Sheet 5 of the workbook contains the raw data of occurrences.
-Each row is the data frame is a species observation.
+Each row in the data frame is a species observation.
 
 ```{r warning=FALSE}
 
@@ -118,7 +118,7 @@ ggplot(subset(df,Species %in% names(table(df$Species))[table(df$Species)>50]))+
 
 #Model fitting
 Use the sparta package (https://github.com/BiologicalRecordsCentre/sparta) to fit an occupancy detection model.
-(Note: the data file does also count information on counts, but for the moment we only use information on species presence)
+(Note: the data file does also include information on counts, but for the moment we only use information on species presence)
 
 ```{r cache=T}
 library(sparta)
@@ -142,7 +142,7 @@ sparta_options <- c('ranwalk', # prior on occupancy is set by last year's poster
 
 Plot the predicting occupancy rates (% of sites occupied per year) for each species.
 
-Step one: Get the list of model files that sparta spat out from the previous code chunk. These are contained within the model-outputs folder.
+Step one: Get the list of model files that sparta spat out from the previous code chunk. These are contained within the 'model-outputs' folder.
 
 ```{r}
 source("R/sparta_wrapper_functions.R")
@@ -175,12 +175,34 @@ plotPredictions(myAnnualPredictions,df)
 
 #Quantify the linear long-term trends of each species
 
-
 ```{r kable}
 
 #in sparta wrapper functions
 library(knitr)
 kable(calculateTrends(models),digits=3)
+
+```
+
+
+#Examine the spatial pattern 
+
+Pull out the model predictions for each site in a given year.
+
+```{r}
+
+updated_model <- update(model, parameters.to.save = "z", n.iter = 5000)
+
+```
+
+#Further model checking
+
+Pull out the model chains to check convergence.
+(i.e. plot iteration number vs sampled parameter).
+
+```{r}
+
+#convert the chains into a dataframe
+
 
 ```
 
