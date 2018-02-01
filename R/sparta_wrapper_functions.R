@@ -83,7 +83,7 @@ ggplot(data=subset(myAnnualPredictions,nuRecords>50)) +
 calculateTrends<-function(models){
 
   #get trends for each model
-  trends <- lapply(models, occurrenceChange, firstYear=min(df$Year), lastYear=max(df$Year))
+  trends <- lapply(models, function(x) occurrenceChange(bayesOut= x, firstYear=x$min_year, lastYear=x$max_year))
   names(trends) <- sapply(models,function(x) x$SPP_NAME)
   
   #convert into a data frame
