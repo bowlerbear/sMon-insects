@@ -95,6 +95,10 @@ calculateTrends<-function(models){
   #add number of total records for each species
   outputs$nuRecords <- sapply(models,function(x) x$species_observations)
   
+  # indicates wheter the trend we see is 'significant' or not
+  outputs$sig<- ifelse(outputs$CI.lower <0 & outputs$CI.upper <0, "-", 
+                       ifelse(outputs$CI.lower >0 & outputs$CI.upper >0, "+", "0") )
+  
   #return it
   return(outputs)
 }
