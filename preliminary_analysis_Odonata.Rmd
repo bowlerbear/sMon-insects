@@ -157,6 +157,7 @@ Step two: Pull out the annual predictions of model occupancy per species
 #in sparta wrapper functions
 
 myAnnualPredictions <- annualPredictions(models)
+head(myAnnualPredictions)
 
 ```
 
@@ -169,7 +170,7 @@ We can try running the model for more iterations to see if it will converge.
 ```{r fig.height = 8, fig.width = 8}
 
 #in sparta wrapper functions
-plotPredictions(myAnnualPredictions,df)
+plotPredictions(myAnnualPredictions)
 
 ```
 
@@ -190,8 +191,18 @@ Pull out the model predictions for each site in a given year.
 
 ```{r}
 
-updated_model <- update(model, parameters.to.save = "z", n.iter = 5000)
+setwd("model-outputs")
+load("Aeshna affinis.rdata")
+library(jagsUI)
 
+updated_model <- update(out$model, parameters.to.save = "z", n.iter = 5000)
+
+#will need to tweak the update function from jagsUI
+#https://github.com/kenkellner/jagsUI/blob/master/R/update.R
+
+#recompile(jagsfit)
+#jagsfit.upd <- update(jagsfit, n.iter=100
+                      
 ```
 
 #Further model checking
@@ -203,6 +214,28 @@ Pull out the model chains to check convergence.
 
 #convert the chains into a dataframe
 
+#from model list create a directory and save a traceplot for each species
+
+plotModels<-function(model.list,param="psi.fs"){
+
+#create a directory to put the traceplots
+newdir <- file.path("model-outputs", "traceplots")
+dir.create(newdir)
+setwd(newdir)
+
+#for each species, do the following
+  
+library(reshape2)
+df<-melt(out$BUGSoutput$sims.array)
+
+ggsave(paste(x$SPP_Name,"png",sep="."))
+ggplot(subset(df,grepl(param,df$Var3)))+
+  geom_path(aes(x=Var1,y=value,colour=factor(Var2)))+
+  facet_wrap(~Var3,scales="free")+
+  theme_bw()+
+  theme(legend.position="none")
+dev.off()
+}
 
 ```
 
