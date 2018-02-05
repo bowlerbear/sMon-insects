@@ -189,6 +189,8 @@ kable(calculateTrends(models),digits=3)
 
 Pull out the model predictions for each site in a given year.
 
+THIS SECTION IS NOT FINISHED (from Diana)
+
 ```{r}
 
 setwd("model-outputs")
@@ -209,33 +211,12 @@ updated_model <- update(out$model, parameters.to.save = "z", n.iter = 5000)
 
 Pull out the model chains to check convergence.
 (i.e. plot iteration number vs sampled parameter).
+Each plot is saved as a png file.
 
 ```{r}
 
-#convert the chains into a dataframe
+plotModels(models)
 
-#from model list create a directory and save a traceplot for each species
-
-plotModels<-function(model.list,param="psi.fs"){
-
-#create a directory to put the traceplots
-newdir <- file.path("model-outputs", "traceplots")
-dir.create(newdir)
-setwd(newdir)
-
-#for each species, do the following
-  
-library(reshape2)
-df<-melt(out$BUGSoutput$sims.array)
-
-ggsave(paste(x$SPP_Name,"png",sep="."))
-ggplot(subset(df,grepl(param,df$Var3)))+
-  geom_path(aes(x=Var1,y=value,colour=factor(Var2)))+
-  facet_wrap(~Var3,scales="free")+
-  theme_bw()+
-  theme(legend.position="none")
-dev.off()
-}
 
 ```
 
