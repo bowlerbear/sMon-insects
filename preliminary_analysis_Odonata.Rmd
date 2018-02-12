@@ -133,7 +133,7 @@ sparta_options <- c('ranwalk', # prior on occupancy is set by last year's poster
 #                            site= as.character(df$MTB_Q), 
 #                            time_period = df$Date,
 #                            modeltype = sparta_options,
-#                            n_iterations = 10000)
+                            n_iterations = 20000)
 
 
 ```
@@ -194,10 +194,10 @@ THIS SECTION IS NOT FINISHED (from Diana)
 ```{r}
 
 setwd("model-outputs")
-load("Aeshna affinis.rdata")
-library(jagsUI)
+#load("Aeshna affinis.rdata")
+#library(jagsUI)
 
-updated_model <- update(out$model, parameters.to.save = "z", n.iter = 5000)
+#updated_model <- update(out$model, parameters.to.save = "z", n.iter = 5000)
 
 #will need to tweak the update function from jagsUI
 #https://github.com/kenkellner/jagsUI/blob/master/R/update.R
