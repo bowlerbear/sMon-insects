@@ -1,0 +1,107 @@
+---
+title: "preliminary_analysis_Odonata"
+author: "Diana Bowler"
+date: "24 januar 2018"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+```
+
+#Analysis of the Odonata data from Saarland
+
+First step: read in the raw data file from the sMon data portal.
+Sheet 5 of the workbook contains the raw data of occurrences.
+Each row in the data frame is a species observation.
+
+```{r warning=FALSE}
+
+library(gdata)
+df <- read.xls("raw-data/Odonata_Saarland_Trockur.xls",sheet=5)
+
+```
+
+#Data frame formatting
+
+Step one: format the date and extract month, dat and year information.
+
+```{r}
+
+library(lubridate)
+df$Date <- as.Date(df$Date,file="%Y-%m-%d")
+df$month <- month(df$Date)
+df$day <- yday(df$Date)
+df$year <- year(df$Date)
+
+```
+
+Step two: remove those with missing date entries
+
+```{r}
+
+df <- subset(df,!is.na(month))
+
+```
+
+
+#Data filtering
+
+Filter one: focus on the months that were most sampled. The results suggest this is between April and September.
+
+```{r}
+
+table(df$month)
+
+df <- subset(df, month %in% c(4:9))
+
+```
+
+Filter two: begin the time series from the first year with reasonable amount of data (i.e., number of records). 1981 seems like a good place to start. Also, we cut off 2017 incase the database is not up-to-date yet.
+
+```{r}
+
+table(df$Year)
+df <- subset(df, Year>1980)
+df <- subset(df, Year<2017)
+
+```
+
+#Data availability/Sampling effort checking
+
+We can look at effort by: total number of records and average number of species seen per sampling day ("list length")
+
+```{r}
+
+library(sparta)
+
+dataDiagnostics(taxa= as.character(df$Species), 
+                site= as.character(df$MTB_Q), 
+                time_period = df$Date)
+
+```
+
+Organise data using the sparta function
+
+```{r}
+
+tempDF <- formatOccData(taxa= as.character(df$Species), 
+                site= as.character(df$MTB_Q), 
+                time_period = df$Date,
+                includeJDay = FALSE)
+
+
+#get occurence matrix
+occurrenceDF <- tempDF$spp_vis
+
+#put out list length
+listlengthDF <- tempDF$occDetdata
+
+```
+
+
