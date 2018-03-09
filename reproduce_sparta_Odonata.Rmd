@@ -125,8 +125,8 @@ source('R/BUGS_misc_functions.R')
 
 params <- c("psi.fs","beta1","beta1","dtype.p","mu.lp")
 
-out1 <- jags(bugs.data, inits=NULL, params, "BUGS_sparta.txt", n.thin=nt,
-               n.chains=3, n.burnin=500,n.iter=2000,parallel = T)
+out1 <- jags(bugs.data, inits=NULL, params, "R/BUGS_sparta.txt", n.thin=nt,
+               n.chains=3, n.burnin=500,n.iter=2000)
 print(out1,2)
 
 ```
