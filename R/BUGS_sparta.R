@@ -8,34 +8,33 @@ cat("
     for (t in 1:nyear){
       z[i,t] ~ dbern(muZ[i,t]) 
       logit(muZ[i,t])<- a[t] + eta[i] # year as a fixed factor and site as a random factor
-    }}   
+    }
+  }   
   
   
   ### Observation Model
   for(j in 1:nvisit) {
     y[j] ~ dbern(Py[j]) #data is Y
-    Py[j]<- z[Site[j],Year[j]]*p[j] #probability to detect = prob of occ * prob of detection
+    Py[j]<- z[site[j],year[j]]*p[j] #probability to detect = prob of occ * prob of detection
 
     #detection model:
-    logit(p[j]) <-  alpha.p[Year[j]] + beta1*JulDate[j] + beta2*pow(JulDate[j], 2) + dtype2.p*DATATYPE2[j] + dtype3.p*DATATYPE3[j]
+    logit(p[j]) <-  alpha.p[year[j]] + beta1*Jul_date[j] + beta2*pow(Jul_date[j], 2) + dtype.p*L[j]
     #depends on year, julian date and list length
     } 
-    }
   
   # Derived parameters
   for (t in 1:nyear) {  
     psi.fs[t] <- sum(z[1:nsite, t])/nsite
   } 
 
-
-
   #Priors 
 
   # State model priors
     #year effects
     a[1] ~ dnorm(0, 0.001)
+
     for(t in 2:nyear){
-    a[t] ~ dnorm(a[t-1], tau.a)
+      a[t] ~ dnorm(a[t-1], tau.a)
     }
     
     tau.a <- 1/(sd.a * sd.a)
@@ -43,7 +42,7 @@ cat("
     
     #site effects
     for (i in 1:nsite) {
-    eta[i] ~ dnorm(0, tau2)       
+      eta[i] ~ dnorm(0, tau2)       
     } 
 
     tau2 <- 1/(sigma2 * sigma2) 
@@ -62,8 +61,7 @@ cat("
     #observation model covariates
     beta1 ~ dnorm(0, 0.0001)
     beta2 ~ dnorm(0, 0.0001)
-    dtype2.p ~ dnorm(0, 0.01)
-    dtype3.p ~ dnorm(0, 0.01)
+    dtype.p ~ dnorm(0, 0.01)
     
   }
     ",fill=TRUE,file="BUGS_sparta.txt")

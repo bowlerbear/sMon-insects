@@ -93,15 +93,73 @@ Organise data using the sparta function
 tempDF <- formatOccData(taxa= as.character(df$Species), 
                 site= as.character(df$MTB_Q), 
                 time_period = df$Date,
-                includeJDay = FALSE)
-
+                includeJDay = TRUE)
 
 #get occurence matrix
 occurrenceDF <- tempDF$spp_vis
 
-#put out list length
+#put out list length for each visit
 listlengthDF <- tempDF$occDetdata
 
 ```
+
+Compile data for bugs (for a select species  - here )
+
+```{r}
+
+bugs.data <- list(nsite = length(unique(listlengthDF$site)),
+                  nyear = length(unique(listlengthDF$year)),
+                  nvisit = nrow(listlengthDF),
+                  site = as.numeric(factor(listlengthDF$site)),
+                  year = as.numeric(factor(listlengthDF$year)),
+                  Jul_date = listlengthDF$Jul_date - median(listlengthDF$Jul_date),
+                  L = listlengthDF$L - median(listlengthDF$L),
+                  y = ifelse(occurrenceDF[,"Aeshna affinis"] == FALSE,0,1))
+                  
+```
+
+Run model
+
+```{r}
+source('R/BUGS_misc_functions.R')
+
+params <- c("psi.fs","beta1","beta1","dtype.p","mu.lp")
+
+out1 <- jags(bugs.data, inits=NULL, params, "BUGS_sparta.txt", n.thin=nt,
+               n.chains=3, n.burnin=500,n.iter=2000,parallel = T)
+print(out1,2)
+
+```
+
+
+Model checking
+
+```{r}
+
+#http://xavier-fim.net/packages/ggmcmc/
+library(ggmcmc)
+bayes.mod.fit.gg <- ggs(out1$samples,family="psi.fs")
+ggs_density(bayes.mod.fit.gg)
+ggs_histogram(bayes.mod.fit.gg)
+ggs_traceplot(bayes.mod.fit.gg)
+ggs_running(bayes.mod.fit.gg)
+ggs_compare_partial(bayes.mod.fit.gg)
+ggs_autocorrelation(bayes.mod.fit.gg)
+ggmcmc(bayes.mod.fit.gg, file = "bayes_fit_ggmcmc.pdf")
+
+```
+
+Add predictions to the data (to be finished)
+
+```{r}
+
+out2<-update(out1,parameters.to.save="expNuIndivs.new",n.iter=1000)
+out3<-ggs(out2$samples,family="expNuIndivs.new")
+my_ggs_density(out3)
+
+my_ggs_ppmean(D=out3,outcome=as.numeric(my.n))
+
+```
+
 
 
