@@ -179,8 +179,8 @@ plotPredictions(myAnnualPredictions)
 ```{r kable}
 
 #in sparta wrapper functions
-library(knitr)
-kable(calculateTrends(models),digits=3)
+#library(knitr)
+#kable(calculateTrends(models),digits=3)
 
 ```
 
@@ -215,7 +215,7 @@ Each plot is saved as a png file.
 
 ```{r}
 
-plotModels(models)
+#plotModels(models)
 
 
 ```

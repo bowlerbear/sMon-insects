@@ -86,6 +86,15 @@ dataDiagnostics(taxa= as.character(df$Species),
 
 ```
 
+Summary info per species
+
+```{r}
+
+library(plyr)
+ddply(df,.(Species),summarise,nuRecs=length(unique(Date)),nuYears=length(unique(Year)),nuSites=length(unique(MTB_Q)))
+
+```
+
 Organise data using the sparta function
 
 ```{r}
@@ -97,9 +106,20 @@ tempDF <- formatOccData(taxa= as.character(df$Species),
 
 #get occurence matrix
 occurrenceDF <- tempDF$spp_vis
+occurrenceInfo <- data.frame(visit = occurrenceDF$visit)
+#pull out other info
+occurrenceInfo$Date <- sapply(occurrenceInfo$visit,function(x)substr(x,6,15)) 
+occurrenceInfo$Date <- as.Date(occurrenceInfo$Date)
+occurrenceInfo$Year <- year(occurrenceInfo$Date) 
+occurrenceInfo$Site <- sapply(occurrenceInfo$visit,function(x)substr(x,1,5)) 
+length(unique(occurrenceInfo$Site))#94 sites
 
-#put out list length for each visit
+#get list length for each visit
 listlengthDF <- tempDF$occDetdata
+length(unique(occurrenceInfo$Site))
+length(unique(listlengthDF$site))#94 sites
+listlengthDF$siteIndex<-as.numeric(factor(listlengthDF$site))
+listlengthDF$yearIndex<-as.numeric(factor(listlengthDF$year))
 
 ```
 
@@ -107,14 +127,16 @@ Compile data for bugs (for a select species  - here )
 
 ```{r}
 
+mySpecies<-"Aeshna cyanea"
+
 bugs.data <- list(nsite = length(unique(listlengthDF$site)),
                   nyear = length(unique(listlengthDF$year)),
                   nvisit = nrow(listlengthDF),
-                  site = as.numeric(factor(listlengthDF$site)),
-                  year = as.numeric(factor(listlengthDF$year)),
+                  site = listlengthDF$siteIndex,
+                  year = listlengthDF$yearIndex,
                   Jul_date = listlengthDF$Jul_date - median(listlengthDF$Jul_date),
                   L = listlengthDF$L - median(listlengthDF$L),
-                  y = ifelse(occurrenceDF[,"Aeshna affinis"] == FALSE,0,1))
+                  y = ifelse(occurrenceDF[,mySpecies] == FALSE,0,1))
                   
 ```
 
@@ -123,9 +145,18 @@ Run model
 ```{r}
 source('R/BUGS_misc_functions.R')
 
+#specify parameters to monitor
 params <- c("psi.fs","beta1","beta1","dtype.p","mu.lp")
 
-out1 <- jags(bugs.data, inits=NULL, params, "R/BUGS_sparta.txt", n.thin=nt,
+#need to specify initial values
+occurrenceInfo$Species <- bugs.data$y
+library(reshape2)
+zst <- acast(occurrenceInfo, Site~Year, value.var="Species",fun=max)
+zst [is.infinite(zst)] <- 0
+inits <- function(){list(z = zst)}
+
+#run model
+out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta.txt", n.thin=nt,
                n.chains=3, n.burnin=500,n.iter=2000)
 print(out1,2)
 
@@ -136,30 +167,56 @@ Model checking
 
 ```{r}
 
-#http://xavier-fim.net/packages/ggmcmc/
+save(out1,file=paste0("model-outputs/out1_",mySpecies,".RData"))
+
+#other graphs
+#see http://xavier-fim.net/packages/ggmcmc/
 library(ggmcmc)
 bayes.mod.fit.gg <- ggs(out1$samples,family="psi.fs")
-ggs_density(bayes.mod.fit.gg)
+bayes.mod.fit.gg$ParamNu <- as.numeric(sub(".*\\[([^][]+)].*", "\\1", bayes.mod.fit.gg$Parameter))
+
+#save the attribites becasue they are lost in the subsetting step below, dont understand why..
+my_attributes<-attributes(bayes.mod.fit.gg)
+bayes.mod.fit.gg <- subset(bayes.mod.fit.gg,ParamNu%%5==0)#plot every 5
+attributes(bayes.mod.fit.gg)<-c(attributes(bayes.mod.fit.gg),my_attributes[3:8])
+
+#plots
 ggs_histogram(bayes.mod.fit.gg)
+ggs_density(bayes.mod.fit.gg)
 ggs_traceplot(bayes.mod.fit.gg)
-ggs_running(bayes.mod.fit.gg)
-ggs_compare_partial(bayes.mod.fit.gg)
-ggs_autocorrelation(bayes.mod.fit.gg)
-ggmcmc(bayes.mod.fit.gg, file = "bayes_fit_ggmcmc.pdf")
 
 ```
 
-Add predictions to the data (to be finished)
+Extract z to look at spatial patterns
+
+```{r}
+out2<-update(out1,parameters.to.save="z",n.iter=1000)
+
+#pull out site and year
+zSummary<-data.frame(out2$summary[grepl("z",row.names(out2$summary)),])
+zSummary$ParamNu <- as.character(sub(".*\\[([^][]+)].*", "\\1", row.names(zSummary)))
+zSummary$Site<-sapply(zSummary$ParamNu,function(x)strsplit(x,",")[[1]][1])
+zSummary$Year<-sapply(zSummary$ParamNu,function(x)strsplit(x,",")[[1]][2])
+
+#create a site Info dataset
+allData<-expand.grid(MTB_Q=unique(df$MTB_Q),Year=unique(df$Year))
+allData$lon<-df$lon[match(allData$MTB_Q,df$MTB_Q)]
+allData$lat<-df$lat[match(allData$MTB_Q,df$MTB_Q)]
+allData$siteIndex<-listlengthDF$siteIndex[match(allData$MTB_Q,listlengthDF$site)]
+allData$yearIndex<-listlengthDF$yearIndex[match(allData$Year,listlengthDF$year)]
+allData$meanProp<-zSummary$mean[match(interaction(allData$siteIndex,allData$yearIndex),
+                                           interaction(zSummary$Site,zSummary$Year))]
+```
+
+Plot spatial pattern in occupancy
 
 ```{r}
 
-out2<-update(out1,parameters.to.save="expNuIndivs.new",n.iter=1000)
-out3<-ggs(out2$samples,family="expNuIndivs.new")
-my_ggs_density(out3)
-
-my_ggs_ppmean(D=out3,outcome=as.numeric(my.n))
+ggplot(subset(allData,Year%in% c(min(Year),max(Year))),
+       aes(x=lon,y=lat))+
+  geom_point(aes(colour=meanProp),size=rel(12),shape=15)+
+  scale_colour_gradient(low="steelblue",high="red")+
+  theme_bw()+
+  facet_wrap(~Year)
 
 ```
-
-
-
