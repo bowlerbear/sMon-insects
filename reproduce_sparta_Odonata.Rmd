@@ -157,7 +157,7 @@ inits <- function(){list(z = zst)}
 
 #run model
 out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta.txt", n.thin=nt,
-               n.chains=3, n.burnin=500,n.iter=2000)
+               n.chains=3, n.burnin=500,n.iter=2000,parallel=T)
 print(out1,2)
 
 ```
