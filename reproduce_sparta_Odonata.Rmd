@@ -135,7 +135,7 @@ bugs.data <- list(nsite = length(unique(listlengthDF$site)),
                   site = listlengthDF$siteIndex,
                   year = listlengthDF$yearIndex,
                   Jul_date = listlengthDF$Jul_date - median(listlengthDF$Jul_date),
-                  L = listlengthDF$L - median(listlengthDF$L),
+                  L = listlengthDF$L,
                   y = ifelse(occurrenceDF[,mySpecies] == FALSE,0,1))
                   
 ```
@@ -220,3 +220,40 @@ ggplot(subset(allData,Year%in% c(min(Year),max(Year))),
   facet_wrap(~Year)
 
 ```
+
+Now try a model allowing missing data
+
+add missing info on julian data and list length for some rows
+
+```{r}
+
+hist(bugs.data$L)#poisson
+hist(bugs.data$Jul_date)#normalish...
+
+#add missing data
+mdIndices<-round(runif(100,1,length(bugs.data$L)))
+bugs.data$L[mdIndices]<-NA
+bugs.data$Jul_dat[mdIndices]<-NA
+```
+
+Run model
+
+```{r}
+source('R/BUGS_misc_functions.R')
+
+#specify parameters to monitor
+params <- c("psi.fs","beta1","beta1","dtype.p","mu.lp")
+
+#need to specify initial values
+occurrenceInfo$Species <- bugs.data$y
+library(reshape2)
+zst <- acast(occurrenceInfo, Site~Year, value.var="Species",fun=max)
+zst [is.infinite(zst)] <- 0
+inits <- function(){list(z = zst)}
+
+#run model
+out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta_missing_data.txt", n.thin=nt,
+               n.chains=3, n.burnin=500,n.iter=2000,parallel=T)
+print(out1,2)
+```
+
