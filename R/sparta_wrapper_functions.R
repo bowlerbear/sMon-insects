@@ -150,3 +150,56 @@ plotModels<-function(models,param="psi.fs\\["){
   })
   
 }
+
+getOccurrenceMatrix<-function(df){
+  library(reshape2)
+  df$surveyList<-paste(df$MTB_Q,df$Date)
+  out<-acast(df,surveyList~Species,value.var="Anzahl_min",fun=sum,na.rm=T)
+  out[out>0]<-1
+  return(out)
+}
+
+
+getListLength<-function(df){
+  library(plyr)
+  df$surveyList<-paste(df$MTB_Q,df$Date)
+  out <- ddply(df,.(surveyList,Date,Year,month,day,MTB_Q),summarise,
+        nuSpecies=length(unique(Species)),
+        nuRecords=length(Species),
+        Richness2=mean(Richness),
+        RpS = nuRecords/Richness2,
+        expertise = mean(Expertise),
+        samplingSites = mean(samplingSites))
+  
+  #add on some indices
+  out$siteIndex <- as.numeric(factor(out$MTB_Q))
+  out$yearIndex <- as.numeric(factor(out$Year))
+
+  #sort dataset
+  out <- arrange (out,siteIndex,yearIndex)
+  
+  }
+
+
+getBUGSfits <- function(out,param="trend.year"){
+  out <- as.data.frame(out)
+  out <- out[grepl(param,out$Param),]
+  out$ParamNu <- as.numeric(sub(".*\\[([^][]+)].*", "\\1", out$Param))
+  return(out)
+}
+
+combineModels <- function(out){
+  
+  names(out) <- mySpecies
+  
+  out2<-ldply(out,function(x){
+    output <- data.frame(x$summary)
+    output$Param <- row.names(x$summary)
+    return(output)
+  })
+  
+  names(out2)[1]<-"Species"
+  
+  return(out2)
+  
+}
