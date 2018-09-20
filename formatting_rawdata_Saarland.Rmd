@@ -1,0 +1,265 @@
+---
+title: "formatting_Saarland"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+Read in data frame
+
+```{r}
+
+datafile <- read.csv("raw-data/Trockur_Saarl_2018_1.csv")
+
+```
+
+Format data info
+
+```{r}
+
+library(lubridate)
+datafile$Date <- as.Date(datafile$datum,format="%d.%m.%Y")
+datafile$Month <- month(datafile$Date)
+datafile$Year <- year(datafile$Date)
+datafile$yday <- yday(datafile$Date)
+
+```
+
+Get survey information
+
+```{r}
+
+library(plyr)
+
+surveys <- ddply(datafile,.(MTB_Q,Date,Year,Month,yday),summarise,
+                 nuLocations = log(length(unique(Fundort))),
+                 nuObservers = log(length(unique(Beobachter))),
+                 nuSpecies = log(length(unique(Species))),
+                 nuRecords = log(length(Species)))
+
+
+library(GGally)
+ggpairs(surveys[,5:9])
+
+```
+
+Characterize the total richness found in each grid:
+
+```{r}
+gridRichness <- ddply(datafile,.(MTB_Q),summarise,
+                    nuSpecies=length(unique(Species)),
+                    nuRecs=length(Species),
+                    nuYears = length(unique(Year)),
+                    nuDates = length(unique(Date)))
+
+summary(gridRichness$nuSpecies)
+#1 to 46!!!
+
+qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
+#the more records, the more species
+
+```
+
+
+Get information on number of sampling locations on a given date
+
+```{r}
+
+samplingSites <- ddply(datafile,. (Date,MTB_Q),summarise,
+nuLocations=length(unique(interaction(lon,lat))))
+
+summary(samplingSites$nuLocations)
+
+#bound extreme value
+quantile(samplingSites$nuLocations,0.975)
+samplingSites$nuLocations[samplingSites$nuLocations>as.numeric(quantile(samplingSites$nuLocations,0.975))] <- as.numeric(quantile(samplingSites$nuLocations,0.975))
+
+#add to the data frame
+datafile$samplingSites <- samplingSites$nuLocations[match(interaction(datafile$Date,datafile$MTB_Q),
+                                interaction(samplingSites$Date,samplingSites$MTB_Q))]
+
+```
+
+Sort out the observer data:
+
+```{r}
+
+sort(unique(datafile$Beobachter))
+#there is an "unbekannt""
+
+datafile$Beobachter[which(datafile$Beobachter=="Uwe Lingenfelder-SB")]<-"Uwe Lingenfelder"
+datafile$Beobachter[which(datafile$Beobachter=="Uwe Lingenfelder/SB")]<-"Uwe Lingenfelder"
+
+#there are lots of groups - should they be counted seperatelt???
+
+```
+
+Characterize the total ability of each observer each year
+
+```{r}
+
+obsRichness <- ddply(datafile,.(Beobachter),summarise,
+                    nuSpecies=length(unique(Species)),
+                    nuRecs=length(Species))
+
+summary(obsRichness$nuSpecies)
+#1 to 46!!!
+
+qplot(log(nuRecs),log(nuSpecies),data=obsRichness)
+
+arrange(obsRichness,desc(nuRecs))
+
+```
+
+Characterise average expertise level
+
+```{r}
+
+#extract duplicates
+library(gdata)
+
+allObservers <- as.character(sort(unique(datafile$Beobachter)))
+
+formatObservers <- function(obs){
+  obs <- trim(as.character(unlist(sapply(obs,function(x)strsplit(x,";")))))
+  obs <- trim(as.character(unlist(sapply(obs,function(x)strsplit(x," u ")))))
+  obs <- trim(as.character(unlist(sapply(obs,function(x)strsplit(x," und ")))))
+  obs <- trim(as.character(unlist(sapply(obs,function(x)strsplit(x," u. ")))))
+  obs <- trim(as.character(unlist(sapply(obs,function(x)strsplit(x," \\(EVS)")))))
+  obs <- gsub("et al.","", obs)
+  obs <- gsub("et al","", obs)
+  trim(obs)
+}
+
+allObservers <- formatObservers(allObservers)
+
+#for each observer, calculate how many records they were involved in collecting
+
+expertise<-ldply(allObservers,function(x){
+  Level = sum(grepl(x,datafile$Beobachter))
+  data.frame(Beobachter=x,Level)
+})
+
+hist(log(expertise$Level))  
+
+arrange(expertise,desc(Level))
+
+#I guess B and Bernd Trockur are the same...
+
+```
+
+Add information on expertise to the datafile
+
+```{r}
+
+datafile$Expertise <-
+  sapply(as.character(datafile$Beobachter),function(x){
+    myobs <- formatObservers(as.character(x))
+    max(expertise$Level[expertise$Beobachter %in% myobs])
+    })
+
+summary(datafile$Expertise)
+
+```
+
+Add to data frame information about species richness
+
+```{r}
+
+datafile$Richness <- gridRichness$nuSpecies[match(datafile$MTB_Q,gridRichness$MTB_Q)]
+
+summary(datafile$Richness)
+
+```
+
+Get rid of unknown observers
+
+```{r}
+
+datafile <- subset(datafile, Beobachter!="unbekannt")
+
+```
+
+Save juvenile and adult data separately
+
+```{r}
+
+juv_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
+                           "Richness","samplingSites","Summe1bod")]
+names(juv_datafile)[which(names(juv_datafile)=="Summe1bod")] <- "Anzahl_min"
+save(juv_datafile,file="derived-data/juv_datafile.RData")
+
+adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
+                           "Richness","samplingSites","Adulte")]
+names(adult_datafile)[which(names(adult_datafile)=="Adulte")] <- "Anzahl_min"
+save(adult_datafile,file="derived-data/adult_datafile.RData")
+
+```
+
+
+Look at availability of each data type
+
+```{r}
+
+#total records per year
+#total species per year
+#total grids per year
+#total observers per year
+#total visits per observer per year
+
+library(plyr)
+library(lubridate)
+
+load("derived-data/juv_datafile.RData")
+juv_datafile$Date<-as.Date(juv_datafile$Date)
+juv_datafile$Year<-year(juv_datafile$Date)
+juv_datafile
+juv_datafile<-subset(juv_datafile,Anzahl_min>0)
+juvSummary <- ddply(subset(juv_datafile,Year>1979),.(Year),summarise,
+                    nuRecords=length(Species),
+                    nuSpecies=length(unique(Species)),
+                    nuGrids=length(unique(MTB_Q)),
+                    nuObservers=length(unique(Expertise)),
+                    nuVisits=length(unique(interaction(Date,MTB_Q,Expertise))))
+juvSummary$Stage <- "Juvenile"
+
+load("derived-data/adult_datafile.RData")
+adult_datafile$Date<-as.Date(adult_datafile$Date)
+adult_datafile$Year<-year(adult_datafile$Date)
+adult_datafile$Anzahl_min <- as.numeric(as.character(adult_datafile$Anzahl_min))
+adult_datafile<-subset(adult_datafile,Anzahl_min>0)
+adultSummary <- ddply(subset(adult_datafile,Year>1979),.(Year),summarise,
+                    nuRecords=length(Species),
+                    nuSpecies=length(unique(Species)),
+                    nuGrids=length(unique(MTB_Q)),
+                    nuObservers=length(unique(Expertise)),
+                    nuVisits=length(unique(interaction(Date,MTB_Q,Expertise))))
+adultSummary$Stage<- "Adult"
+
+#combine all
+summaryData<-rbind(juvSummary,adultSummary)
+
+```
+
+
+Plotting
+```{r}
+
+g1<-ggplot(data=summaryData,aes(x=Year,y=nuRecords,group=Stage))+geom_line(aes(colour=Stage))+ylab("total records")
+g2<-ggplot(data=summaryData,aes(x=Year,y=nuSpecies,group=Stage))+geom_line(aes(colour=Stage))+ylab("total species")
+g3<-ggplot(data=summaryData,aes(x=Year,y=nuGrids,group=Stage))+
+  geom_line(aes(colour=Stage))+ylab("total grids")
+g4<-ggplot(data=summaryData,aes(x=Year,y=nuObservers,group=Stage))+geom_line(aes(colour=Stage))+ylab("total observers")
+
+g5<-ggplot(data=summaryData,aes(x=Year,y=nuVisits,group=Stage))+geom_line(aes(colour=Stage))+ylab("total observer visits")
+
+library(cowplot)
+
+plot_grid(g1,g5,g2,g3)
+
+
+```
