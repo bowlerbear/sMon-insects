@@ -7,8 +7,8 @@ cat("
   for (i in 1:nsite){ 
     for (t in 1:nyear){
       z[i,t] ~ dbern(muZ[i,t]) 
-      #logit(muZ[i,t])<- a[t] + eta[i] # year as a fixed factor and site as a random factor
-      logit(muZ[i,t])<- trend.int + trend.year * t + eta[i] # trend model
+      logit(muZ[i,t])<- a[t] + eta[i] # year as a fixed factor and site as a random factor
+      #logit(muZ[i,t])<- trend.int + trend.year * t + eta[i] # trend model
     }
   }   
   
@@ -19,7 +19,7 @@ cat("
 
     #detection model:
     logit(p[j]) <-  a.p[year[j]] + phenol.p * yday[j]/10 + phenol2.p * pow(yday[j]/10, 2) + 
-                    effort.p * Effort[j] + effort2.p * pow(Effort[j],2) + expert.p * expertise[j] +
+                    effort.p * Effort[j] + effort2.p * pow(Effort[j],2) +
                     eta.p[site[j]] 
     } 
   
