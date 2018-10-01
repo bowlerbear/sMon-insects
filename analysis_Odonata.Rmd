@@ -26,8 +26,10 @@ Each row in the data frame is a species observation.
 #df <- read.csv("raw-data/Odonata_Saarland_Trockur.csv")
 load("derived-data/juv_datafile.RData")
 df <- juv_datafile
+df <- subset(df, Anzahl_min>0)
   
 ```
+
 
 #Data frame formatting
 
@@ -48,6 +50,7 @@ Step two: remove those with missing date entries
 ```{r}
 
 df <- subset(df,!is.na(month))
+summary(df)
 
 ```
 
@@ -60,7 +63,7 @@ Filter one: focus on the months that were most sampled. The results suggest this
 
 table(df$month)
 
-df <- subset(df, month %in% c(5:9))
+df <- subset(df, month %in% c(5:8))
 
 ```
 
@@ -69,7 +72,7 @@ Filter two: begin the time series from the first year with reasonable amount of 
 ```{r}
 
 table(df$Year)
-df <- subset(df, Year>1980)
+df <- subset(df, Year>1982)
 df <- subset(df, Year<2017)
 
 ```
@@ -124,7 +127,7 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   site = listlengthDF$siteIndex,
                   year = listlengthDF$yearIndex,
                   yday = listlengthDF$day - median(listlengthDF$day),
-                  nuSpecies = listlengthDF$nuSpecies - median(listlengthDF$nuSpecies),
+                  nuSpecies = log(listlengthDF$nuSpecies) - log(median(listlengthDF$nuSpecies)),
                   nuRecs = listlengthDF$nuRecords - median(listlengthDF$nuRecords),
                   nuSS = listlengthDF$samplingSites - median(listlengthDF$samplingSites),
                   expertise = log(listlengthDF$expertise)-median(log(listlengthDF$expertise)),
@@ -175,19 +178,20 @@ bugs.data$Effort <- bugs.data$nuSpecies
 source('R/BUGS_misc_functions.R')
 
 #specify parameters to monitor
-params <- c("int.p.temp","phenol.p","phenol2.p","effort.p","effort2.p","psi.fs")
+params <- c("int.p.temp","phenol.p","phenol2.p","effort.p","effort2.p",
+            "psi.fs")
 
 #run model
 out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta.txt", n.thin=nt,
                n.chains=3, n.burnin=500,n.iter=2000,parallel=T)
 
 print(out1,2)
-#int.p.temp    0.27  0.02    0.22    0.27    0.32    FALSE 1.00 1.04    62
-#phenol.p     -0.03  0.01   -0.06   -0.03   -0.01    FALSE 1.00 1.00   561
-#phenol2.p     0.00  0.00    0.00    0.00    0.01     TRUE 0.71 1.00   540
-#effort.p      0.12  0.01    0.10    0.12    0.14    FALSE 1.00 1.00  2250
-#effort2.p    -0.01  0.00   -0.01   -0.01    0.00    FALSE 1.00 1.00   971
-
+#              mean    sd    2.5%     50%   97.5% overlap0    f Rhat n.eff
+#int.p.temp    0.50  0.29    0.03    0.50    0.98    FALSE 1.00 1.00  2250
+#phenol.p      0.04  0.02    0.00    0.04    0.09     TRUE 0.97 1.01   239
+#phenol2.p    -0.01  0.00   -0.01   -0.01    0.00     TRUE 0.84 1.01   322
+#effort.p      0.85  0.11    0.64    0.85    1.07    FALSE 1.00 1.00   977
+#effort2.p    -0.19  0.10   -0.38   -0.20    0.01     TRUE 0.97 1.00   5851
 
 ```
 
@@ -206,14 +210,6 @@ params <- c("int.p.temp","phenol.p","phenol2.p","effort.p","effort2.p","psi.fs")
 #run model
 out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta.txt", n.thin=nt,
                n.chains=3, n.burnin=500,n.iter=2000,parallel=T)
-
-#              mean    sd    2.5%     50%   97.5% overlap0    f Rhat n.eff
-#int.p.temp    0.25  0.02    0.21    0.25    0.29    FALSE 1.00 1.05    53
-#phenol.p     -0.02  0.01   -0.05   -0.02    0.00     TRUE 0.97 1.01   205
-#phenol2.p     0.00  0.00   -0.01    0.00    0.00     TRUE 0.57 1.00   434
-#effort.p      1.23  0.16    0.93    1.22    1.53    FALSE 1.00 1.00   721
-#effort2.p    -0.20  0.05   -0.32   -0.20   -0.11    FALSE 1.00 1.00   479
-
 
 ```
 
@@ -242,7 +238,7 @@ out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta.txt", n.thin=nt,
 
 ```
 
-Run models over multiple species
+#Run models over multiple species
 
 Pull out 20 most common Species
 
@@ -300,7 +296,7 @@ return(out1)
 
 ```
 
-Run basic model with effort as nuSpecies:
+(1 )Run basic model with effort as nuSpecies:
 
 ```{r}
 
@@ -312,12 +308,11 @@ out <-llply(mySpecies,function(x){
 #save(out,file="out_nuSpecies_Expertise.RData")
 #save(out,file="out_nuSpecies.RData")
 #save(out,file="out_nuSpecies_trends.RData")
-save(out,file="out_nuSpecies_Expertise_trends.RData")
+#save(out,file="out_nuSpecies_Expertise_trends.RData")
 
 ```
 
-
-With RpS as effort
+(2) With RpS as effort
 
 ```{r}
 #run out each species
@@ -335,7 +330,7 @@ Categorise trends
 
 ```{r}
 
-load("model-outputs/out_nuSpecies_Expertise_trends.RData")
+load("model-outputs/out_RpS_Expertise_trends.RData")
 out2 <- combineModels(out)
 outTrends <- getBUGSfits(out2,param="trend.year") 
 outTrends$Trend.type <- NA
@@ -348,10 +343,10 @@ outTrends$Trend.type[which(outTrends$X2.5.>0 & outTrends$X97.5.>0)]<- "increasin
 Get annual indices
 ```{r}
 
-load("model-outputs/out_nuSpecies_Expertise_trends.RData")
+load("model-outputs/out_RpS_Expertise_trends.RData")
 out2 <- combineModels(out)
 outAnnual <- getBUGSfits(out2,param="psi.fs") 
-outAnnual$Year <- outAnnual$ParamNu + 1970
+outAnnual$Year <- outAnnual$ParamNu + 1979
 outAnnual$Trend.type <- outTrends$Trend.type[match(outAnnual$Species,outTrends$Species)]
 
 #order factor by mean
@@ -395,22 +390,25 @@ Examine effort
 
 ```{r}
 
-load("model-outputs/out_nuSpecies_Expertise.RData")
+load("model-outputs/out_nuSpecies_Expertise_trends.RData")
 out2 <- combineModels(out)
 outTrends <- getBUGSfits(out2,param="effort.p") 
 outTrends2 <- getBUGSfits(out2,param="effort2.p")
 
+#Ischnura elegans
+
 library(boot)
-nuSpecies<--10:10
-detection <- sapply(nuSpecies,function(x) 0 + (0.1324540*x -0.0102745111*x^2))
-df<-data.frame(nuSpecies = nuSpecies+10,detection=inv.logit(detection))
+nuSpecies<--4:20
+detection <- sapply(nuSpecies,function(x) 0 + (outTrends$mean[1]*x + outTrends2$mean[1]*x^2))
+
+df<-data.frame(nuSpecies = nuSpecies+5,detection=inv.logit(detection))
 q1<-qplot(nuSpecies,detection,data=df) + xlab("number of species")+ylab("detection probability")
 
 outTrends2 <- getBUGSfits(out2,param="expertise.p")
 library(boot)
-nuSpecies<--10:10
+nuSpecies<--5:5
 detection <- sapply(nuSpecies,function(x) 0 + (0.11*x))
-df<-data.frame(nuSpecies = nuSpecies+10,detection=inv.logit(detection))
+df<-data.frame(nuSpecies = nuSpecies+5,detection=inv.logit(detection))
 q2<-qplot(nuSpecies,detection,data=df) + xlab("observer expertise (log records)")+ylab("detection probability")
 
 
