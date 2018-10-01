@@ -13,7 +13,7 @@ Read in data frame
 
 ```{r}
 
-datafile <- read.csv("raw-data/Trockur_Saarl_2018_1.csv")
+datafile <- read.csv("raw-data/Trockur_Saarl_2018_1.csv",as.is=T)
 
 ```
 
@@ -26,6 +26,49 @@ datafile$Date <- as.Date(datafile$datum,format="%d.%m.%Y")
 datafile$Month <- month(datafile$Date)
 datafile$Year <- year(datafile$Date)
 datafile$yday <- yday(datafile$Date)
+
+```
+
+Sort data columns
+
+```{r}
+
+#Kopula column
+datafile$Kopula <- gsub(">","",datafile$Kopula)
+datafile$Kopula <- gsub("mind ","",datafile$Kopula)
+datafile$Kopula <- as.numeric(as.character(datafile$Kopula))
+datafile$Kopula[is.na(datafile$Kopula)] <- 0
+
+#Larven
+datafile$Larven <- gsub("jag","",datafile$Larven)
+datafile$Larven <- as.numeric(as.character(datafile$Larven))
+datafile$Larven[is.na(datafile$Larven)] <- 0
+
+#exuvien
+datafile$Exuvien[which(datafile$Exuvien=="21-50")] <- 21
+datafile$Exuvien <- gsub(">","",datafile$Exuvien)
+datafile$Exuvien <- as.numeric(as.character(datafile$Larven))
+datafile$Exuvien[is.na(datafile$Exuvien)] <- 0
+
+#juvenile
+datafile$Juvenile[which(datafile$Juvenile=="50-100")] <- 50
+datafile$Juvenile <- as.numeric(as.character(datafile$Juvenile))
+datafile$Juvenile[is.na(datafile$Juvenile)] <- 0
+
+#adulte
+getFirstRange <- function(x){
+  x <- as.character(x)
+  strsplit(x,"-")[[1]][1]
+}
+datafile$Adulte <- sapply(datafile$Adulte,function(x)getFirstRange(x))
+datafile$Adulte <- gsub(">","",datafile$Adulte)
+datafile$Adulte <- gsub("mind. ","",datafile$Adulte)
+datafile$Adulte <- as.numeric(as.character(datafile$Adulte))
+datafile$Adulte[is.na(datafile$Adulte)] <- 0
+
+
+#create a total juvenile column
+datafile$Juv <- datafile$Larven + datafile$Exuvien + datafile$Juvenile
 
 ```
 
@@ -44,6 +87,7 @@ surveys <- ddply(datafile,.(MTB_Q,Date,Year,Month,yday),summarise,
 
 library(GGally)
 ggpairs(surveys[,5:9])
+
 
 ```
 
