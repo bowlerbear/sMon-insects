@@ -152,33 +152,30 @@ plotModels<-function(models,param="psi.fs\\["){
 }
 
 getOccurrenceMatrix<-function(df){
-  library(reshape2)
-  df$surveyList<-paste(df$MTB_Q,df$Date)
-  out<-acast(df,surveyList~Species,value.var="Anzahl_min",fun=sum,na.rm=T)
+  require(reshape2)
+  out<-acast(df,visit~Species,value.var="Anzahl_min",fun=sum)
   out[out>0]<-1
   return(out)
 }
 
 
 getListLength<-function(df){
-  library(plyr)
-  df$surveyList<-paste(df$MTB_Q,df$Date)
-  out <- ddply(df,.(surveyList,Date,Year,month,day,MTB_Q),summarise,
+  require(plyr)
+  out <- ddply(df,.(visit,Date,Year,month,day,MTB_Q),summarise,
         nuSpecies=length(unique(Species)),
         nuRecords=length(Species),
         Richness2=mean(Richness),
-        RpS = nuRecords/Richness2,
-        expertise = mean(Expertise),
-        samplingSites = mean(samplingSites))
+        RpS = length(Species)/Richness2,
+        expertise = sum(Expertise),
+        samplingSites = length(unique(interaction(lon,lat))))
   
   #add on some indices
   out$siteIndex <- as.numeric(factor(out$MTB_Q))
   out$yearIndex <- as.numeric(factor(out$Year))
 
-  #sort dataset
-  out <- arrange (out,siteIndex,yearIndex)
-  
-  }
+  #sort dataset to match with the occurrence Matrix
+  out <- arrange (out,visit)
+}
 
 
 getBUGSfits <- function(out,param="trend.year"){
@@ -202,4 +199,30 @@ combineModels <- function(out){
   
   return(out2)
   
+}
+
+
+getFirstRange <- function(x){
+  x <- as.character(x)
+  strsplit(x,"-")[[1]][1]
+}
+
+removeGerman <- function(obs){
+  obs <- as.character(obs)
+  Encoding(obs) <- "latin1" 
+  obs <- iconv(obs, "latin1", "ASCII", sub="")
+}
+
+formatObservers <- function(obs){
+  require(gdata)
+  obs <- as.character(obs)
+  obs <- as.character(unlist(sapply(obs,function(x)strsplit(x,";"))))
+  obs <- trim(as.character(unlist(sapply(obs,function(x)strsplit(x," u ")))))
+  obs <- trim(as.character(unlist(sapply(obs,function(x)strsplit(x," und ")))))
+  obs <- trim(as.character(unlist(sapply(obs,function(x)strsplit(x," u. ")))))
+  obs <- trim(as.character(unlist(sapply(obs,function(x)strsplit(x," \\(EVS)")))))
+  obs <- gsub("et al.","", obs)
+  obs <- gsub("et al","", obs)
+  obs <- sort(unique(obs))
+  trim(obs)
 }
