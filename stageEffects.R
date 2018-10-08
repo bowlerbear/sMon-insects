@@ -37,4 +37,64 @@ hist(visitSummary$Juv_B/(visitSummary$Juv_B + visitSummary$Adult_B))
 #either/or....
 #juvenile visits shouldnt be treated as adult visits
 
+Look at availability of each data type
+
+
+#total records per year
+#total species per year
+#total grids per year
+#total observers per year
+#total visits per observer per year
+
+library(plyr)
+library(lubridate)
+
+load("derived-data/juv_datafile.RData")
+juv_datafile$Date<-as.Date(juv_datafile$Date)
+juv_datafile$Year<-year(juv_datafile$Date)
+juv_datafile
+juv_datafile<-subset(juv_datafile,Anzahl_min>0)
+juvSummary <- ddply(subset(juv_datafile,Year>1979),.(Year),summarise,
+                    nuRecords=length(Species),
+                    nuSpecies=length(unique(Species)),
+                    nuGrids=length(unique(MTB_Q)),
+                    nuObservers=length(unique(Expertise)),
+                    nuVisits=length(unique(interaction(Date,MTB_Q,Expertise))))
+juvSummary$Stage <- "Juvenile"
+
+
+load("derived-data/adult_datafile.RData")
+adult_datafile$Date<-as.Date(adult_datafile$Date)
+adult_datafile$Year<-year(adult_datafile$Date)
+adult_datafile$Anzahl_min <- as.numeric(as.character(adult_datafile$Anzahl_min))
+adult_datafile<-subset(adult_datafile,Anzahl_min>0)
+adultSummary <- ddply(subset(adult_datafile,Year>1979),.(Year),summarise,
+                      nuRecords=length(Species),
+                      nuSpecies=length(unique(Species)),
+                      nuGrids=length(unique(MTB_Q)),
+                      nuObservers=length(unique(Expertise)),
+                      nuVisits=length(unique(interaction(Date,MTB_Q,Expertise))))
+adultSummary$Stage<- "Adult"
+
+#combine all
+summaryData<-rbind(juvSummary,adultSummary)
+
+
+g1<-ggplot(data=summaryData,aes(x=Year,y=nuRecords,group=Stage))+geom_line(aes(colour=Stage))+ylab("total records")
+g2<-ggplot(data=summaryData,aes(x=Year,y=nuSpecies,group=Stage))+geom_line(aes(colour=Stage))+ylab("total species")
+g3<-ggplot(data=summaryData,aes(x=Year,y=nuGrids,group=Stage))+
+  geom_line(aes(colour=Stage))+ylab("total grids")
+g4<-ggplot(data=summaryData,aes(x=Year,y=nuObservers,group=Stage))+geom_line(aes(colour=Stage))+ylab("total observers")
+
+g5<-ggplot(data=summaryData,aes(x=Year,y=nuVisits,group=Stage))+geom_line(aes(colour=Stage))+ylab("total observer visits")
+
+library(cowplot)
+
+plot_grid(g1,g5,g2,g3)
+
+
+```
+
+
+
 
