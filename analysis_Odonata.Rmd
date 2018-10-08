@@ -23,11 +23,9 @@ Each row in the data frame is a species observation.
 ```{r warning=FALSE}
 
 #library(gdata)
-#df <- read.csv("raw-data/Odonata_Saarland_Trockur.csv")
 load("derived-data/juv_datafile.RData")
 df <- juv_datafile
-df <- subset(df, Anzahl_min>0)
-  
+
 ```
 
 
@@ -63,7 +61,7 @@ Filter one: focus on the months that were most sampled. The results suggest this
 
 table(df$month)
 
-df <- subset(df, month %in% c(5:8))
+df <- subset(df, month %in% c(4:8))
 
 ```
 
@@ -89,6 +87,8 @@ dataDiagnostics(taxa= as.character(df$Species),
                 site= as.character(df$MTB_Q), 
                 time_period = df$Date)
 
+#both list length and number of records increase over time
+
 ```
 
 Summary info per species
@@ -96,7 +96,10 @@ Summary info per species
 ```{r}
 
 library(plyr)
-(outSummary <- ddply(df,.(Species),summarise,nuRecs=length(unique(Date)),nuYears=length(unique(Year)),nuSites=length(unique(MTB_Q))))
+(outSummary <- ddply(df,.(Species),summarise,
+                     nuRecs=length(unique(Date)),
+                     nuYears=length(unique(Year)),
+                     nuSites=length(unique(MTB_Q))))
 
 ```
 
@@ -104,11 +107,19 @@ Organise data using the sparta wrapper function
 
 ```{r, results='asis'}
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/sMon-insects/R/sparta_wrapper_functions.R')
+source('R/sparta_wrapper_functions.R')
+
+#define a visit
+df$visit <- paste(df$MTB_Q,df$Date,df$Beobachter,sep="_")
 
 occMatrix <- getOccurrenceMatrix(df)
 listlengthDF <- getListLength(df)
 
+#checks
+all(row.names(occMatrix)==listlengthDF$surveyList)
+listlengthDF[1:10,]
+
+#plots
 library(ggplot2)
 qplot(nuSpecies,nuRecords,data=listlengthDF)
 qplot(nuSpecies,RpS,data=listlengthDF)
@@ -128,8 +139,8 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   year = listlengthDF$yearIndex,
                   yday = listlengthDF$day - median(listlengthDF$day),
                   nuSpecies = log(listlengthDF$nuSpecies) - log(median(listlengthDF$nuSpecies)),
-                  nuRecs = listlengthDF$nuRecords - median(listlengthDF$nuRecords),
-                  nuSS = listlengthDF$samplingSites - median(listlengthDF$samplingSites),
+                  nuRecs = log(listlengthDF$nuRecords) - log(median(listlengthDF$nuRecords)),
+                  nuSS = listlengthDF$samplingSites - median(listlengthDF$samplingSites),# up to 3
                   expertise = log(listlengthDF$expertise)-median(log(listlengthDF$expertise)),
                   RpS = log(listlengthDF$RpS) - median(log(listlengthDF$RpS)),
                   y = as.numeric(occMatrix[,mySpecies]))
@@ -178,20 +189,19 @@ bugs.data$Effort <- bugs.data$nuSpecies
 source('R/BUGS_misc_functions.R')
 
 #specify parameters to monitor
-params <- c("int.p.temp","phenol.p","phenol2.p","effort.p","effort2.p",
-            "psi.fs")
+params <- c("phenol.p","phenol2.p","effort.p","psi.fs")
 
 #run model
 out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta.txt", n.thin=nt,
-               n.chains=3, n.burnin=500,n.iter=2000,parallel=T)
+               n.chains=3, n.burnin=4000,n.iter=20000,parallel=T)
 
 print(out1,2)
-#              mean    sd    2.5%     50%   97.5% overlap0    f Rhat n.eff
-#int.p.temp    0.50  0.29    0.03    0.50    0.98    FALSE 1.00 1.00  2250
-#phenol.p      0.04  0.02    0.00    0.04    0.09     TRUE 0.97 1.01   239
-#phenol2.p    -0.01  0.00   -0.01   -0.01    0.00     TRUE 0.84 1.01   322
-#effort.p      0.85  0.11    0.64    0.85    1.07    FALSE 1.00 1.00   977
-#effort2.p    -0.19  0.10   -0.38   -0.20    0.01     TRUE 0.97 1.00   5851
+
+#             mean    sd   2.5%    50%  97.5% overlap0    f Rhat n.eff
+#phenol.p    -0.79  0.08  -0.97  -0.79  -0.65    FALSE 1.00 1.08    32
+#phenol2.p    0.02  0.02  -0.02   0.02   0.06     TRUE 0.88 1.07    34
+#effort.p     1.27  0.17   0.94   1.27   1.61    FALSE 1.00 1.01   355
+
 
 ```
 
@@ -205,11 +215,17 @@ bugs.data$Effort <- bugs.data$RpS
 source('R/BUGS_misc_functions.R')
 
 #specify parameters to monitor
-params <- c("int.p.temp","phenol.p","phenol2.p","effort.p","effort2.p","psi.fs")
+params <- c("phenol.p","phenol2.p","effort.p","psi.fs")
 
 #run model
 out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta.txt", n.thin=nt,
-               n.chains=3, n.burnin=500,n.iter=2000,parallel=T)
+               n.chains=3, n.burnin=4000,n.iter=20000,parallel=T)
+
+print(out1,2)
+#             mean    sd   2.5%    50%  97.5% overlap0    f Rhat n.eff
+#phenol.p    -0.86  0.09  -1.05  -0.86  -0.70    FALSE 1.00 1.03    83
+#phenol2.p    0.02  0.02  -0.02   0.02   0.06     TRUE 0.87 1.04    54
+#effort.p     1.03  0.16   0.73   1.03   1.35    FALSE 1.00 1.01   172
 
 ```
 
@@ -222,21 +238,71 @@ bugs.data$Effort <- bugs.data$nuSpecies
 source('R/BUGS_misc_functions.R')
 
 #specify parameters to monitor
-params <- c("int.p.temp","phenol.p","phenol2.p","effort.p","effort2.p","expert.p","psi.fs")
+params <- c("phenol.p","phenol2.p","effort.p","expert.p","psi.fs")
 
 #run model
 out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta.txt", n.thin=nt,
-               n.chains=3, n.burnin=500,n.iter=2000,parallel=T)
+               n.chains=3, n.burnin=4000,n.iter=20000,parallel=T)
 
-#              mean    sd    2.5%     50%   97.5% overlap0    f Rhat n.eff
-#int.p.temp    0.28  0.02    0.24    0.28    0.33    FALSE 1.00 1.01   553
-#phenol.p     -0.03  0.01   -0.05   -0.03   -0.01    FALSE 0.99 1.00  1726
-#phenol2.p     0.00  0.00    0.00    0.00    0.01     TRUE 0.74 1.00  2250
-#effort.p      0.11  0.01    0.09    0.11    0.14    FALSE 1.00 1.01   213
-#effort2.p    -0.01  0.00   -0.01   -0.01    0.00    FALSE 1.00 1.01   191
-#expert.p      0.11  0.03    0.05    0.11    0.16    FALSE 1.00 1.00   840
+#             mean    sd   2.5%    50%  97.5% overlap0    f Rhat n.eff
+#phenol.p    -0.81  0.08  -0.98  -0.80  -0.66    FALSE 1.00 1.06    40
+#phenol2.p    0.02  0.02  -0.02   0.02   0.06     TRUE 0.89 1.05    50
+#effort.p     1.17  0.20   0.78   1.16   1.57    FALSE 1.00 1.00  1175
+#expert.p     0.10  0.10  -0.09   0.10   0.30     TRUE 0.84 1.00   804
 
 ```
+
+(4) add in number of sampling sites
+
+```{r}
+
+bugs.data$Effort <- bugs.data$nuSpecies
+
+source('R/BUGS_misc_functions.R')
+
+#specify parameters to monitor
+params <- c("phenol.p","phenol2.p","effort.p","effort2.p","ss.p","psi.fs")
+
+#run model
+out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta.txt", n.thin=nt,
+               n.chains=3, n.burnin=4000,n.iter=20000,parallel=T)
+
+#             mean    sd   2.5%    50%  97.5% overlap0    f Rhat n.eff
+#phenol.p    -0.80  0.08  -0.97  -0.79  -0.64    FALSE 1.00 1.05    47
+#phenol2.p    0.02  0.02  -0.02   0.02   0.06     TRUE 0.89 1.04    50
+#effort.p     0.76  0.48  -0.14   0.75   1.73     TRUE 0.95 1.01   291
+#effort2.p    0.25  0.25  -0.26   0.26   0.74     TRUE 0.84 1.01   349
+#ss.p         0.27  0.20  -0.11   0.27   0.66     TRUE 0.92 1.02   141
+
+```
+
+(5) all detection variables together
+
+```{r}
+
+bugs.data$Effort <- bugs.data$nuSpecies
+bugs.data$Effort_v2 <- bugs.data$RpS
+
+source('R/BUGS_misc_functions.R')
+
+#specify parameters to monitor
+params <- c("phenol.p","phenol2.p","effort.p","effort_2.p","expert.p","ss.p","psi.fs")
+
+#run model
+out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta.txt", n.thin=nt,
+               n.chains=3, n.burnin=4000,n.iter=20000,parallel=T)
+
+print(out1,2)
+#             mean    sd   2.5%    50%  97.5% overlap0    f Rhat n.eff
+#phenol.p    -0.82  0.08  -0.99  -0.82  -0.67    FALSE 1.00 1.00  4756
+#phenol2.p    0.03  0.02  -0.01   0.03   0.06     TRUE 0.93 1.00  3387
+#effort.p     1.22  0.38   0.47   1.22   1.98    FALSE 1.00 1.01   334
+#effort_2.p  -0.12  0.35  -0.81  -0.12   0.57     TRUE 0.64 1.01   379
+#expert.p     0.10  0.10  -0.10   0.10   0.31     TRUE 0.83 1.00 24000
+#ss.p         0.17  0.16  -0.15   0.17   0.49     TRUE 0.85 1.00  5198
+
+```
+
 
 #Run models over multiple species
 
@@ -263,11 +329,11 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   site = listlengthDF$siteIndex,
                   year = listlengthDF$yearIndex,
                   yday = listlengthDF$day - median(listlengthDF$day),
-                  nuSpecies = listlengthDF$nuSpecies - median(listlengthDF$nuSpecies),
-                  nuRecs = listlengthDF$nuRecords - median(listlengthDF$nuRecords),
-                  RpS = log(listlengthDF$RpS) - median(log(listlengthDF$RpS)),
-                  nuSS = listlengthDF$samplingSites - median(listlengthDF$samplingSites),
+                  nuSpecies = log(listlengthDF$nuSpecies) - log(median(listlengthDF$nuSpecies)),
+                  nuRecs = log(listlengthDF$nuRecords) - log(median(listlengthDF$nuRecords)),
+                  nuSS = listlengthDF$samplingSites - median(listlengthDF$samplingSites),# up to 3
                   expertise = log(listlengthDF$expertise)-median(log(listlengthDF$expertise)),
+                  RpS = log(listlengthDF$RpS) - median(log(listlengthDF$RpS)),
                   y = as.numeric(occMatrix[,mySpecies]))
 listlengthDF$Species <- bugs.data$y
                   
@@ -279,16 +345,16 @@ inits <- function(){list(z = zst)}
 
 #fit model
 bugs.data$Effort <- bugs.data[[effort]]
+bugs.data$Effort_v2 <- bugs.data$RpS
 
 source('R/BUGS_misc_functions.R')
 
 #specify parameters to monitor
-params <- c("phenol.p","phenol2.p","effort.p","effort2.p","expertise.p",
-            "trend.int","trend.year","a.p","psi.fs")
+params <- c("phenol.p","phenol2.p","effort.p","effort_2.p","expert.p","ss.p","psi.fs")
 
 #run model
 out1 <- jags(bugs.data, inits=inits, params, modelfile, n.thin=nt,
-               n.chains=3, n.burnin=1000,n.iter=5000,parallel=T)
+               n.chains=3, n.burnin=4000,n.iter=20000,parallel=T)
 
 return(out1)
 }
@@ -296,8 +362,7 @@ return(out1)
 
 ```
 
-(1 )Run basic model with effort as nuSpecies:
-
+Run model with effort with all effort terms
 ```{r}
 
 #run out each species
@@ -305,26 +370,58 @@ out <-llply(mySpecies,function(x){
   fitBugs(mySpecies=x)
 })
 
-#save(out,file="out_nuSpecies_Expertise.RData")
-#save(out,file="out_nuSpecies.RData")
-#save(out,file="out_nuSpecies_trends.RData")
-#save(out,file="out_nuSpecies_Expertise_trends.RData")
+save(out,file="out_nuSpecies_All.RData")
 
 ```
 
-(2) With RpS as effort
+
+Extract info on each effort term
+```{r}
+
+load("model-outputs/out_nuSpecies_All.RData")
+out2 <- combineModels(out)
+out_nuSpecies <- getBUGSfits(out2,param="effort.p") 
+out_RpS <- getBUGSfits(out2,param="effort_2.p")
+out_Expertise <- getBUGSfits(out2,param="ss.p") 
+out_nuSS <- getBUGSfits(out2,param="expert.p")
+
+#combine all
+
+out <-  rbind(out_nuSpecies,out_RpS,out_Expertise,out_nuSS)
+
+#plotting
+ggplot(out)+
+  geom_crossbar(aes(x=Species,y=mean,ymin=X2.5.,ymax=X97.5.))+
+  coord_flip()+
+  facet_wrap(~Param,scales="free")+
+  geom_hline(yintercept=0,col="red",linetype="dashed")
+
+```
+
+Get annual indices
 
 ```{r}
-#run out each species
-out <-llply(mySpecies,function(x){
-  fitBugs(mySpecies=x,effort="RpS")
-})
 
-#save(out,file="out_RpS_Expertise_trends.RData")
-#save(out,file="out_RpS_Expertise.RData")
+load("model-outputs/out_nuSpecies_All.RData")
+out2 <- combineModels(out)
+outAnnual <- getBUGSfits(out2,param="psi.fs") 
+outAnnual$Year <- outAnnual$ParamNu + 1982
 
 ```
 
+Plotting as separate times series
+
+```{r}
+
+library(ggplot2)
+ggplot(outAnnual)+
+  geom_line(aes(x=Year,y=mean))+
+  geom_ribbon(aes(x=Year,ymin=X2.5., ymax=X97.5.),alpha=0.5)+
+  facet_wrap(~Species)+
+  theme_classic()+
+  ylab("Predicted occupancy proportion")
+
+```
 
 Categorise trends
 
@@ -337,21 +434,6 @@ outTrends$Trend.type <- NA
 outTrends$Trend.type[which(outTrends$X2.5.<0 & outTrends$X97.5.>0)]<- "no change"
 outTrends$Trend.type[which(outTrends$X2.5.<0 & outTrends$X97.5.<0)]<- "decreasing"
 outTrends$Trend.type[which(outTrends$X2.5.>0 & outTrends$X97.5.>0)]<- "increasing"
-
-```
-
-Get annual indices
-```{r}
-
-load("model-outputs/out_RpS_Expertise_trends.RData")
-out2 <- combineModels(out)
-outAnnual <- getBUGSfits(out2,param="psi.fs") 
-outAnnual$Year <- outAnnual$ParamNu + 1979
-outAnnual$Trend.type <- outTrends$Trend.type[match(outAnnual$Species,outTrends$Species)]
-
-#order factor by mean
-outTrends <- arrange(outTrends,mean)
-outAnnual$Species <- factor(outAnnual$Species,levels=outTrends$Species)
 
 ```
 
@@ -386,7 +468,7 @@ ggplot(outAnnual)+
 
 ```
 
-Examine effort
+Plotting effort relationships
 
 ```{r}
 
