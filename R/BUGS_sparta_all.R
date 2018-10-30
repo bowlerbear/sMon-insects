@@ -1,4 +1,4 @@
-
+cat("
   model{
   # JAGS code for SPARTA model plus random walk prior
   # on the year effect of the state model + intercept + halfcauchy hyperpriors
@@ -19,7 +19,8 @@
 
     #detection model:
     logit(p[j]) <-  a.p[year[j]] + phenol.p * yday[j]/10 + phenol2.p * pow(yday[j]/10, 2) + 
-                    effort.p * Effort[j] 
+                    effort.p * Effort[j] + eta.p[site[j]] + effort_2.p * Effort_v2[j] + 
+                    expert.p * expertise[j] + ss.p * nuSS[j]
     } 
   
   # Derived parameters
@@ -80,4 +81,4 @@
     expert.p ~ dnorm(0, 0.001)
     ss.p ~ dnorm(0,0.001)
   }
-    
+    ",fill=TRUE,file="R/BUGS_sparta_all.txt")

@@ -19,7 +19,8 @@
 
     #detection model:
     logit(p[j]) <-  a.p[year[j]] + phenol.p * yday[j]/10 + phenol2.p * pow(yday[j]/10, 2) + 
-                    effort.p * Effort[j] 
+                    effort.p * Effort[j] + eta.p[site[j]] + effort_2.p * Effort_v2[j] + 
+                    expert.p * expertise[j] + ss.p * nuSS[j]
     } 
   
   # Derived parameters

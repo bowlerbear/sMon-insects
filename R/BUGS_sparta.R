@@ -19,8 +19,7 @@ cat("
 
     #detection model:
     logit(p[j]) <-  a.p[year[j]] + phenol.p * yday[j]/10 + phenol2.p * pow(yday[j]/10, 2) + 
-                    effort.p * Effort[j] + effort2.p * pow(Effort[j],2) +
-                    eta.p[site[j]] 
+                    effort.p * Effort[j] 
     } 
   
   # Derived parameters
@@ -77,7 +76,8 @@ cat("
     phenol.p ~ dnorm(0, 0.001)
     phenol2.p ~ dnorm(0, 0.001)
     effort.p ~ dnorm(0, 0.001)
-    effort2.p ~ dnorm(0, 0.001)
+    effort_2.p ~ dnorm(0, 0.001)
     expert.p ~ dnorm(0, 0.001)
+    ss.p ~ dnorm(0,0.001)
   }
     ",fill=TRUE,file="R/BUGS_sparta.txt")
