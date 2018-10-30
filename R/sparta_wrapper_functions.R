@@ -153,7 +153,7 @@ plotModels<-function(models,param="psi.fs\\["){
 
 getOccurrenceMatrix<-function(df){
   require(reshape2)
-  out<-acast(df,visit~Species,value.var="Anzahl_min",fun=sum)
+  out<-acast(df,visit~Species,value.var="Anzahl_min",fun=function(x)length(x[x!=0]))
   out[out>0]<-1
   return(out)
 }
@@ -225,4 +225,43 @@ formatObservers <- function(obs){
   obs <- gsub("et al","", obs)
   obs <- sort(unique(obs))
   trim(obs)
+}
+
+fitBugs<-function(mySpecies,effort="nuSpecies",modelfile="R/BUGS_sparta.txt"){
+  
+  #organise data
+  bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
+                    nyear = length(unique(listlengthDF$yearIndex)),
+                    nvisit = nrow(listlengthDF),
+                    site = listlengthDF$siteIndex,
+                    year = listlengthDF$yearIndex,
+                    yday = listlengthDF$day - median(listlengthDF$day),
+                    nuSpecies = log(listlengthDF$nuSpecies) - log(median(listlengthDF$nuSpecies)),
+                    nuRecs = log(listlengthDF$nuRecords) - log(median(listlengthDF$nuRecords)),
+                    nuSS = listlengthDF$samplingSites - median(listlengthDF$samplingSites),# up to 3
+                    expertise = log(listlengthDF$expertise)-median(log(listlengthDF$expertise)),
+                    RpS = log(listlengthDF$RpS) - median(log(listlengthDF$RpS)),
+                    y = as.numeric(occMatrix[,mySpecies]))
+  listlengthDF$Species <- bugs.data$y
+  
+  #specify initial values
+  library(reshape2)
+  zst <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=max)
+  zst [is.infinite(zst)] <- 0
+  inits <- function(){list(z = zst)}
+  
+  #fit model
+  bugs.data$Effort <- bugs.data[[effort]]
+  bugs.data$Effort_v2 <- bugs.data$RpS
+  
+  source('R/BUGS_misc_functions.R')
+  
+  #specify parameters to monitor
+  params <- c("phenol.p","phenol2.p","effort.p","effort_2.p","expert.p","ss.p","psi.fs")
+  
+  #run model
+  out1 <- jags(bugs.data, inits=inits, params, modelfile, n.thin=nt,
+               n.chains=3, n.burnin=5000,n.iter=50000,parallel=T)
+  
+  return(out1)
 }
