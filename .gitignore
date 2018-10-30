@@ -28,3 +28,6 @@ model-outputs/*.rdata
 raw-data/*
 paper-drafts/*
 derived-data/*
+traits/*
+Spatial_data/*
+model-outputs/*
