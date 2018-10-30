@@ -20,10 +20,20 @@ First step: read in the raw data file from the sMon data portal.
 Sheet 5 of the workbook contains the raw data of occurrences.
 Each row in the data frame is a species observation.
 
+Select state for analysis
+
+```{r}
+
+state = "SH"
+
+```
+
+
+
 ```{r warning=FALSE}
 
 #library(gdata)
-load("derived-data/adult_datafile.RData")
+load(paste0("derived-data/adult_datafile_",state,".RData"))
 df <- adult_datafile
 
 ```
@@ -46,7 +56,8 @@ df$Year <- year(df$Date)
 Step two: remove those with missing date entries
 
 ```{r}
-
+df <- subset(df,!is.na(day))
+df <- subset(df,!is.na(Year))
 df <- subset(df,!is.na(month))
 summary(df)
 
@@ -103,6 +114,15 @@ library(plyr)
 
 ```
 
+Identify species seen in 25% of years
+
+```{r}
+
+mainSpecies <- outSummary$Species[outSummary$nuYears > (length(unique(df$Year))/4)]
+mainSpecies
+
+```
+
 Organise data using the sparta wrapper function
 
 ```{r, results='asis'}
@@ -126,157 +146,6 @@ qplot(nuSpecies,RpS,data=listlengthDF)
 
 ```
 
-Compile data for bugs (for a select species  - here )
-
-```{r}
-
-mySpecies<-"Pyrrhosoma nymphula"
-
-bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
-                  nyear = length(unique(listlengthDF$yearIndex)),
-                  nvisit = nrow(listlengthDF),
-                  site = listlengthDF$siteIndex,
-                  year = listlengthDF$yearIndex,
-                  yday = listlengthDF$day - median(listlengthDF$day),
-                  nuSpecies = log(listlengthDF$nuSpecies) - log(median(listlengthDF$nuSpecies)),
-                  nuRecs = log(listlengthDF$nuRecords) - log(median(listlengthDF$nuRecords)),
-                  nuSS = listlengthDF$samplingSites - median(listlengthDF$samplingSites),# up to 3
-                  expertise = log(listlengthDF$expertise)-median(log(listlengthDF$expertise)),
-                  RpS = log(listlengthDF$RpS) - median(log(listlengthDF$RpS)),
-                  y = as.numeric(occMatrix[,mySpecies]))
-
-listlengthDF$Species <- bugs.data$y
-                  
-#need to specify initial values
-library(reshape2)
-zst <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=max)
-zst [is.infinite(zst)] <- 0
-inits <- function(){list(z = zst)}
-
-```
-
-Look at the data:
-
-Phenology:
-
-```{r,results='asis'}
-
-library(ggplot2)
-
-#phenology pattern
-library(plyr)
-monthSums <- ddply(listlengthDF,.(month,Year),summarise,prevalence=sum(Species))
-qplot(month,prevalence,data=monthSums)+facet_wrap(~Year,scale="free_y")#quadratic term seems reasonable
-
-#time series trend
-yearSums <- ddply(listlengthDF,.(Year,MTB_Q),summarise,total=sum(Species),
-                  totRecs=sum(nuRecords),totSpe=sum(nuSpecies))
-
-qplot(Year,total/totRecs,data=yearSums,colour=MTB_Q)
-qplot(Year,total/totSpe,data=yearSums,colour=MTB_Q)
-
-```
-
-
-Run model with different effort terms
-
-(1) with listlength as effort
-
-```{r}
-
-bugs.data$Effort <- bugs.data$nuSpecies
-
-source('R/BUGS_misc_functions.R')
-
-#specify parameters to monitor
-params <- c("phenol.p","phenol2.p","effort.p","psi.fs")
-
-#run model
-out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta.txt", n.thin=nt,
-               n.chains=3, n.burnin=4000,n.iter=20000,parallel=T)
-
-print(out1,2)
-
-
-
-```
-
-
-(2) with records per species as a measure
-
-```{r}
-
-bugs.data$Effort <- bugs.data$RpS
-
-source('R/BUGS_misc_functions.R')
-
-#specify parameters to monitor
-params <- c("phenol.p","phenol2.p","effort.p","psi.fs")
-
-#run model
-out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta.txt", n.thin=nt,
-               n.chains=3, n.burnin=4000,n.iter=20000,parallel=T)
-
-print(out1,2)
-
-
-```
-
-(3) add in an experise effect
-
-```{r}
-
-bugs.data$Effort <- bugs.data$nuSpecies
-
-source('R/BUGS_misc_functions.R')
-
-#specify parameters to monitor
-params <- c("phenol.p","phenol2.p","effort.p","expert.p","psi.fs")
-
-#run model
-out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta.txt", n.thin=nt,
-               n.chains=3, n.burnin=4000,n.iter=20000,parallel=T)
-
-
-```
-
-(4) add in number of sampling sites
-
-```{r}
-
-bugs.data$Effort <- bugs.data$nuSpecies
-
-source('R/BUGS_misc_functions.R')
-
-#specify parameters to monitor
-params <- c("phenol.p","phenol2.p","effort.p","effort2.p","ss.p","psi.fs")
-
-#run model
-out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta.txt", n.thin=nt,
-               n.chains=3, n.burnin=4000,n.iter=20000,parallel=T)
-
-```
-
-(5) all detection variables together
-
-```{r}
-
-bugs.data$Effort <- bugs.data$nuSpecies
-bugs.data$Effort_v2 <- bugs.data$RpS
-
-source('R/BUGS_misc_functions.R')
-
-#specify parameters to monitor
-params <- c("phenol.p","phenol2.p","effort.p","effort_2.p","expert.p","ss.p","psi.fs")
-
-#run model
-out1 <- jags(bugs.data, inits=inits, params, "R/BUGS_sparta.txt", n.thin=nt,
-               n.chains=3, n.burnin=4000,n.iter=20000,parallel=T)
-
-print(out1,2)
-
-```
-
 
 #Run models over multiple species
 
@@ -290,52 +159,6 @@ outSummary$nuRecs[1:20]
 
 ```
 
-Write general function:
-
-```{r}
-
-fitBugs<-function(mySpecies,effort="nuSpecies",modelfile="R/BUGS_sparta.txt"){
-  
-#organise data
-bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
-                  nyear = length(unique(listlengthDF$yearIndex)),
-                  nvisit = nrow(listlengthDF),
-                  site = listlengthDF$siteIndex,
-                  year = listlengthDF$yearIndex,
-                  yday = listlengthDF$day - median(listlengthDF$day),
-                  nuSpecies = log(listlengthDF$nuSpecies) - log(median(listlengthDF$nuSpecies)),
-                  nuRecs = log(listlengthDF$nuRecords) - log(median(listlengthDF$nuRecords)),
-                  nuSS = listlengthDF$samplingSites - median(listlengthDF$samplingSites),# up to 3
-                  expertise = log(listlengthDF$expertise)-median(log(listlengthDF$expertise)),
-                  RpS = log(listlengthDF$RpS) - median(log(listlengthDF$RpS)),
-                  y = as.numeric(occMatrix[,mySpecies]))
-listlengthDF$Species <- bugs.data$y
-                  
-#specify initial values
-library(reshape2)
-zst <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=max)
-zst [is.infinite(zst)] <- 0
-inits <- function(){list(z = zst)}
-
-#fit model
-bugs.data$Effort <- bugs.data[[effort]]
-bugs.data$Effort_v2 <- bugs.data$RpS
-
-source('R/BUGS_misc_functions.R')
-
-#specify parameters to monitor
-params <- c("phenol.p","phenol2.p","effort.p","effort_2.p","expert.p","ss.p","psi.fs")
-
-#run model
-out1 <- jags(bugs.data, inits=inits, params, modelfile, n.thin=nt,
-               n.chains=3, n.burnin=4000,n.iter=20000,parallel=T)
-
-return(out1)
-}
-
-
-```
-
 Run model with effort with all effort terms
 ```{r}
 
@@ -344,110 +167,23 @@ out <-llply(mySpecies,function(x){
   fitBugs(mySpecies=x)
 })
 
-save(out,file="out_nuSpecies_All_adults.RData")
+save(out,file=paste0("out_nuSpecies_All_adults_",state,".RData"))
 
 ```
 
 
-Extract info on each effort term
-```{r}
-
-load("model-outputs/out_nuSpecies_All_adults.RData")
-out2 <- combineModels(out)
-out_nuSpecies <- getBUGSfits(out2,param="effort.p") 
-out_RpS <- getBUGSfits(out2,param="effort_2.p")
-out_Expertise <- getBUGSfits(out2,param="ss.p") 
-out_nuSS <- getBUGSfits(out2,param="expert.p")
-
-#combine all
-
-out <-  rbind(out_nuSpecies,out_RpS,out_Expertise,out_nuSS)
-
-#plotting
-ggplot(out)+
-  geom_crossbar(aes(x=Species,y=mean,ymin=X2.5.,ymax=X97.5.))+
-  coord_flip()+
-  facet_wrap(~Param,scales="free")+
-  geom_hline(yintercept=0,col="red",linetype="dashed")
-
-```
-
-Get annual indices
+Run model with number of records as effort term
 
 ```{r}
 
-load("model-outputs/out_nuSpecies_All_adults.RData")
-out2 <- combineModels(out)
-outAnnual <- getBUGSfits(out2,param="psi.fs") 
-outAnnual$Year <- outAnnual$ParamNu + 1982
+#run out each species
+out <-llply(mainSpecies,function(x){
+  fitBugs(mySpecies=x,effort="nuRecs")
+})
+
+save(out,file=paste0("out_nuRecords_adults_",state,".RData"))
 
 ```
 
-Plotting as separate times series
 
-```{r}
-
-library(ggplot2)
-ggplot(outAnnual)+
-  geom_line(aes(x=Year,y=mean))+
-  geom_ribbon(aes(x=Year,ymin=X2.5., ymax=X97.5.),alpha=0.5)+
-  facet_wrap(~Species)+
-  theme_classic()+
-  ylab("Predicted occupancy proportion")
-
-```
-
-Categorise trends
-
-```{r}
-
-load("model-outputs/out_RpS_Expertise_trends.RData")
-out2 <- combineModels(out)
-outTrends <- getBUGSfits(out2,param="trend.year") 
-outTrends$Trend.type <- NA
-outTrends$Trend.type[which(outTrends$X2.5.<0 & outTrends$X97.5.>0)]<- "no change"
-outTrends$Trend.type[which(outTrends$X2.5.<0 & outTrends$X97.5.<0)]<- "decreasing"
-outTrends$Trend.type[which(outTrends$X2.5.>0 & outTrends$X97.5.>0)]<- "increasing"
-
-```
-
-Plotting as separate times series
-
-```{r}
-
-library(ggplot2)
-ggplot(outAnnual)+
-  geom_line(aes(x=Year,y=mean,colour=Trend.type))+
-  geom_ribbon(aes(x=Year,ymin=X2.5., ymax=X97.5.,fill=Trend.type),alpha=0.5)+
-  facet_wrap(~Species)+
-  theme_classic()+
-  ylab("Predicted occupancy proportion")
-
-```
-
-Plotting as trend type
-
-```{r}
-
-outAnnual$Trend.type <- factor(outAnnual$Trend.type,levels=c("decreasing",
-                                                             "no change",
-                                                             "increasing"))
-library(ggplot2)
-ggplot(outAnnual)+
-  geom_line(aes(x=Year,y=mean,group=Species))+
-  facet_wrap(~Trend.type)+
-  theme_classic()+
-  theme(legend.position="none")+
-  ylab("Predicted occupancy proportion")
-
-```
-
-Model checking
-
-```{r}
-
-print(out1,3)
-traceplot(out1)
-
-```
 
