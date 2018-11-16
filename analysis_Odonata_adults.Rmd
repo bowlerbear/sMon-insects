@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 ```
 
-#Analysis of the Odonata data from Saarland
+#Analysis of the Odonata data 
 
 First step: read in the raw data file from the sMon data portal.
 Sheet 5 of the workbook contains the raw data of occurrences.
@@ -25,6 +25,8 @@ Select state for analysis
 ```{r}
 
 state = "SH"
+state = "Sa"
+state = "Bav"
 
 ```
 
@@ -98,7 +100,7 @@ dataDiagnostics(taxa= as.character(df$Species),
                 site= as.character(df$MTB_Q), 
                 time_period = df$Date)
 
-#both list length and number of records increase over time
+#only list length increase over times and not number of records
 
 ```
 
@@ -130,7 +132,8 @@ Organise data using the sparta wrapper function
 source('R/sparta_wrapper_functions.R')
 
 #define a visit
-df$visit <- paste(df$MTB_Q,df$Date,df$Beobachter,sep="_")
+#df$visit <- paste(df$MTB_Q,df$Date,df$Beobachter,sep="_")
+df$visit <- paste(df$MTB_Q,df$Date,sep="_")
 
 occMatrix <- getOccurrenceMatrix(df)
 listlengthDF <- getListLength(df)
@@ -186,4 +189,14 @@ save(out,file=paste0("out_nuRecords_adults_",state,".RData"))
 ```
 
 
+Get models and save annual indicies
 
+```{r}
+#get annual indicies
+load(paste0("model-outputs/out_nuRecords_adults_",state,".RData"))
+out2 <- combineModels(out)
+outTrends <- getBUGSfits(out2,param="psi.fs") 
+
+save(outTrends,file=paste0("outTrends_nuRecords_adults_",state,".RData"))
+
+```

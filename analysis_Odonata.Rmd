@@ -14,10 +14,9 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 ```
 
-#Analysis of the Odonata data 
+#Analysis of the Odonata data -juvenile data
 
 First step: read in the raw data file from the sMon data portal.
-Sheet 5 of the workbook contains the raw data of occurrences.
 Each row in the data frame is a species observation.
 
 
@@ -184,4 +183,15 @@ save(out,file=paste0("out_nuRecords_juveniles_",state,".RData"))
 
 ```
 
+Get models and save annual indicies
+
+```{r}
+#get annual indicies
+load(paste0("model-outputs/out_nuRecords_juveniles_",state,".RData"))
+out2 <- combineModels(out)
+outTrends <- getBUGSfits(out2,param="psi.fs") 
+
+save(outTrends,file=paste0("outTrends_nuRecords_juveniles_",state,".RData"))
+
+```
 
