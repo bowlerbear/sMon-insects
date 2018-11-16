@@ -38,7 +38,7 @@ traits1 <- merge(traits1,atlas,by.x="Species",by.y="Species.name")
 all(species$Species %in% traits1$Species) 
 
 #get my trait compilation based off the atlas species list
-traits2 <- read.csv("traits/odonata_Germany_list.csv",as.is=T)
+traits2 <- read.delim("specieslist_Germany_atlastraits.txt",as.is=T)
 traits2 <- merge(traits2,traits1,by="Species")
 nrow(traits2)#should be 81
 
