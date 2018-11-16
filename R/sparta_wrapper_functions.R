@@ -187,7 +187,7 @@ getBUGSfits <- function(out,param="trend.year"){
 
 combineModels <- function(out){
   
-  names(out) <- mySpecies
+  names(out) <- mainSpecies
   
   out2<-ldply(out,function(x){
     output <- data.frame(x$summary)
@@ -261,7 +261,7 @@ fitBugs<-function(mySpecies,effort="nuSpecies",modelfile="R/BUGS_sparta.txt"){
   
   #run model
   out1 <- jags(bugs.data, inits=inits, params, modelfile, n.thin=nt,
-               n.chains=3, n.burnin=5000,n.iter=50000,parallel=T)
+               n.chains=3, n.burnin=2000,n.iter=10000,parallel=T)
   
   return(out1)
 }

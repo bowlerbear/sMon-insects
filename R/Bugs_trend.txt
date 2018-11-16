@@ -1,0 +1,24 @@
+
+    model{
+    
+    #give indices with error
+      for(t in 1:n.year){
+      tau[t] <- 1/SE[t]^2
+        Index[t] ~ dnorm(actPop[t],tau[t])
+      }
+    
+    #fit traits model
+    int ~ dnorm(0,0.01)
+    trend ~ dnorm(0,0.01)
+    error ~ dunif(0,10)
+
+    #fit model
+    for(t in 1:n.year){
+      actPop[t] ~ dnorm(expPop[t],error)
+      #linear predictor
+      expPop[t] <- int + trend  * t  
+    }
+      
+    
+    }
+    
