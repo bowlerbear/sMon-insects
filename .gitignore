@@ -2,10 +2,3 @@
 .Rhistory
 .RData
 .Ruserdata
-
-model-outputs/*
-raw-data/*
-*.Rproj
-derived-data/*
-traits/
-Spatial_data/
