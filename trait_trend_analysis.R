@@ -1,108 +1,6 @@
 #linking traits to trends
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/sMon-insects/R/sparta_wrapper_functions.R')
-
-#######################################################################
-
-#get annual indicies
-
-trendFiles <- list.files("derived-data/")[grepl("outTrends",list.files("derived-data/"))]
-allTrends <- ldply(trendFiles, function(x){
-  load(paste("derived-data",x,sep="/"))
-  
-  #get file metadata
-  outTrends$stage <- strsplit(x,"_")[[1]][3]
-  outTrends$state <- strsplit(x,"_")[[1]][4]
-  outTrends$state <- strsplit(outTrends$state ,"\\.")[[1]][1]
-  
-  #return data frame
-  return(outTrends)
-})
-
-#######################################################################
-
-#compare adult and juvenile trends
-
-ggplot(subset(allTrends,state=="Sa"),
-       aes(x=ParamNu,y=mean,colour=stage))+
-  geom_line()+
-  facet_wrap(~Species)+
-  theme(legend.position="none")
-
-ggplot(subset(allTrends,state=="SH"),
-       aes(x=ParamNu,y=mean,colour=stage))+
-  geom_line()+
-  facet_wrap(~Species)+
-  theme(legend.position="none")
-
-
-#######################################################################
-
-fitTrends <- function(df){
-
-#get data for species
-  dfS <- df
-  dfS <- dfS[order(dfS$ParamNu),]
-  
-#combine for a bugs model
-bugs.data<-list(
-  Index = dfS$mean,
-  SE = dfS$sd,
-  n.year = nrow(dfS))
-
-
-#write a bugs model to estimate trends
-cat("
-    model{
-    
-    #give indices with error
-      for(t in 1:n.year){
-      tau[t] <- 1/SE[t]^2
-        Index[t] ~ dnorm(actPop[t],tau[t])
-      }
-    
-    #fit traits model
-    int ~ dnorm(0,0.01)
-    trend ~ dnorm(0,0.01)
-    error ~ dunif(0,10)
-
-    #fit model
-    for(t in 1:n.year){
-      actPop[t] ~ dnorm(expPop[t],error)
-      #linear predictor
-      expPop[t] <- int + trend  * t  
-    }
-      
-    
-    }
-    ",fill=TRUE,file="R/Bugs_trend.txt")
-
-#run model
-source('R/BUGS_misc_functions.R')
-
-#specify parameters to monitor
-params <- c("int","trend")
-
-inits <- function(){
-  list(int = rnorm(1,0,0.1), trend= rnorm(1,0,0.1))}
-
-#run model
-out1 <- jags(bugs.data, inits=inits, params, "R/Bugs_trend.txt", n.thin=nt,
-             n.chains=3, n.burnin=1000,n.iter=5000,parallel=T)
-
-#return predictions
-return(data.frame(trend=out1$mean$trend,trend_sd=out1$sd$trend))
-
-}
-
-#####################################################################
-
-#fit to each stage and state
-
-trendEstimates <- ddply(allTrends,.(Species,state,stage),
-                        function(x){
-                          fitTrends(x)
-                          })
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ######################################################################
 
@@ -110,72 +8,208 @@ trendEstimates <- ddply(allTrends,.(Species,state,stage),
 load("alltraits.RData")
 #limit to those with complete cases?
 
+load("trendEstimates.RData")
+
 #########################################################################
 
 #plot of traits vs trends
-trendEstimate <- merge(trendEstimates,alltraits,by="Species")
+trendEstimates <- merge(trendEstimates,alltraits,by="Species")
 
 #temperature preference plot
-ggplot(trendEstimate,aes(x=TMean,y=trend))+
+ggplot(trendEstimates,aes(x=TMean,y=trend))+
   geom_point()+
-  facet_wrap(state~stage)
+  facet_wrap(State~Stage)
 
-ggplot(trendEstimate,aes(x=TMean,y=trend))+
-  geom_point(aes(colour=state,shape=stage))+
-  stat_smooth(method="gam")
+summary(lm(trend~TMean,data=subset(trendEstimates,Stage=="adult"),
+                                   weights=1/trend_sd))#sig, temp mean higher tends
+#positive effect
 
 #habitat preference
-ggplot(trendEstimate,aes(x=Habitat.y,y=trend))+
+ggplot(trendEstimates,aes(x=Habitat.y,y=trend))+
   geom_boxplot()+
-  facet_wrap(state~stage)
+  facet_wrap(State~Stage)
+
+summary(lm(trend~Habitat.y,data=subset(trendEstimates,Stage=="adult"),
+           weights=1/trend_sd))#sig - running, higher trends
 
 #range size
-ggplot(trendEstimate,aes(x=nuEuroGrids,y=trend))+
+ggplot(trendEstimates,aes(x=nuEuroGrids,y=trend))+
   geom_point()+
-  facet_wrap(state~stage)
+  facet_wrap(State~Stage)
+
+summary(lm(trend~nuEuroGrids,data=subset(trendEstimates,Stage=="adult"),
+           weights=1/trend_sd))#ns
 
 #generation time
-ggplot(trendEstimate,aes(x=development.time..mean.,y=trend))+
+ggplot(trendEstimates,aes(x=development.time..mean.,y=trend))+
   geom_point()+
-  facet_wrap(state~stage)
+  facet_wrap(State~Stage)
 
-ggplot(trendEstimate,aes(x=development.time..mean.,y=trend))+
-  geom_point(aes(colour=state,shape=stage))
+summary(lm(trend~development.time..mean.,data=subset(trendEstimates,Stage=="adult"),
+           weights=1/trend_sd))#marginal
+
+
+####################################################################
+
+#plot trait vs trends
+q1<-ggplot(subset(trendEstimates,Stage=="adult"),aes(x=TMean,y=trend,colour=State))+
+  geom_point()+
+  theme_bw()+
+  ylab("Population trend")+xlab("Temperature preference")+
+  facet_grid(~State)+stat_smooth(method="lm")+
+  theme(legend.position="none")
+q2<-ggplot(subset(trendEstimates,Stage=="adult"),aes(x=Habitat.y,y=trend,fill=State))+
+  geom_boxplot()+
+  theme_bw()+
+  ylab("Population trend")+xlab("Habitat preference")+
+  facet_grid(~State)+
+  theme(legend.position="none")
+q3<-ggplot(subset(trendEstimates,Stage=="adult"),aes(x=total,y=trend,colour=State))+
+  geom_point()+
+  theme_bw()+
+  ylab("Population trend")+xlab("Range size (Germany)")+
+  facet_grid(~State)+stat_smooth(method="lm")+
+  theme(legend.position="none")
+q4<-ggplot(subset(trendEstimates,Stage=="adult"),aes(x=nuEuroGrids,y=trend,colour=State))+
+  geom_point()+
+  theme_bw()+
+  ylab("Population trend")+xlab("Range size (Europe)")+
+  facet_grid(~State)+stat_smooth(method="lm")+
+  theme(legend.position="none")
+q5<-ggplot(subset(trendEstimates,Stage=="adult"),aes(x=development.time..mean.,y=trend,colour=State))+
+  geom_point()+
+  theme_bw()+
+  ylab("Population trend")+xlab("Development time")+
+  facet_grid(~State)+stat_smooth(method="lm")+
+  theme(legend.position="none")
+q6<-ggplot(subset(trendEstimates,Stage=="adult"),aes(x=wing_size,y=trend,colour=State))+
+  geom_point()+
+  theme_bw()+
+  ylab("Population trend")+xlab("Wing length")+
+  facet_grid(~State)+stat_smooth(method="lm")+
+  theme(legend.position="none")
+
+library(cowplot)
+plot_grid(q1,q2,q3,q4,q5,q6,align="v",ncol=1)
+
+library(gridExtra)
+grid.arrange(q5,q6,ncol=1)
 
 #####################################################################
 
-#write a bugs model to test interaction between traits and trends
-cat("
-  model{
+#load and merge with random communities
+load("randomMatrix.RData")
+randomMatrixM<-melt(randomMatrix,id=c("State","Year","Species"))
+randomMatrixM<-arrange(randomMatrixM,Species,Year,State)
+randomMatrixM$Species[!randomMatrixM$Species %in% alltraits$Species]
+randomTrends <- merge(randomMatrixM,alltraits,by="Species")
 
-  #give indices with error
-  for(i in 1:n.species){
-    for(t in 1:n.year){
-      actPop[i,t] ~ dnorm(Index[i,t],SE[i,t])
-    }
-  }
-
-  #fit traits model
-  for(i in 1:n.species){
-    for(t in 1:n.year){
-      actPop[i,t] ~ dnorm(expPop[i,t],error[i,t])
-      #linear predictor
-      expPop[i,t] <- int + 
-                    year[t] + 
-                    inprod(beta[],traitsDF[species[i],]) + 
-                    year[t] * inprod(betaInt[],traitsDF[species[i],])      
-
-   for(i in 1:n.covs){
-      beta[i] ~ dnorm(0,0.1)
-   }
+randomTrends$State <- as.factor(randomTrends$State)
+levels(randomTrends$State)<-c("Bavaria","North Rhine-Westphalia","Saarland","Saxony","Schleswig Holstein")
 
 
-   for(i in 1:n.covs){
-      betaInt[i] ~ dnorm(0,0.1)
-    }
+#get average traits value per state and year
+#tmean
+tmeansMeans <- ddply(randomTrends,.(State,Year,variable),summarise,
+                     tmean = weighted.mean(TMean,value))
+tmeansMeans <- ddply(tmeansMeans,.(State,Year),summarise,
+                     my.mean = mean(tmean),
+                     lowerCI = quantile(tmean,0.025),
+                     upperCI=quantile(tmean,0.975))
+q1<-ggplot(tmeansMeans)+
+  geom_line(aes(x=Year,y=my.mean,colour=State))+
+  geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI,fill=State),alpha=0.3)+
+  theme_bw()+
+  ylab("Temperature preference")+
+  facet_grid(~State)+
+  theme(legend.position="none")
+
+#german distribution
+tmeansMeans <- ddply(randomTrends,.(State,Year,variable),summarise,
+                     tmean = weighted.mean(total,value))
+tmeansMeans <- ddply(tmeansMeans,.(State,Year),summarise,
+                     my.mean = mean(tmean),
+                     lowerCI = quantile(tmean,0.025),
+                     upperCI=quantile(tmean,0.975))
+
+q2<-ggplot(tmeansMeans)+
+  geom_line(aes(x=Year,y=my.mean,colour=State))+
+  geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI,fill=State),alpha=0.3)+
+  theme_bw()+
+  ylab("Geographic range (Germany)")+
+  facet_grid(~State)+
+  theme(legend.position="none")
+
+#european distribution
+tmeansMeans <- ddply(randomTrends,.(State,Year,variable),summarise,
+                     tmean = weighted.mean(nuEuroGrids,value))
+tmeansMeans <- ddply(tmeansMeans,.(State,Year),summarise,
+                     my.mean = mean(tmean),
+                     lowerCI = quantile(tmean,0.025),
+                     upperCI=quantile(tmean,0.975))
+
+q3<-ggplot(tmeansMeans)+
+  geom_line(aes(x=Year,y=my.mean,colour=State))+
+  geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI,fill=State),alpha=0.3)+
+  theme_bw()+
+  ylab("Geographic range (Europe)")+
+  facet_grid(~State)+
+  theme(legend.position="none")
+
+#habitat preference
+randomTrends$Habitat.y <- ifelse(randomTrends$Habitat.y=="Standing",0,1)
+tmeansMeans <- ddply(randomTrends,.(State,Year,variable),summarise,
+                     tmean = weighted.mean(Habitat.y,value))
+tmeansMeans <- ddply(tmeansMeans,.(State,Year),summarise,
+                     my.mean = mean(tmean),
+                     lowerCI = quantile(tmean,0.025),
+                     upperCI=quantile(tmean,0.975))
+
+q4<-ggplot(tmeansMeans)+
+  geom_line(aes(x=Year,y=my.mean,colour=State))+
+  geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI,fill=State),alpha=0.3)+
+  theme_bw()+
+  ylab("Habitat preference (lotic v lentic)")+
+  facet_grid(~State)+
+  theme(legend.position="none")
+
+#development time
+tmeansMeans <- ddply(randomTrends,.(State,Year,variable),summarise,
+                     tmean = weighted.mean(development.time..mean.,value,na.rm=T))
+tmeansMeans <- ddply(tmeansMeans,.(State,Year),summarise,
+                     my.mean = mean(tmean),
+                     lowerCI = quantile(tmean,0.025),
+                     upperCI=quantile(tmean,0.975))
+
+q5<-ggplot(tmeansMeans)+
+  geom_line(aes(x=Year,y=my.mean,colour=State))+
+  geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI,fill=State),alpha=0.3)+
+  theme_bw()+
+  ylab("Development time")+
+  facet_grid(~State)+
+  theme(legend.position="none")
 
 
-    }
-    ",fill=TRUE,file="R/BUGS_sparta.txt")
+#wing length
+tmeansMeans <- ddply(randomTrends,.(State,Year,variable),summarise,
+                     tmean = weighted.mean(wing_size,value,na.rm=T))
+tmeansMeans <- ddply(tmeansMeans,.(State,Year),summarise,
+                     my.mean = mean(tmean),
+                     lowerCI = quantile(tmean,0.025),
+                     upperCI=quantile(tmean,0.975))
 
-######################################################################
+q6<-ggplot(tmeansMeans)+
+  geom_line(aes(x=Year,y=my.mean,colour=State))+
+  geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI,fill=State),alpha=0.3)+
+  theme_bw()+
+  ylab("Wing length")+
+  facet_grid(~State)+
+  theme(legend.position="none")
+
+library(cowplot)
+plot_grid(q1,q2,q3,q4,q5,q6,align="v",ncol=1)
+
+library(gridExtra)
+grid.arrange(q5,q6,ncol=1)
+
+############################################################################

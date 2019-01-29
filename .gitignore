@@ -2,3 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+plots/*
+raw-data/*
+derived-data/*
+model-outputs/*
