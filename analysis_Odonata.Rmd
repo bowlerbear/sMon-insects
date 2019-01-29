@@ -25,7 +25,10 @@ Select state for analysis
 ```{r}
 
 state = "SH"
-state = "Sa"
+#state = "Sa"
+#state = "Bav"
+#state = "NRW"
+#state = "Sax"
 
 ```
 
@@ -118,7 +121,10 @@ Identify species seen in 25% of years
 ```{r}
 
 mainSpecies <- outSummary$Species[outSummary$nuYears > (length(unique(df$Year))/4)]
+mainSpeciesDF <- data.frame(TaskID=1:length(mainSpecies),Species=mainSpecies)
 mainSpecies
+
+write.table(mainSpeciesDF,file=paste0("speciesTaskID_juv_",state,".txt"),sep="\t",row.names=FALSE)
 
 ```
 
@@ -155,6 +161,7 @@ Pull out 20 most common Species
 outSummary <- arrange(outSummary,desc(nuRecs))
 (mySpecies <- outSummary$Species[1:20])
 outSummary$nuRecs[1:20]
+write.table(data.frame(Species=mainSpecies),file=paste0("mainSpecies_juvs_",state,".txt"),sep="\t") 
 
 ```
 
@@ -191,7 +198,7 @@ load(paste0("model-outputs/out_nuRecords_juveniles_",state,".RData"))
 out2 <- combineModels(out)
 outTrends <- getBUGSfits(out2,param="psi.fs") 
 
-save(outTrends,file=paste0("outTrends_nuRecords_juveniles_",state,".RData"))
+save(outTrends,file=paste0("outTrends_nuRecords_juv_",state,".RData"))
 
 ```
 

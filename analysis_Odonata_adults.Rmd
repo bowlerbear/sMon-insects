@@ -24,10 +24,11 @@ Select state for analysis
 
 ```{r}
 
-state = "SH"
 state = "Sa"
-state = "Bav"
-
+#state = "SH"
+#state = "Bav"
+#state = "NRW"
+#state = "Sax"
 ```
 
 
@@ -100,8 +101,6 @@ dataDiagnostics(taxa= as.character(df$Species),
                 site= as.character(df$MTB_Q), 
                 time_period = df$Date)
 
-#only list length increase over times and not number of records
-
 ```
 
 Summary info per species
@@ -121,7 +120,10 @@ Identify species seen in 25% of years
 ```{r}
 
 mainSpecies <- outSummary$Species[outSummary$nuYears > (length(unique(df$Year))/4)]
+mainSpeciesDF <- data.frame(TaskID=1:length(mainSpecies),Species=mainSpecies)
 mainSpecies
+
+write.table(mainSpeciesDF,file=paste0("speciesTaskID_adult_",state,".txt"),sep="\t",row.names=FALSE)
 
 ```
 
@@ -163,6 +165,7 @@ outSummary$nuRecs[1:20]
 ```
 
 Run model with effort with all effort terms
+
 ```{r}
 
 #run out each species
@@ -188,6 +191,11 @@ save(out,file=paste0("out_nuRecords_adults_",state,".RData"))
 
 ```
 
+Individuals fits
+```{r}
+out <- fitBugs(mySpecies="Cordulia aenea")
+
+```
 
 Get models and save annual indicies
 
@@ -197,6 +205,6 @@ load(paste0("model-outputs/out_nuRecords_adults_",state,".RData"))
 out2 <- combineModels(out)
 outTrends <- getBUGSfits(out2,param="psi.fs") 
 
-save(outTrends,file=paste0("outTrends_nuRecords_adults_",state,".RData"))
+save(outTrends,file=paste0("outTrends_nuRecords_adult_",state,".RData"))
 
 ```
