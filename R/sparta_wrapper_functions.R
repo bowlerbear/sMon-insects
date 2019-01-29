@@ -261,7 +261,124 @@ fitBugs<-function(mySpecies,effort="nuSpecies",modelfile="R/BUGS_sparta.txt"){
   
   #run model
   out1 <- jags(bugs.data, inits=inits, params, modelfile, n.thin=nt,
-               n.chains=3, n.burnin=2000,n.iter=10000,parallel=T)
+               n.chains=3, n.burnin=25000,n.iter=100000,parallel=T)
   
   return(out1)
 }
+
+
+
+fitTrends <- function(df){
+  
+
+  #combine for a bugs model
+  bugs.data<-list(
+    Index = df$mean,
+    SE = df$sd,
+    n.year = nrow(df))
+  
+  
+  #write a bugs model to estimate trends
+  cat("
+      model{
+      
+      #give indices with error
+      for(t in 1:n.year){
+      tau[t] <- pow(SE[t],-2)
+      Index[t] ~ dnorm(actPop[t],tau[t])
+      }
+      
+      #fit traits model
+      int ~ dnorm(0,0.01)
+      trend ~ dnorm(0,0.01)
+      error ~ dunif(0,10)
+      
+      #fit model
+      for(t in 1:n.year){
+      actPop[t] ~ dnorm(expPop[t],error)
+      #linear predictor
+      expPop[t] <- int + trend  * t  
+      }
+      
+      
+      }
+      ",fill=TRUE,file="R/Bugs_trend.txt")
+  
+  #run model
+  source('R/BUGS_misc_functions.R')
+  
+  #specify parameters to monitor
+  params <- c("int","trend")
+  
+  inits <- function(){
+    list(int = rnorm(1,0,0.1), trend= rnorm(1,0,0.1))}
+  
+  #run model
+  out1 <- jags(bugs.data, inits=inits, params, "R/Bugs_trend.txt", n.thin=nt,
+               n.chains=3, n.burnin=1000,n.iter=5000,parallel=T)
+  
+  #return predictions
+  return(data.frame(trend=out1$mean$trend,trend_sd=out1$sd$trend,lowerCI=out1$q2.5$trend,
+         upperCI=out1$q97.5$trend))
+  
+}
+
+
+fitTrendsBeta <- function(df){
+  
+  
+  #combine for a bugs model
+  bugs.data<-list(
+    Index = df$mean,
+    SE = df$sd,
+    n.year = nrow(df))
+  
+  
+  #write a bugs model to estimate trends
+  cat("
+      model{
+      
+      #give indices with error
+      for(t in 1:n.year){
+      tau[t] <- pow(SE[t],-2)
+      Index[t] <- ilogit(iIndex[t])
+      iIndex[t] ~ dnorm(actPop[t],logit(tau[t]))
+      }
+      
+      #fit traits model
+      int ~ dnorm(0,0.1)
+      trend ~ dnorm(0,0.1)
+      phi ~ dgamma(.1,.1)
+
+      #fit model
+      for(t in 1:n.year){
+      actPop[t] ~ dbeta(alpha[t], beta[t]) T(0.0001,0.9999)
+      alpha[t] <- mu[t] * phi
+      beta[t]  <- (1-mu[t]) * phi
+      #linear predictor
+      logit(mu[t]) <- int + trend * t 
+      }
+      
+      
+      }
+      ",fill=TRUE,file="R/Bugs_trend.txt")
+  
+  #run model
+  source('R/BUGS_misc_functions.R')
+  
+  #specify parameters to monitor
+  params <- c("int","trend")
+  
+  inits <- function(){
+    list(int = rnorm(1,0,0.1), trend= rnorm(1,0,0.1))}
+  
+  #run model
+  out1 <- jags(bugs.data, inits=inits, params, "R/Bugs_trend.txt", n.thin=nt,
+               n.chains=3, n.burnin=1000,n.iter=5000,parallel=T)
+  
+  #return predictions
+  return(data.frame(trend=out1$mean$trend,trend_sd=out1$sd$trend,lowerCI=out1$q2.5$trend,
+         upperCI=out1$q97.5$trend))
+  
+}
+

@@ -1,24 +1,27 @@
 
-    model{
-    
-    #give indices with error
-      for(t in 1:n.year){
-      tau[t] <- 1/SE[t]^2
-        Index[t] ~ dnorm(actPop[t],tau[t])
-      }
-    
-    #fit traits model
-    int ~ dnorm(0,0.01)
-    trend ~ dnorm(0,0.01)
-    error ~ dunif(0,10)
-
-    #fit model
-    for(t in 1:n.year){
-      actPop[t] ~ dnorm(expPop[t],error)
-      #linear predictor
-      expPop[t] <- int + trend  * t  
-    }
+      model{
       
-    
-    }
-    
+      #give indices with error
+      for(t in 1:n.year){
+      tau[t] <- pow(SE[t],-2)
+      Index[t] <- ilogit(iIndex[t])
+      iIndex[t] ~ dnorm(logit(actPop[t]),logit(tau[t]))
+      }
+      
+      #fit traits model
+      int ~ dnorm(0,0.1)
+      trend ~ dnorm(0,0.1)
+      phi ~ dgamma(.1,.1)
+
+      #fit model
+      for(t in 1:n.year){
+      actPop[t] ~ dbeta(alpha[t], beta[t]) T(0.0001,0.9999)
+      alpha[t] <- mu[t] * phi
+      beta[t]  <- (1-mu[t]) * phi
+      #linear predictor
+      logit(mu[t]) <- int + trend * t 
+      }
+      
+      
+      }
+      

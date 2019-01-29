@@ -7,19 +7,20 @@ cat("
   for (i in 1:nsite){ 
     for (t in 1:nyear){
       z[i,t] ~ dbern(muZ[i,t]) 
-      logit(muZ[i,t])<- a[t] + eta[i] # year as a fixed factor and site as a random factor
-      #logit(muZ[i,t])<- trend.int + trend.year * t + eta[i] # trend model
+      logit(muZ[i,t])<- a[t] + eta[i] 
     }
   }   
   
   ### Observation Model
   for(j in 1:nvisit) {
     y[j] ~ dbern(Py[j]) #data is Y
-    Py[j]<- z[site[j],year[j]]*p[j] #probability to detect = prob of occ * prob of detection
+    Py[j]<- z[site[j],year[j]]*p[j] 
 
     #detection model:
-    logit(p[j]) <-  a.p[year[j]] + phenol.p * yday[j]/10 + phenol2.p * pow(yday[j]/10, 2) + 
-                    effort.p * Effort[j] 
+    logit(p[j]) <-  a.p[year[j]] + 
+                    phenol.p * yday[j]/10 + phenol2.p * pow(yday[j]/10, 2) + 
+                    effort.p * Effort[j] +
+                    eta.p[site[j]]
     } 
   
   # Derived parameters
@@ -66,7 +67,6 @@ cat("
     for (i in 1:nsite) {
     eta.p[i] ~ dnorm(0, tau.eta.p)            
     }
-
     tau.eta.p <- 1 / (sd.eta.p * sd.eta.p)                 
     sd.eta.p ~ dunif(0,10) 
 
@@ -77,7 +77,5 @@ cat("
     phenol2.p ~ dnorm(0, 0.001)
     effort.p ~ dnorm(0, 0.001)
     effort_2.p ~ dnorm(0, 0.001)
-    expert.p ~ dnorm(0, 0.001)
-    ss.p ~ dnorm(0,0.001)
   }
     ",fill=TRUE,file="R/BUGS_sparta.txt")
