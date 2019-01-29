@@ -15,7 +15,7 @@ Read in data frame
 
 datafile <- read.csv("raw-data/Libellen_Schleswig-Holstein.csv",as.is=T)
 
-source('~/winhome/dbowler/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ```
 
@@ -63,6 +63,8 @@ Restrict to juvenile sampling
 
 ```{r}
 
+table(datafile$VERH)
+
 datafile <- subset(datafile, VERH %in% 
                      c("E","FI","L"))
 
@@ -106,7 +108,7 @@ gridRichness <- ddply(datafile,.(MTB_Q),summarise,
                     nuDates = length(unique(Date)))
 
 summary(gridRichness$nuSpecies)
-#1 to 46!!!
+#1 to 32!!!
 
 qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
 #the more records, the more species
@@ -128,7 +130,6 @@ samplingSites <- ddply(datafile,. (Date,MTB_Q),summarise,
 nuLocations=length(unique(interaction(lon,lat))))
 
 summary(samplingSites$nuLocations)
-
 
 #only one lat lon per grid  -  basically the centroid
 
@@ -210,6 +211,7 @@ juv_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
                            "Richness","lon","lat","Beobachter","ANZAHL")]
 names(juv_datafile)[which(names(juv_datafile)=="ANZAHL")] <- "Anzahl_min"
 save(juv_datafile,file="derived-data/juv_datafile_SH.RData")
+saveRDS(juv_datafile,file="derived-data/juv_datafile_SH.rds")
 
 ```
 

@@ -104,7 +104,7 @@ unique(datafile$es)
 #JU = juvenule
 #LK = Larvae
 #EX = Exuviae
-#EI + Ei
+#EI = Ei
 #TA = Totfund Adult
 #TL = Totfund Larvae
 #FR = not useful..
@@ -113,10 +113,10 @@ unique(datafile$es)
 table(datafile$es)
 
 #restrict to adults
-datafile <- subset(datafile, es %in% c("AD"))
+#datafile <- subset(datafile, es %in% c("AD"))
 
 #or restrict to juvenles
-#datafile <- subset(datafile, es %in% c("EI","EX","JU","LK"))
+datafile <- subset(datafile, es %in% c("EI","EX","JU","LK"))
 
 
 ```
@@ -154,7 +154,6 @@ surveys <- ddply(datafile,.(MTB_Q,Date,Year,Month,yday),summarise,
 library(GGally)
 ggpairs(surveys[,5:9])
 
-
 ```
 
 Characterize the total richness found in each grid:
@@ -178,7 +177,7 @@ gridRichness <- ddply(datafile,.(MTB_Q),summarise,
                     nuDates = length(unique(Date)))
 
 summary(gridRichness$nuSpecies)
-#1 to 54
+#1 to 31
 
 qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
 #the more records, the more species
@@ -196,7 +195,7 @@ samplingSites <- ddply(datafile,. (Date,MTB_Q),summarise,
 nuLocations=length(unique(interaction(lon,lat))))
 
 summary(samplingSites$nuLocations)
-#between 1 and 30!!
+#between 1 and 16!
 
 #add to the data frame
 datafile$samplingSites <- samplingSites$nuLocations[match(interaction(datafile$Date,datafile$MTB_Q),
@@ -255,7 +254,10 @@ hist(log(expertise$Level))
 arrange(expertise,desc(Level))
 
 expertise$Level[expertise$Beobachter=="keine Zuordnung mglich"]<-1
-expertise$Level[expertise$Beobachter=="sonstige Gutachten oder Auftragskartierungen"]<-1
+expertise$Level[expertise$Beobachter=="sonstige Gutachten oder 
+                Auftragskartierungen"]<-1
+expertise$Level[expertise$Beobachter=="eigene Erhebungen (Privatperson)"]<-1
+expertise$Level[expertise$Beobachter=="sonstige Artenhilfsprogramme (AHP)"]<-1
 
 ```
 
@@ -280,11 +282,11 @@ Save data
 
 ```{r}
 
-adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
+juv_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
                            "Richness","lon","lat","Beobachter","zahl")]
-names(adult_datafile)[which(names(adult_datafile)=="zahl")] <- "Anzahl_min"
-save(adult_datafile,file="derived-data/adult_datafile_Bav.RData")
-saveRDS(adult_datafile,file="derived-data/adult_datafile_Bav.rds")
+names(juv_datafile)[which(names(juv_datafile)=="zahl")] <- "Anzahl_min"
+save(juv_datafile,file="derived-data/juv_datafile_Bav.RData")
+saveRDS(juv_datafile,file="derived-data/juv_datafile_Bav.rds")
 
 ```
 

@@ -15,7 +15,7 @@ Read in data frame
 
 datafile <- read.csv("raw-data/Trockur_Saarl_2018_1.csv",as.is=T)
 
-source('~/winhome/dbowler/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ```
 
@@ -119,7 +119,7 @@ gridRichness <- ddply(datafile,.(MTB_Q),summarise,
                     nuDates = length(unique(Date)))
 
 summary(gridRichness$nuSpecies)
-#1 to 46!!!
+#1 to 49!!!
 
 qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
 #the more records, the more species
@@ -227,7 +227,8 @@ Save juvenile and adult data separately
 adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
                            "Richness","lon","lat","Beobachter","Adult")]
 names(adult_datafile)[which(names(adult_datafile)=="Adult")] <- "Anzahl_min"
-save(adult_datafile,file="derived-data/adult_datafile.RData")
+save(adult_datafile,file="derived-data/adult_datafile_Sa.RData")
+saveRDS(adult_datafile,file="derived-data/adult_datafile_Sa.rds")
 
 ```
 

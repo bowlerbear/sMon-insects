@@ -4,17 +4,17 @@ library(plyr)
 ###########################################################################################
 
 #get total specieslist
-species <- read.delim("traits/specieslist_odonata.txt",as.is=T)
+species <- read.delim("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Insects/traits/specieslist_odonata.txt",as.is=T)
 
 ###########################################################################################
 
 #get new atlas traits data data
-traits1<- read.csv("traits/10750_2017_3495_MOESM1_ESM.csv",as.is=T)
+traits1<- read.csv("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Insects/traits/10750_2017_3495_MOESM1_ESM.csv",as.is=T)
 traits1$species <- traits1$Species
 traits1$Species <- paste(traits1$Genus,traits1$Species)
 
 #get new atlas distribution data
-atlas <- read.csv("traits/10750_2017_3495_MOESM2_ESM.csv",as.is=T)
+atlas <- read.csv("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Insects/traits/10750_2017_3495_MOESM2_ESM.csv",as.is=T)
 #make sure first letter is a capital
 firstup <- function(x) {
   substr(x, 1, 1) <- toupper(substr(x, 1, 1))

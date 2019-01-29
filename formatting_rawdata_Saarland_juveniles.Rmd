@@ -15,7 +15,7 @@ Read in data frame
 
 datafile <- read.csv("raw-data/Trockur_Saarl_2018_1.csv",as.is=T)
 
-source('~/winhome/dbowler/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ```
 
@@ -123,7 +123,7 @@ gridRichness <- ddply(datafile,.(MTB_Q),summarise,
                     nuDates = length(unique(Date)))
 
 summary(gridRichness$nuSpecies)
-#1 to 46!!!
+#1 to 36!!!
 
 qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
 #the more records, the more species
@@ -145,10 +145,6 @@ samplingSites <- ddply(datafile,. (Date,MTB_Q),summarise,
 nuLocations=length(unique(interaction(lon,lat))))
 
 summary(samplingSites$nuLocations)
-
-#bound extreme value
-quantile(samplingSites$nuLocations,0.975)
-samplingSites$nuLocations[samplingSites$nuLocations>as.numeric(quantile(samplingSites$nuLocations,0.975))] <- as.numeric(quantile(samplingSites$nuLocations,0.975))
 
 ```
 
@@ -173,7 +169,7 @@ obsRichness <- ddply(datafile,.(Beobachter),summarise,
                     nuRecs=length(Species))
 
 summary(obsRichness$nuSpecies)
-#1 to 46!!!
+#1 to 53!!!
 
 qplot(log(nuRecs),log(nuSpecies),data=obsRichness)
 
@@ -235,7 +231,8 @@ Save juvenile and adult data separately
 juv_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
                            "Richness","lon","lat","Beobachter","Juv")]
 names(juv_datafile)[which(names(juv_datafile)=="Juv")] <- "Anzahl_min"
-save(juv_datafile,file="derived-data/juv_datafile.RData")
+save(juv_datafile,file="derived-data/juv_datafile_Sa.RData")
+saveRDS(juv_datafile,file="derived-data/juv_datafile_Sa.rds")
 
 ```
 
