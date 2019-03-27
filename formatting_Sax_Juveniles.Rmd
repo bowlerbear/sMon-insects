@@ -15,8 +15,7 @@ Read in data frame
 
 library(rgdal)
 
-datafile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/raw-data/Libellen",
-                    layer="20181122-ZeNA-Libellen-3")
+datafile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/raw-data/Saxony/Libellen", layer="20181122-ZeNA-Libellen-3")
 
 #convert to data frame
 datafile <- datafile@data
@@ -30,6 +29,20 @@ Add species names
 datafile$Species <- datafile$Art_wiss
 
 ```
+
+Check species names against the standard list
+
+```{r}
+specieslist <- read.delim("specieslist_odonata.txt")
+
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+
+#remover genus only
+datafile <- subset(datafile,grepl(" ",Species))
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+
+```
+
 
 Check out geographic coords
 

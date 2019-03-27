@@ -13,7 +13,7 @@ Read in data frame
 
 ```{r}
 
-datafile <- read.csv("raw-data/Libellen_Schleswig-Holstein.csv",as.is=T)
+datafile <- read.csv("raw-data/SH/Libellen_Schleswig-Holstein.csv",as.is=T)
 
 source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
 
@@ -31,6 +31,25 @@ datafile$yday <- yday(datafile$Date)
 datafile$Species <- datafile$species
 datafile$Beobachter <- datafile$ERFNAME
 datafile$Fundort <- datafile$Name.1
+
+```
+
+
+Check species names against the standard list
+
+```{r}
+specieslist <- read.delim("specieslist_odonata.txt")
+
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+
+#fix names
+datafile$Species[which(datafile$Species=="Hemianax ephippiger")]<-"Anax ephippiger"
+datafile$Species[which(datafile$Species=="Lestes viridis")]<-"Chalcolestes viridis"
+datafile$Species[which(datafile$Species=="Aeshna isosceles")]<-"Aeshna isoceles"
+datafile$Species[which(datafile$Species=="Enallagma Charpentier")]<-"Enallagma cyathigerum"
+datafile<- subset(datafile, Species!="PF Sympetrum")
+
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
 
 ```
 

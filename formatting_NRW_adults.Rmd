@@ -13,7 +13,7 @@ Read in data frame
 
 ```{r}
 
-datafile <- read.csv("raw-data/rohdaten_aklnrw_an_idiv_181116/data-1542363531429.csv",as.is=T)
+datafile <- read.csv("raw-data/NRW/rohdaten_aklnrw_an_idiv_181116/data-1542363531429.csv",as.is=T)
 nrow(datafile)#177205
 
 ```
@@ -21,15 +21,26 @@ nrow(datafile)#177205
 Add species names
 
 ```{r}
-speciesDF <- read.csv("raw-data/rohdaten_aklnrw_an_idiv_181116/reflibellenarten.csv",as.is=T)
+speciesDF <- read.csv("raw-data/NRW/rohdaten_aklnrw_an_idiv_181116/reflibellenarten.csv",as.is=T)
 datafile$Species <- speciesDF$wiss_name[match(datafile$art,speciesDF$art_id)]
 
+```
+
+Check species names against the standard list
+
+```{r}
+specieslist <- read.delim("specieslist_odonata.txt")
+
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+datafile$Species[which(datafile$Species=="Lestes viridis")]<-"Chalcolestes viridis"
+
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
 ```
 
 Check out geographic coords
 
 ```{r}
-geoDF <- read.csv("raw-data/rohdaten_aklnrw_an_idiv_181116/reffundortart.csv",as.is=T)
+geoDF <- read.csv("raw-data/NRW/rohdaten_aklnrw_an_idiv_181116/reffundortart.csv",as.is=T)
 
 datafile$fundortart <- geoDF$erlaeuterung[match(datafile$fundortart,geoDF$fundortartid)]
 table(datafile$fundortart)

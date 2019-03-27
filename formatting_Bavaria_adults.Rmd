@@ -13,8 +13,17 @@ Read in data frame
 
 ```{r}
 
-datafile <- read.csv("raw-data/ASK_BY_Libellen.csv",as.is=T)
+datafile <- read.csv("raw-data/Bavaria/ASK_BY_Libellen.csv",as.is=T)
 nrow(datafile)#203829
+
+```
+
+Check species names against the standard list
+
+```{r}
+specieslist <- read.delim("specieslist_odonata.txt")
+datafile$Species <- datafile$art
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
 
 ```
 
@@ -76,7 +85,6 @@ Standardize other headings
 
 datafile$MTB_Q <- datafile$quadrant
 datafile$Fundort <-paste(datafile$fuo_gkk_rw,datafile$fuo_gkk_hw)
-datafile$Species <- datafile$art
 datafile$Beobachter <- datafile$projektgattung 
 
 #change coordinates to long lat
