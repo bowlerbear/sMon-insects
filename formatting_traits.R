@@ -111,6 +111,17 @@ alltraits$medHw <- bodysize$medHw[match(alltraits$Species,bodysize$Species)]
 save(alltraits, file="alltraits.RData")
 
 ######################################################################################
+library(gdata)
+
+#traits from Frank Suhling:
+setwd("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Insects/traits/from_Frank_Suhling")
+ftraits <- read.xls("Traits_German_Odonata.xls",skip=2)
+
+#from Domnik
+setwd("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Insects/traits/from_Dominik_Jab")
+zeigerwerte <- read.xls("Zeigerwerte_final.xls")
+
+######################################################################################
 
 #check out missing data
 library(reshape2)
