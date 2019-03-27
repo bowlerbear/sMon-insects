@@ -13,13 +13,30 @@ Read in data frame
 
 ```{r}
 
-datafile <- read.csv("raw-data/Trockur_Saarl_2018_1.csv",as.is=T)
+datafile <- read.csv("raw-data/Saarland/Trockur_Saarl_2018_1.csv",as.is=T)
 
 source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ```
 
-Format data info
+Check species names against the standard list
+
+```{r}
+specieslist <- read.delim("specieslist_odonata.txt")
+
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+
+#remover genus only
+datafile <- subset(datafile,grepl(" ",Species))
+#correct species names
+datafile$Species[which(datafile$Species=="Lestes virens vestalis")]<-"Lestes virens"
+datafile$Species[which(datafile$Species=="Lestes viridis")]<-"Chalcolestes viridis"
+
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+```
+
+
+Format date info
 
 ```{r}
 
