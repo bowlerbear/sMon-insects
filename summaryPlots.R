@@ -67,7 +67,8 @@ adultData$Year <- year(adultData$Date)
 
 #change state labels
 adultData$State <- as.factor(adultData$State)
-levels(adultData$State) <- c("Bavaria","North Rhine-Westphalia","Saarland","Saxony","Schleswig Holstein")
+levels(adultData$State) <- c("Bavaria","North Rhine-Westphalia","Rheinland-Pfalz",
+                             "Saarland","Saxony-Anhalt","Saxony","Schleswig Holstein","Thuringia")
 
 library(lubridate)
 adultData$Date <- as.Date(adultData$Date)
@@ -83,17 +84,9 @@ species<- read.delim("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Insects/traits/s
 adultSpecies <- sort(unique(adultData$Species))
 adultSpecies[!adultSpecies%in%species$Species]
 
-#remove genus
-adultData <- adultData[grepl(" ",adultData$Species),]
-adultData <- subset(adultData, Species!="PF Sympetrum")
-
-adultData$Species[which(adultData$Species=="Lestes viridis")]<-"Chalcolestes viridis"
-adultData$Species[which(adultData$Species=="Lestes virens vestalis")]<-"Lestes virens"
-adultData$Species[which(adultData$Species=="Enallagma Charpentier")]<-"Enallagma cyathigerum"
-adultData$Species[which(adultData$Species=="Aeshna isosceles")]<-"Aeshna isoceles"
-adultData$Species[which(adultData$Species=="Hemianax ephippiger")]<-"Anax ephippiger"
-
 ###############################################################################################
+
+#flight period check:
 
 #for each species, in each state:
 #each lower and upper 10% week of observations
@@ -123,7 +116,7 @@ ggplot(subset(out,Species%in%unique(out$Species)[1:39]))+
 
 ###############################################################################################
 
-#serial dependence
+#serial dependence of observation?
 
 #plot date of first observation for single-list
 #plot date of first observation for all lists
@@ -176,6 +169,8 @@ ggplot(subset(adultData,Year>1979 & Year <2016))+
   coord_flip()
   
 ################################################################################################
+
+#changes in records per year
 
 #per year, for each state,
 #get the number of
@@ -257,7 +252,8 @@ AG <- fortify(germanyMap)
 ggplot()+ geom_polygon(data=AG, aes(long, lat, group = group), colour = "grey", fill=NA)+
   geom_point(data=allDF,aes(x=x,y=y,colour=log(nuRecs)))+
   scale_colour_gradient2(low="red",mid="grey",high="darkblue",midpoint=median(log(allDF$nuRecs)))+
-  xlab("X")+ylab("Y")
+  xlab("X")+ylab("Y")+
+  theme_bw()
 ggsave(filename="plots/Adult_map_effort.png",width=8,height=7)
 ggsave(filename="plots/Juv_map_effort.png",width=8,height=7)
 
@@ -276,8 +272,11 @@ library(ggplot2)
 q1 <- qplot(Year,nuRecs,data=subset(timeSummary,Year>1979),colour=State)+
   geom_line()+
   theme_bw()+
+  scale_y_log10()+
   theme(legend.position="right")+
   ylab("Number of records")
+#ggsave(filename="plots/Adult_timeseries_effort_q1.png",width=5,height=4)
+
 
 #number of species seen per year
 q2 <- qplot(Year,nuSpecies,data=subset(timeSummary,Year>1979),colour=State)+
@@ -316,13 +315,13 @@ ggpairs(timeSummary[,3:6])
 ###############################################################################################
 #get annual indices:
 
-modelFiles <- list.files("model-outputs")
+modelFiles <- list.files("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_modelSummary/5053853")
 modelFiles <- modelFiles[grepl("modelSummary",modelFiles)]
 
 #read in each one
 library(plyr)
 modelSummary <- ldply(modelFiles, function(x){
-  temp <- readRDS(paste("model-outputs",x,sep="/"))
+  temp <- readRDS(paste("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_modelSummary/5053853",x,sep="/"))
   temp$Folder <- x
   return(temp)
 })
@@ -334,8 +333,8 @@ modelSummary$State <- sapply(modelSummary$State,function(x)strsplit(as.character
 
 #extract species information
 modelSummary$Species <- gsub("\\.rds","",modelSummary$File)
-modelSummary$Species <- gsub("out_","",modelSummary$Species)
-modelSummary$Species <- gsub("juv_","",modelSummary$Species)
+modelSummary$Species <- gsub("out_nuSpecies_","",modelSummary$Species)
+#modelSummary$Species <- gsub("juv_","",modelSummary$Species)
 modelSummary$Species <- gsub("adult_","",modelSummary$Species)
 modelSummary$Species <- sapply(modelSummary$Species,function(x){
   if(grepl("_",x)){
@@ -345,10 +344,9 @@ modelSummary$Species <- sapply(modelSummary$Species,function(x){
   }
 })
 
-#in total 74 species
+#in total 73 species
 unique(modelSummary$Species[modelSummary$Stage=="adult"])
-unique(modelSummary$Species[modelSummary$Stage=="juv"])
-
+#unique(modelSummary$Species[modelSummary$Stage=="juv"])
 head(modelSummary)
 
 ##############################################################################################
@@ -356,23 +354,24 @@ head(modelSummary)
 #format state information
 modelSummary$kState <- modelSummary$State
 modelSummary$State <- as.factor(modelSummary$State)
-levels(modelSummary$State)<-c("Bavaria","North Rhine-Westphalia","Saarland","Saxony","Schleswig Holstein")
+levels(modelSummary$State)<-c("Bavaria","North Rhine-Westphalia","Rheinland-Pfalz",
+                              "Saarland","Saxony-Anhalt","Saxony","Schleswig Holstein","Thuringia")
+
+#############################################################################################
+#check Rhat
+
+out <- subset(modelSummary,Rhat > 1.1)
+table(out$State)
+table(out$Species)
+table(out$Param)
 
 ###############################################################################################
 
 #standardize species names
 
 species<- read.delim("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Insects/traits/specieslist_odonata.txt")
-
 modelSpecies <- unique(modelSummary$Species)
-
 modelSpecies[!modelSpecies%in%species$Species]
-
-#only 2 phews..
-#"Lestes viridis"         "Lestes virens vestalis"
-
-modelSummary$Species[which(modelSummary$Species=="Lestes viridis")]<-"Chalcolestes viridis"
-modelSummary$Species[which(modelSummary$Species=="Lestes virens vestalis")]<-"Lestes virens"
 
 ################################################################################################
 
@@ -394,58 +393,17 @@ all<-c(notLC,hd)
 
 modelSummary <- modelSummary[grepl("psi.fs",modelSummary$Param),]
 modelSummary$ParamNu <- as.numeric(sub(".*\\[([^][]+)].*", "\\1", modelSummary$Param))
-modelSummary$Year[modelSummary$Stage =="adult"] <- modelSummary$ParamNu[modelSummary$Stage =="adult"]+1980
-modelSummary$Year[modelSummary$Stage =="juv"] <- modelSummary$ParamNu[modelSummary$Stage =="juv"]+1982
 
-#number of years for each dataset
-tapply(modelSummary$Year,list(modelSummary$Stage,modelSummary$State),function(x)length(unique(x)))
-
-#need to fix this for some species since not counted in every year
-
-#for Saxony, adults - no data for 1992 and  1996
-modelSummary$Year[modelSummary$Stage =="adult" & 
-                    modelSummary$Year>1991 &
-                    modelSummary$State=="Saxony"] <- modelSummary$Year[modelSummary$Stage =="adult"& 
-                                                                    modelSummary$Year>1991&
-                                                                      modelSummary$State=="Saxony"]+1
-
-#for Saxony, adults - no data for 1992 and  1996
-modelSummary$Year[modelSummary$Stage =="adult" & 
-                    modelSummary$Year>1995 &
-                    modelSummary$State=="Saxony"] <- modelSummary$Year[modelSummary$Stage =="adult"& 
-                                                                      modelSummary$Year>1995&
-                                                                      modelSummary$State=="Saxony"]+1
-
-#need to impute missing values for these years..just take mean right now
-modelSummary_Sax_adults <- subset(modelSummary, State=="Saxony" & Stage=="adult")
-#for each species
-model1992 <- ddply(modelSummary_Sax_adults,.(Species),function(x){
-  df <- subset(x,Year %in% c(1991,1993))
-  out<-colMeans(df[,1:7])
-  return(out)
+#get start year for each state
+modelFiles <- list.files("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects")
+modelFiles <- modelFiles[grepl("yearDF_adult",modelFiles)]
+yearDF <- ldply(modelFiles, function(x){
+  temp <- read.delim(paste("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects",x,sep="/"))
+  temp$Folder <- x
+  return(temp)
 })
-model1992$Year <- 1992
-model1996 <- ddply(modelSummary_Sax_adults,.(Species),function(x){
-  df <- subset(x,Year %in% c(1995,1997))
-  out<-colMeans(df[,1:7])
-  return(out)
-})
-model1996$Year <- 1996
-newmodel <- rbind(model1992,model1996)
-newmodel$Stage <- "adult"
-newmodel$State <- "Saxony"
-newmodel$Rhat <- NA
-newmodel$n.eff <- NA
-newmodel$overlap0 <- NA
-newmodel$f <- NA
-newmodel$Param <- NA
-newmodel$File <- NA
-newmodel$Folder <- NA
-newmodel$ParamNu <- NA
-newmodel<-newmodel[,names(modelSummary)]
-modelSummary <- rbind(modelSummary,newmodel)
-
-#need to fix it for juveniles too
+modelSummary$StartYear <- yearDF$Year[match(modelSummary$kState,yearDF$State)]
+modelSummary$Year <- modelSummary$StartYear + modelSummary$ParamNu - 1
 
 ##################################################################################################
 
@@ -484,6 +442,7 @@ ggplot(subset(modelSummary,kState=="Sa" & Stage=="adult"))+
   facet_wrap(~Code)+
   theme_bw()+ ylab("Occupancy")+
   ggtitle("Saarland - Adults")
+ggsave("plots/Saarland_timeseries.png")
 
 ggplot(subset(modelSummary,kState=="Sax" & Stage=="adult"))+
   geom_line(aes(x=Year,y=mean))+
@@ -558,6 +517,8 @@ ggplot(modelSummary2)+
 ################################################################################################
 
 #get population trends per region and species
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+
 
 trendEstimates <- ddply(modelSummary,.(Species,State,Stage),
                         function(x){
@@ -575,7 +536,7 @@ save(trendEstimates,file="trendEstimatesBeta.RData")
 ##############################################################################################
 
 #how many are changing in each lander
-load("trendEstimates.RData")
+load("derived-data/trendEstimates.RData")
 library(reshape2)
 library(ggplot2)
 library(plyr)
@@ -600,13 +561,28 @@ ggplot(trendSummary)+
   theme_bw()+
   coord_flip()
 
+#Change the labels to German
+levels(trendSummary$State)<-c("Bayern","Nordrhein-Westfalen","Rheinland-Pfalz" ,"Saarland",
+                              "Sachsen-Anhalt","Saschen","Schleswig-Holstein","Thuringia")
+
+levels(trendSummary$Trend) <- c("Abnahme","Zunahme","stabil")
+
+ggplot(subset(trendSummary,Stage=="adult"))+
+  geom_bar(aes(x=State,y=value,fill=Trend),stat="identity")+
+  ylab("Anzahl Libellen Arten")+
+  xlab("")+
+  theme_bw()+
+  coord_flip()
+
+ggsave(file="German_Trends.tiff",dpi=300,width=5,height=3)
+
 summary(lm(trend~Stage+State,data=trendEstimates))
 
 ###############################################################################################
 
 #pairwise comparison across lander
 
-load("trendEstimates.RData")
+load("derived-data/trendEstimates.RData")
 
 sortTrends <- dcast(trendEstimates,Species+Stage~State,value.var="trend")
 
@@ -734,5 +710,14 @@ ggplot(euroTrends)+
   coord_flip()+
   theme_bw()+
   xlab("")+ylab("number of species")
+
+############################################################################################
+#thinning records
+z <- coda::as.mcmc.list(out$samples)
+z2 <- window(z, start=601, end=1000)
+summary(z2)
+
+gelman.diag(z2,multivariate=FALSE)
+#Rhat is the potential scale reduction factor (at convergence, Rhat=1).
 
 ############################################################################################
