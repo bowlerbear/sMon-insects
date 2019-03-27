@@ -227,6 +227,18 @@ formatObservers <- function(obs){
   trim(obs)
 }
 
+getSurnames <- function(x){
+  surName <- strsplit(x," ")
+  surNames <- as.character(sapply(surName[[1]],function(x)trim(x)))
+  nu <- length(surNames)
+  return(surNames[nu])
+}
+
+checkDuplicates <- function(observerSurnames){
+  dups <- observerSurnames[duplicated(observerSurnames)]
+  sapply(dups,function(x)observerSurnames[grepl(x,observerSurnames)])
+}
+
 fitBugs<-function(mySpecies,effort="nuSpecies",modelfile="R/BUGS_sparta.txt"){
   
   #organise data
@@ -302,10 +314,10 @@ fitTrends <- function(df){
       
       
       }
-      ",fill=TRUE,file="R/Bugs_trend.txt")
+      ",fill=TRUE,file="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/Bugs_trend.txt")
   
   #run model
-  source('R/BUGS_misc_functions.R')
+  source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/BUGS_misc_functions.R')
   
   #specify parameters to monitor
   params <- c("int","trend")
@@ -314,7 +326,7 @@ fitTrends <- function(df){
     list(int = rnorm(1,0,0.1), trend= rnorm(1,0,0.1))}
   
   #run model
-  out1 <- jags(bugs.data, inits=inits, params, "R/Bugs_trend.txt", n.thin=nt,
+  out1 <- jags(bugs.data, inits=inits, params, "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/Bugs_trend.txt", n.thin=nt,
                n.chains=3, n.burnin=1000,n.iter=5000,parallel=T)
   
   #return predictions
@@ -361,10 +373,10 @@ fitTrendsBeta <- function(df){
       
       
       }
-      ",fill=TRUE,file="R/Bugs_trend.txt")
+      ",fill=TRUE,file="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/Bugs_trend.txt")
   
   #run model
-  source('R/BUGS_misc_functions.R')
+  source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/BUGS_misc_functions.R')
   
   #specify parameters to monitor
   params <- c("int","trend")
@@ -373,7 +385,7 @@ fitTrendsBeta <- function(df){
     list(int = rnorm(1,0,0.1), trend= rnorm(1,0,0.1))}
   
   #run model
-  out1 <- jags(bugs.data, inits=inits, params, "R/Bugs_trend.txt", n.thin=nt,
+  out1 <- jags(bugs.data, inits=inits, params, "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/Bugs_trend.txt", n.thin=nt,
                n.chains=3, n.burnin=1000,n.iter=5000,parallel=T)
   
   #return predictions
