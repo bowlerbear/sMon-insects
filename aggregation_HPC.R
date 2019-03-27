@@ -9,10 +9,10 @@ myfolder <- folderTaskID$Folder[which(folderTaskID$TaskID==task.id)]
 
 #open folder and get list of files within
 folder1 <- paste0("/work/bowler/",myfolder)
-folder2 <- list.files()[1]#should only be one folder in there
+folder2 <- list.files(folder1)[1]#should only be one folder in there
 
 #read in each list and pull out the model summary
-modelFiles <- list.files(paste(folder1,folder2,sep=/))
+modelFiles <- list.files(paste(folder1,folder2,sep="/"))
 library(plyr)
 modelSummary <- ldply(modelFiles, function(x){
   temp <- readRDS(paste(folder1,folder2,x,sep="/"))
