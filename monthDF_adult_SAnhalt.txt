@@ -1,0 +1,2 @@
+"startMonth"	"endMonth"	"State"
+6	8	"SAnhalt"
