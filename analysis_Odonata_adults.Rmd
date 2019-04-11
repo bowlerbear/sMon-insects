@@ -29,9 +29,13 @@ state = "Sa"
 #state = "Bav"
 #state = "NRW"
 #state = "Sax"
+#state="SAnhalt"
+#state="RLP"
+#state="Thu"
+#state="BB"
 ```
 
-
+Read in the dataset
 
 ```{r warning=FALSE}
 
@@ -54,6 +58,10 @@ df$month <- month(df$Date)
 df$day <- yday(df$Date)
 df$Year <- year(df$Date)
 
+#remove records on 1st Jan - prob inaccurate...
+nrow(subset(df,(month==1&day==1)))
+df <- subset(df,!(month==1&day==1))
+
 ```
 
 Step two: remove those with missing date entries
@@ -66,44 +74,153 @@ summary(df)
 
 ```
 
+Look at summary info per species
+
+```{r}
+
+library(plyr)
+outSummary <- ddply(df,.(Species),summarise,
+                     nuRecs=length(unique(Date)),
+                     nuYears=length(unique(Year)),
+                     nuSites=length(unique(MTB_Q)))
+
+arrange(outSummary,nuYears)
+
+```
 
 #Data filtering
 
-Filter one: focus on the months that were most sampled. The results suggest this is between April and September.
+Filter by year
 
-```{r}
+Begin the time series from the first year with reasonable amount of data (i.e., number of records). 1981 seems like a good place to start. Also, we cut off 2017 incase the database is not up-to-date yet.
 
-table(df$month)
-
-df <- subset(df, month %in% c(5:9))
-
-```
-
-Filter two: begin the time series from the first year with reasonable amount of data (i.e., number of records). 1981 seems like a good place to start. Also, we cut off 2017 incase the database is not up-to-date yet.
-
+Start from first year with 50 records 
 ```{r}
 
 table(df$Year)
-df <- subset(df, Year>1980)
-df <- subset(df, Year<2017)
+df <- subset(df,Year>1979 & Year <2018)
+surveyYears <- sort(unique(df$Year))
+#start year is first year 1980 on with >50 records
+possibleYears <- names(table(df$Year))[table(df$Year)>50]
+firstYear <- min(possibleYears)
+otherYears <- surveyYears[surveyYears>firstYear]
+yearDF <- data.frame(Year=as.numeric(as.character(c(firstYear,otherYears))),
+                     State=state)
+write.table(yearDF,file=paste0("yearDF_","adult","_",state,".txt"),
+            sep="\t",row.names=FALSE)
 
 ```
 
-#Data availability/Sampling effort checking
-
-We can look at effort by: total number of records and average number of species seen per sampling day ("list length")
+Remove rarely visited sites?? no
 
 ```{r}
 
-library(sparta)
-
-dataDiagnostics(taxa= as.character(df$Species), 
-                site= as.character(df$MTB_Q), 
-                time_period = df$Date)
+sitesSummary<-ddply(df,.(MTB_Q),summarise,nuYears=length(unique(Year)))
+#df <- subset(df, MTB_Q %in% siteSummary)
 
 ```
 
-Summary info per species
+How much data is there across large scale grids
+```{r}
+
+load("mtbqsDF.RData")
+
+
+
+```
+
+
+#Filter by flight period for each species
+
+Fits a gam for each species
+
+```{r}
+
+#insert 0s for when there was a survey
+
+allSurveys <- expand.grid(Date=unique(df$Date),Species=unique(df$Species))
+df0 <- merge(allSurveys,df,by=c("Species","Date"),all.x=T)
+df0$Anzahl_min[interaction(df0$Date,df0$Species) %in% interaction(df$Date,df$Species)]<-1
+df0$Anzahl_min[!interaction(df0$Date,df0$Species) %in% interaction(df$Date,df$Species)]<-0
+df0$month <- month(df0$Date)
+df0$day <- yday(df0$Date)
+df0$Year <- year(df0$Date)
+
+#look at plots
+library(ggplot2)
+ggplot(df0,aes(x=day,y=Anzahl_min))+
+  stat_smooth(method="loess")+
+  facet_wrap(~Species,scales="free")
+
+
+ggplot(df0,aes(x=day,y=Anzahl_min))+
+  stat_smooth(formula = y ~ poly(x,2),method="glm",method.args = list(family = "binomial"))+
+  facet_wrap(~Species,scales="free")
+
+```
+
+
+Fit a model with cyclic cubic regression splines
+
+```{r}
+library(mgcv)
+df0$fYear <- as.factor(df0$Year)
+df0 <- subset(df0, Species %in% outSummary$Species[outSummary$nuRecs>25])
+out <- ddply(df0,.(Species),function(x){
+             gam1 <- gamm(Anzahl_min ~  1 + s(day, bs="cc"), 
+                          random = list(fYear=~1), 
+                          family=binomial, data=x)
+             fits <- data.frame(day=min(x$day):max(x$day),                              fits=predict(gam1$gam,newdata=data.frame(day=c(min(x$day):max(x$day))),type="response"))
+             return(fits)
+            })
+
+ggplot(out)+
+  geom_line(aes(x=day,y=fits))+
+  facet_wrap(~Species,scales="free")
+
+```
+
+Identify days when species occurence is above 5%
+
+```{r}
+speciesDays <- subset(out,fits>0.01)
+
+ggplot(speciesDays)+
+  geom_point(aes(x=day,y=fits))+
+  facet_wrap(~Species,scales="free")
+
+write.table(speciesDays,file=paste0("speciesDays_adult_",state,".txt"),
+            sep="\t",row.names=FALSE)
+
+```
+
+Look at months when people sample
+
+```{r}
+
+monthSummary <- ddply(df,.(month),summarise,
+                      nuBeobachter=length(unique(Beobachter)),
+                      nuYears=length(unique(Year)),
+                      nuSpecies=length(unique(Species)),
+                      nuVisits=length(Species),
+                      nuMTBQ=length(unique(MTB_Q)))
+monthSummary
+
+#subset to months
+monthSummary <- subset(monthSummary, nuYears > (length(unique(df$Year))*0.5) &
+                         nuMTBQ > (max(monthSummary$nuMTBQ)*0.5))
+monthDF <- data.frame(startMonth = min(monthSummary$month),
+                      endMonth = max(monthSummary$month),
+                      State=state)
+monthDF
+
+write.table(monthDF,file=paste0("monthDF_","adult_",state,".txt"),
+            sep="\t",row.names=FALSE)
+
+```
+
+
+More Summary info per species
 
 ```{r}
 
@@ -111,18 +228,17 @@ library(plyr)
 (outSummary <- ddply(df,.(Species),summarise,
                      nuRecs=length(unique(Date)),
                      nuYears=length(unique(Year)),
-                     nuSites=length(unique(MTB_Q))))
+                     nuSites=length(unique(MTB_Q)),
+                      nuRepeats=length(Anzahl_min)/length(unique(Year))))#repeat obs within a year
 
-```
+#get species seen in 25% of years and species usually seen at least twice
+mainSpecies <- outSummary$Species[(outSummary$nuYears > (length(unique(df$Year))/4)) & (outSummary$nuRepeats>2)]
 
-Identify species seen in 25% of years
+#also those with sufficient data to estimate their phenology
+mainSpecies <- mainSpecies[mainSpecies%in%speciesDays$Species]
 
-```{r}
-
-mainSpecies <- outSummary$Species[outSummary$nuYears > (length(unique(df$Year))/4)]
 mainSpeciesDF <- data.frame(TaskID=1:length(mainSpecies),Species=mainSpecies)
 mainSpecies
-
 write.table(mainSpeciesDF,file=paste0("speciesTaskID_adult_",state,".txt"),sep="\t",row.names=FALSE)
 
 ```
@@ -206,5 +322,19 @@ out2 <- combineModels(out)
 outTrends <- getBUGSfits(out2,param="psi.fs") 
 
 save(outTrends,file=paste0("outTrends_nuRecords_adult_",state,".RData"))
+
+```
+
+
+Model name meaning on HPC
+```{r}
+#out_
+#restrict to common months
+
+#out_flightperiod
+#use any data falling within the species flight period
+
+#our_dynamic
+#separate colonization and persistence
 
 ```
