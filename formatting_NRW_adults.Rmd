@@ -46,7 +46,9 @@ datafile$fundortart <- geoDF$erlaeuterung[match(datafile$fundortart,geoDF$fundor
 table(datafile$fundortart)
 
 #remove those without exact coords??
-datafile <- subset(datafile,fundortart!="Fundort ohne (genaue) Koordinatenangaben")
+#datafile <- subset(datafile,fundortart!="Fundort ohne (genaue) Koordinatenangaben")
+datafile <- subset(datafile,!is.na(r_wert))
+datafile <- subset(datafile,!is.na(h_wert))
 
 ```
 
@@ -100,6 +102,7 @@ nrow(subset(datafile,is.na(yday)))
 nrow(subset(datafile,!is.na(yday)))
 
 datafile <- subset(datafile, !is.na(yday))
+datafile <- subset(datafile,yday!=1)
 
 ```
 
@@ -118,6 +121,7 @@ Sort stage info and restrict to adult
 
 ```{r}
 
+table(datafile$imag_kl)
 datafile <- subset(datafile,imag_kl>0)
 
 ```
@@ -234,6 +238,10 @@ library(gdata)
 
 allObservers <- as.character(sort(unique(datafile$Beobachter)))
 allObservers <- removeGerman(allObservers)
+
+#get double counting of surnames
+#observerSurnames <- sapply(allObservers,getSurnames)
+#checkDuplicates(observerSurnames)
 
 #for each observer, calculate how many records they were involved in collecting
 library(plyr)

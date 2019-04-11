@@ -44,6 +44,8 @@ datafile$Species <- as.character(datafile$ART)
 datafile$Beobachter <- datafile$TLUG_NR
 datafile$Fundort <- datafile$LOKALIT_T
 datafile$MTB_Q <- paste0(as.character(datafile$MTB),as.character(datafile$QUADRANT))
+datafile <- subset(datafile,yday!=1)
+datafile <- subset(datafile,!is.na(yday))
 
 ```
 
@@ -61,7 +63,7 @@ unique(datafile$Species[!datafile$Species%in%specieslist$Species])
 
 ```
 
-Its only presence data - add the NAs for abundance
+Get count information
 
 ```{r}
 
@@ -84,6 +86,15 @@ datafile$lat <- mycoords@coords[,2]
 
 
 ```
+
+Subset to adults
+```{r}
+
+table(datafile$STATUS_K_R)
+datafile <- subset(datafile,STATUS_K_R %in% c("Im","k"))
+
+```
+
 
 Get survey information
 

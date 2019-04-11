@@ -91,6 +91,7 @@ nrow(subset(datafile,is.na(yday)))
 nrow(subset(datafile,!is.na(yday)))
 
 datafile <- subset(datafile, !is.na(yday))
+datafile <- subset(datafile, yday!=1)
 
 ```
 
@@ -110,7 +111,7 @@ Sort stage info and restrict to adult
 
 table(datafile$Einheit)
 
-datafile <- subset(datafile,Einheit %in%c("Alttier/Imago","Kopula"))
+datafile <- subset(datafile,Einheit %in%c("Alttier/Imago","Kopula","Eiablage"))
 
 ```
 

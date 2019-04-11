@@ -31,6 +31,8 @@ datafile$yday <- yday(datafile$Date)
 datafile$Species <- datafile$species
 datafile$Beobachter <- datafile$ERFNAME
 datafile$Fundort <- datafile$Name.1
+datafile <- subset(datafile, yday!=1)
+datafile <- subset(datafile, !is.na(yday))
 
 ```
 
@@ -78,9 +80,10 @@ datafile$ANZAHL[datafile$ANZAHL==0]<-NA
 
 ```
 
-Restrict to juvenile sampling
+Restrict to adult sampling
 
 ```{r}
+table(datafile$VERH)
 
 datafile <- subset(datafile, VERH %in% 
                      c("I","PA","EI"))#imagos, pairs copulating, laying eggs
@@ -202,6 +205,7 @@ arrange(expertise,desc(Level))
 
 #observer called "??????", give token expertise of 1
 expertise$Level[expertise$Beobachter=="??????"]<-1
+expertise$Level[expertise$Beobachter=="1-Mar"]<-1
 
 ```
 

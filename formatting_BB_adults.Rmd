@@ -12,50 +12,68 @@ knitr::opts_chunk$set(echo = TRUE)
 Read in data frame
 
 ```{r}
-library(rgdal)
-datafile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/raw-data/Saschen-Anhalt/Libellen_DatenbankLAU_Gesamt_20190208",
-                    layer="Libellen_DatenbankLAU_Gesamt_20190208")
 
-#"+proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs"
+datafile <- read.csv("raw-data/BB/daten_BB_mtb.csv",as.is=T,header=F)
+nrow(datafile)#122945
+head(datafile)
+
 ```
 
-Convert it into a normal dataframe
+Add in headers
 
 ```{r}
-datafile <- data.frame(datafile@data,datafile@coords)
+
+#strangely the headings are in the middle of the data frame rows
+names(datafile) <- datafile[6301,]
+datafile <- datafile[-6301,]
 
 ```
-
 
 Check species names against the standard list
 
 ```{r}
 specieslist <- read.delim("specieslist_odonata.txt")
-datafile$Species <- datafile$Art_wiss
+datafile$Species <- paste(datafile$GATTUNG,datafile$ART)
 unique(datafile$Species[!datafile$Species%in%specieslist$Species])
-datafile <- subset(datafile, !Species%in% c("- Negativnachweis -",
-                                            "Gomphus spec.",
-                                            "Sympetrum"))
-```
-Fix MTBQ data
 
-```{r}
-
-datafile$MTB_Q <- paste0(as.character(datafile$MTB),as.character(datafile$MTBQ))
+#fix differences
+datafile$Species[which(datafile$Species=="Lestes viridis")]<-"Chalcolestes viridis"
+datafile$Species[which(datafile$Species=="Aeshna subarctica elisabeth")]<-"Aeshna subarctica"
+datafile$Species[which(datafile$Species=="Aeshna subarctica elisabethae")]<-"Aeshna subarctica"
+datafile$Species[which(datafile$Species=="Lestes virens vestalis")]<-"Lestes virens"
+#check all fixed
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
 
 ```
 
 Format data info
 
 ```{r}
+
 library(lubridate)
-datafile$Month <- datafile$Monat
-datafile$Year <- datafile$Jahr
-datafile$Date <-sapply(datafile$Datum,function(x)strsplit(as.character(x)," ")[[1]][1])
-datafile$Date <- as.Date(datafile$Date,format="%d.%m.%Y")
+datafile$Date <- as.Date(datafile$BASIS_datum1,format="%m/%d/%Y")
+datafile$Month <- month(datafile$Date)
+datafile$Year <- year(datafile$Date)
 datafile$yday <- yday(datafile$Date)
-datafile <- subset(datafile,!is.na(yday))
+
+#how many have the 1st Jan as a date
+nrow(subset(datafile,yday==1))
 datafile <- subset(datafile,yday!=1)
+
+```
+
+How does number of sampling years at each square change over time?
+
+```{r, results="asis"}
+
+library(plyr)
+siteFreq <- ddply(datafile,.(mtb,Year),summarise,
+                  nuVisits=length(unique(yday)))
+
+library(ggplot2)
+qplot(Year,nuVisits,data=subset(siteFreq,Year>1980),colour=mtb)+
+  theme(legend.position="none")+
+  scale_y_log10()
 
 ```
 
@@ -63,19 +81,46 @@ Standardize other headings
 
 ```{r}
 
-datafile$Fundort <-paste(datafile$coords.x1,datafile$coords.x2)
-datafile$Beobachter <- as.character(datafile$ID.Observ) 
+datafile$MTB <- sapply(datafile$mtb,function(x)strsplit(x,"\\.")[[1]][1])
+datafile$Q <- sapply(datafile$mtb,function(x)strsplit(x,"\\.")[[1]][2])
+datafile$Q <- sapply(datafile$Q,function(x)substr(x,1,1))
+datafile$MTB_Q <- paste0(datafile$MTB,datafile$Q)
+datafile$Fundort <-datafile$BASIS_ort
+datafile$Beobachter <- datafile$BASIS_beobachter 
 
-#change coordinates to long lat
-#EPSG:31468
-library(sp)
+#how many MTB_Q's are actually MTBs..
+sum(!grepl("\\.",datafile$mtb))#most do
+sum(grepl("\\.",datafile$mtb))
+
+#remove those without a .
+datafile <- datafile[grepl("\\.",datafile$mtb),]
+datafile <- subset(datafile, !is.na(Q))
+
+```
+
+Get lon/lat of MTBs
+
+```{r}
+
 library(rgdal)
-mycoords<- datafile[,c("coords.x1","coords.x1")]
-coordinates(mycoords)<-c("coords.x1","coords.x1")
-proj4string(mycoords)<-CRS("+proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs")
-mycoords <- spTransform(mycoords,CRS("+proj=longlat +datum=WGS84"))
-datafile$lon <- mycoords@coords[,1]
-datafile$lat <- mycoords@coords[,2]
+library(sp)
+mtbqs <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",layer="MTBQ_25833")
+mtbqs <- spTransform(mtbqs,
+CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+mtbqsDF <- data.frame(mtbqs@data,coordinates(mtbqs))
+
+mtbqsDF$Q <- NA
+mtbqsDF$Q[which(mtbqsDF$Quadrant=="NW")]<-1
+mtbqsDF$Q[which(mtbqsDF$Quadrant=="NO")]<-2
+mtbqsDF$Q[which(mtbqsDF$Quadrant=="SW")]<-3
+mtbqsDF$Q[which(mtbqsDF$Quadrant=="SO")]<-4
+mtbqsDF$MTB_Q <- paste0(as.character(mtbqsDF$Value),
+                                 as.character(mtbqsDF$Q))
+
+datafile$lat <- mtbqsDF$X1[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]
+datafile$lon <- mtbqsDF$X2[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]
+summary(datafile$lat)
+summary(datafile$lon)
 
 ```
 
@@ -84,29 +129,25 @@ Sort stage info
 ```{r}
 
 #stage info here
-unique(datafile$Einheit)
-# [1] Alttier/Imago                      Exuvien                           
-# [3] <NA>                               Individuum (unbest. Altersklassen)
-# [5] Emergenz                           Larve                             
-# [7] Jungtier                           Eiablage                          
-# [9] Kopula                             Kokon                             
-#[11] keine Angaben 
+unique(datafile$BASIS_stadium)
+#[1] "Imago"                      "Exuvie"                     "Larve"                     
+#[4] "juvenil, frisch geschlüpft" "juvenil, frischgeschlüpft" 
 
-table(datafile$Einheit)
+table(datafile$BASIS_stadium)
 
 #restrict to adults
-datafile <- subset(datafile, Einheit %in% c("Alttier/Imago","Kopula","Eiablage",
-                                            "Individuum (unbest. Altersklassen)"))
+datafile <- subset(datafile,  BASIS_stadium%in% c("Imago"))
+
 
 ```
 
 
 Sort data columns
+its only presence data
 
 ```{r}
-#there is no abundance data
 
-datafile$Anzahl_min<-NA
+datafile$Anzahl_min <- NA
 
 ```
 
@@ -121,7 +162,6 @@ surveys <- ddply(datafile,.(MTB_Q,Date,Year,Month,yday),summarise,
                  nuObservers = log(length(unique(Beobachter))),
                  nuSpecies = log(length(unique(Species))),
                  nuRecords = log(length(Species)))
-
 
 library(GGally)
 ggpairs(surveys[,5:9])
@@ -150,7 +190,7 @@ gridRichness <- ddply(datafile,.(MTB_Q),summarise,
                     nuDates = length(unique(Date)))
 
 summary(gridRichness$nuSpecies)
-#1 to 39
+#1 to 54
 
 qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
 #the more records, the more species
@@ -165,10 +205,10 @@ Get information on number of sampling locations on a given date
 ```{r}
 
 samplingSites <- ddply(datafile,. (Date,MTB_Q),summarise,
-nuLocations=length(unique(interaction(lon,lat))))
+nuLocations=length(unique(Fundort)))
 
 summary(samplingSites$nuLocations)
-#between 1 and 2, usually 1
+#always 1
 
 #add to the data frame
 datafile$samplingSites <- samplingSites$nuLocations[match(interaction(datafile$Date,datafile$MTB_Q),
@@ -193,7 +233,6 @@ obsRichness <- ddply(datafile,.(Beobachter),summarise,
                     nuRecs=length(Species))
 
 summary(obsRichness$nuSpecies)
-#1 to 44
 
 qplot(log(nuRecs),log(nuSpecies),data=obsRichness)
 
@@ -205,6 +244,7 @@ Characterise average expertise level
 
 ```{r}
 
+
 source('R/sparta_wrapper_functions.R')
 
 #extract duplicates
@@ -212,12 +252,18 @@ library(gdata)
 
 allObservers <- as.character(sort(unique(datafile$Beobachter)))
 allObservers <- removeGerman(allObservers)
+allObservers <- formatObservers(allObservers)
+
+#get double counting of surnames
+#observerSurnames <- sapply(allObservers,getSurnames)
+#checkDuplicates(observerSurnames)
 
 #for each observer, calculate how many records they were involved in collecting
 library(plyr)
 expertise<-ldply(allObservers,function(x){
   Beobachter <- as.character(datafile$Beobachter)
   Beobachter <- removeGerman(Beobachter)
+  Beobachter <- formatObservers(Beobachter)
   Level = sum(Beobachter==x)
   data.frame(Beobachter=x,Level)
 })
@@ -225,6 +271,9 @@ expertise<-ldply(allObservers,function(x){
 hist(log(expertise$Level))  
 
 arrange(expertise,desc(Level))
+
+expertise$Level[expertise$Beobachter=="ANONYMUS"]<-1
+expertise$Level[expertise$Beobachter=="keine Angabe"]<-1
 
 ```
 
@@ -251,8 +300,8 @@ Save data
 
 adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
                            "Richness","lon","lat","Beobachter","Anzahl_min")]
-save(adult_datafile,file="derived-data/adult_datafile_SAnhalt.RData")
-saveRDS(adult_datafile,file="derived-data/adult_datafile_SAnhalt.rds")
+save(adult_datafile,file="derived-data/adult_datafile_BB.RData")
+saveRDS(adult_datafile,file="derived-data/adult_datafile_BB.rds")
 
 ```
 

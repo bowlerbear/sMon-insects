@@ -44,7 +44,8 @@ datafile$Species <- as.character(datafile$art_wiss)
 datafile$Beobachter <- datafile$auftragneh
 datafile$Fundort <- interaction(datafile$X1,datafile$X2)
 datafile$MTB_Q <- datafile$tk_qu
-
+datafile <- subset(datafile, !is.na(yday))
+datafile <- subset(datafile, yday!=1)
 ```
 
 
