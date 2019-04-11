@@ -271,7 +271,7 @@ Save juvenile and adult data separately
 ```{r}
 
 adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
-                           "Richness","lon","lat","Beobachter","Fundort","Adult")]
+                           "Richness","lon","lat","Beobachter","Adult")]
 names(adult_datafile)[which(names(adult_datafile)=="Adult")] <- "Anzahl_min"
 save(adult_datafile,file="derived-data/adult_datafile_Sa.RData")
 saveRDS(adult_datafile,file="derived-data/adult_datafile_Sa.rds")
