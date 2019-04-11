@@ -5,14 +5,14 @@ stage="adult"
 #stage="juv"
 
 #decide on state
+state="Sa"
 #state="Bav"
 #state="NRW"
-#state="Sa"
 #state = "Sax"
-state="SH"
+#state="SH"
 
 #effort term
-effort="nuRecs"
+effort="nuSpecies"
 
 ####################################################################################################
 #load data frame
@@ -42,24 +42,30 @@ df <- subset(df,!is.na(Year))
 df <- subset(df,!is.na(month))
 
 #filter months and years
-df <- subset(df, Year<2017)
+yearDF <- read.delim(paste0("/data/idiv_ess/Odonata/yearDF_",stage,"_",state,".txt"),as.is=T)
+df <- subset(df, Year>=(yearDF$Year) & Year<2017)
 
 #restrict data differently by stage
 if(stage=="juv"){
   df <- subset(df, month %in% c(4:8))
-  df <- subset(df, Year>1982)
 }else if(stage=="adult"){
-  df <- subset(df, Year>1980)
   df <- subset(df, month %in% c(5:9))
 }
+
+#get phenology info
+speciesDays <- read.delim(paste0("/data/idiv_ess/Odonata/speciesDays_",stage,"_",state,".txt"),as.is=T)
+speciesDays <- subset(speciesDays,Species==myspecies)
+
+#remove surveys that were outside the active pheneology period of the species
+df <- subset(df, day %in% speciesDays$day)
 
 #define a visit
 df$visit <- paste(df$MTB_Q,df$Date,df$Beobachter,sep="_")
 
-#get occurence matrix
+#get occurence matrix  - detection and non-detection
 getOccurrenceMatrix<-function(df){
   require(reshape2)
-  out<-acast(df,visit~Species,value.var="Anzahl_min",fun=function(x)length(x[x!=0 &!is.na(x)]))
+  out<-acast(df,visit~Species,value.var="Anzahl_min",fun=function(x)length(x[x!=0]))
   out[out>0]<-1
   return(out)
 }
@@ -73,7 +79,7 @@ getListLength<-function(df){
                nuRecords=length(Species),
                Richness2=mean(Richness),
                RpS = length(Species)/Richness2,
-               expertise = sum(Expertise),
+               expertise = median(Expertise),
                samplingSites = length(unique(interaction(lon,lat))))
   
   #add on some indices
@@ -85,6 +91,9 @@ getListLength<-function(df){
 }
 listlengthDF <- getListLength(df)
 
+#rows of occuMatrix match visits
+#all(listlengthDF$visit==row.names(occMatrix))
+
 #organise data for BUGS model
 bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                     nyear = length(unique(listlengthDF$yearIndex)),
@@ -92,6 +101,7 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                     site = listlengthDF$siteIndex,
                     year = listlengthDF$yearIndex,
                     yday = listlengthDF$day - median(listlengthDF$day),
+                    singleList = ifelse(listlengthDF$nuSpecies>1,0,1),
                     nuSpecies = log(listlengthDF$nuSpecies) - log(median(listlengthDF$nuSpecies)),
                     nuRecs = log(listlengthDF$nuRecords) - log(median(listlengthDF$nuRecords)),
                     nuSS = listlengthDF$samplingSites - median(listlengthDF$samplingSites),# up to 3
@@ -108,7 +118,7 @@ inits <- function(){list(z = zst)}
   
 #define model params
 modelfile="/data/idiv_ess/Odonata/BUGS_sparta.txt"
-ni <- 6000   ;   nb <- 2000   ;   nt <- 2   ;   nc <- 3
+ni <- 6000   ;   nb <- 2000   ;   nt <- 5   ;   nc <- 3
 
 #fit model
 library(rjags)
@@ -124,11 +134,11 @@ bugs.data$Effort <- bugs.data[[effort]]
 bugs.data$Effort_v2 <- bugs.data$RpS
   
 #specify parameters to monitor
-params <- c("phenol.p","phenol2.p","effort.p","psi.fs")
+params <- c("phenol.p","phenol2.p","effort.p","psi.fs","single.p")
   
 #run model
 out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=nt,
-               n.chains=n.cores, n.burnin=20000,n.iter=100000,parallel=T)
+               n.chains=n.cores, n.burnin=40000,n.iter=200000,parallel=T)
   
 #save as output file
-saveRDS(out,file=paste0("out_",stage,"_",state,"_", myspecies,".rds"))
+saveRDS(out,file=paste0("out_",effort,"_",stage,"_",state,"_", myspecies,".rds"))
