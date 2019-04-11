@@ -1,0 +1,84 @@
+cat("
+  model{
+  # JAGS code for SPARTA model plus random walk prior
+  # on the year effect of the state model + intercept + halfcauchy hyperpriors
+  
+  # State model
+  for (i in 1:nsite){ 
+    for (t in 1:nyear){
+      z[i,t] ~ dbern(muZ[i,t]) 
+      logit(muZ[i,t])<- a[t] + eta[i] 
+    }
+  }   
+  
+  ### Observation Model
+  for(j in 1:nvisit) {
+    y[j] ~ dbern(Py[j]) #data is Y
+    Py[j]<- z[site[j],year[j]]*p[j] 
+
+    #detection model:
+    logit(p[j]) <-  a.p[year[j]] + 
+                    phenol.p * yday[j] + 
+                    phenol2.p * pow(yday[j], 2) + 
+                    effort.p * Effort[j] +
+                    single.p * singleList[j] +
+                    effort2.p * Effort2[j]
+    } 
+  
+  # Derived parameters - annual occupancy
+  for (t in 1:nyear) {  
+    psi.fs[t] <- sum(z[1:nsite, t])/nsite
+  } 
+
+  #Priors 
+
+  # State model priors
+    #year effects
+    #year 1
+    a[1] ~ dnorm(0, 0.001)
+
+    #other years
+    for(t in 2:nyear){
+      a[t] ~ dnorm(a[t-1], tau.a)
+    }
+    tau.a <- 1/(sd.a * sd.a)
+    sd.a ~ dt(0, 1, 1)T(0,) 
+    
+    #trend priors
+    #trend.int ~ dnorm(0,0.001)
+    #trend.year ~ dnorm(0,0.001)
+
+    #site effects
+    for (i in 1:nsite) {
+      eta[i] ~ dnorm(0, tau.eta)       
+    } 
+    tau.eta <- 1/(sd.eta * sd.eta) 
+    sd.eta ~ dt(0, 1, 1)T(0,) 
+
+    #Observation model priors 
+    #year effects
+    for (t in 1:nyear) {
+    a.p[t] ~ dnorm(a.mu.p, a.tau.p)            
+    }
+    
+    a.mu.p ~ dnorm(0, 0.01)
+    a.tau.p <- 1 / (a.sd.p * a.sd.p)                 
+    a.sd.p ~ dt(0, 1, 1)T(0,) 
+    
+    #random site effects
+    #for (i in 1:nsite) {
+    #  eta.p[i] ~ dnorm(0, tau.eta.p)       
+    #} 
+    #tau.eta.p <- 1/(sd.eta.p * sd.eta.p) 
+    #sd.eta.p ~ dt(0, 1, 1)T(0,) 
+
+    #observation model covariates
+    #int.p.temp ~ dunif(0,1)
+    #int.p <- logit(int.p.temp)
+    phenol.p ~ dnorm(0, 0.001)
+    phenol2.p ~ dnorm(0, 0.001)
+    effort.p ~ dnorm(0, 0.001)
+    effort2.p ~ dnorm(0, 0.001)
+    single.p ~ dnorm(0, 0.001)
+  }
+    ",fill=TRUE,file="BUGS_sparta_2effort.txt")
