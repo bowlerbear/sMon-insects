@@ -1,4 +1,4 @@
-cat("
+
   model{
 
   # State model
@@ -94,4 +94,4 @@ cat("
     effort.p ~ dnorm(0, 0.01)
     single.p ~ dnorm(0, 0.01)
   }
-    ",fill=TRUE,file="R/BUGS_dynamic.txt")
+    
