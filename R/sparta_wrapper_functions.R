@@ -220,6 +220,7 @@ formatObservers <- function(obs){
   obs <- trim(as.character(unlist(sapply(obs,function(x)strsplit(x," u ")))))
   obs <- trim(as.character(unlist(sapply(obs,function(x)strsplit(x," und ")))))
   obs <- trim(as.character(unlist(sapply(obs,function(x)strsplit(x," u. ")))))
+  obs <- trim(as.character(unlist(sapply(obs,function(x)strsplit(x,"& ")))))
   obs <- trim(as.character(unlist(sapply(obs,function(x)strsplit(x," \\(EVS)")))))
   obs <- gsub("et al.","", obs)
   obs <- gsub("et al","", obs)
