@@ -264,7 +264,7 @@ expertise<-ldply(allObservers,function(x){
   Beobachter <- as.character(datafile$Beobachter)
   Beobachter <- removeGerman(Beobachter)
   Beobachter <- formatObservers(Beobachter)
-  Level = sum(Beobachter==x)
+  Level = sum(grepl(x,Beobachter))
   data.frame(Beobachter=x,Level)
 })
 

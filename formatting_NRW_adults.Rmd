@@ -237,17 +237,11 @@ source('R/sparta_wrapper_functions.R')
 library(gdata)
 
 allObservers <- as.character(sort(unique(datafile$Beobachter)))
-allObservers <- removeGerman(allObservers)
-
-#get double counting of surnames
-#observerSurnames <- sapply(allObservers,getSurnames)
-#checkDuplicates(observerSurnames)
 
 #for each observer, calculate how many records they were involved in collecting
 library(plyr)
 expertise<-ldply(allObservers,function(x){
   Beobachter <- as.character(datafile$Beobachter)
-  Beobachter <- removeGerman(Beobachter)
   Level = sum(Beobachter==x)
   data.frame(Beobachter=x,Level)
 })

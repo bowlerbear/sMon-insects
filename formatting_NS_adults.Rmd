@@ -1,0 +1,202 @@
+---
+title: "formatting_Saarland"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+Read in data frame
+
+```{r}
+
+library(readxl)
+
+datafile <- read_excel("raw-data/NiederSaschen/000_NDS_HB_data_export_iDiv_w_date.xlsx")
+
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+
+```
+
+Format data info
+
+```{r}
+
+library(lubridate)
+datafile$Date <- as.Date(datafile$date,format="%Y-%m-%d")
+datafile$Month <- month(datafile$Date)
+datafile$Year <- year(datafile$Date)
+datafile$yday <- yday(datafile$Date)
+
+```
+
+Fix column headings
+```{r}
+
+datafile$Species <- datafile$species
+datafile$MTB_Q <- datafile$mtbq
+datafile$Beobachter <- datafile$observer_id
+
+```
+
+
+Check species names against the standard list
+
+```{r}
+specieslist <- read.delim("specieslist_odonata.txt")
+
+
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+
+#correct species names
+datafile$Species[which(datafile$Species=="Lestes virens vestalis")]<-"Lestes virens"
+datafile$Species[which(datafile$Species=="Aeshna subarctica elisabethae")]<-"Aeshna subarctica"
+
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+
+```
+
+Identifying adult observation
+
+```{r}
+
+table(datafile$unit)
+
+datafile <- subset(datafile, unit %in% c("Alttier/Imago","Emergenz"))
+
+```
+
+Restrict to adult sampling
+
+```{r}
+#check for extremes
+hist(datafile$count)
+#quantile(datafile$count,0.99)
+
+#block upper values
+datafile$count[datafile$count > quantile(datafile$count,0.99,na.rm=T)] <- quantile(datafile$count,0.99,na.rm=T)
+hist(datafile$count)
+
+```
+
+Get coords of the MTBs
+
+```{r}
+load("mtbqsDF.RData")
+datafile$lon <- mtbqsDF$x[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]
+datafile$lat <- mtbqsDF$y[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]
+datafile <- subset(datafile,!is.na(lon))
+
+```
+
+
+Get survey information
+
+```{r}
+
+library(plyr)
+
+surveys <- ddply(datafile,.(MTB_Q,Date,Year,Month,yday),summarise,
+                 nuLocations = log(length(unique(lat,lon))),
+                 nuObservers = log(length(unique(Beobachter))),
+                 nuSpecies = log(length(unique(Species))),
+                 nuRecords = log(length(Species)))
+
+library(GGally)
+ggpairs(surveys[,5:9])
+
+```
+
+Characterize the total richness found in each grid:
+
+```{r}
+gridRichness <- ddply(datafile,.(MTB_Q),summarise,
+                    nuSpecies=length(unique(Species)),
+                    nuRecs=length(Species),
+                    nuYears = length(unique(Year)),
+                    nuDates = length(unique(Date)))
+
+summary(gridRichness$nuSpecies)
+#1 to 51!!!
+#1 is unlikely...
+
+qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
+#the more records, the more species
+
+#add to data frame
+datafile$Richness <- gridRichness$nuSpecies[match(datafile$MTB_Q,gridRichness$MTB_Q)]
+
+summary(datafile$Richness)
+
+```
+
+Sort out the observer data:
+
+```{r}
+
+sort(unique(datafile$Beobachter))
+
+```
+
+Characterize the total ability of each observer each year
+
+```{r}
+
+obsRichness <- ddply(datafile,.(Beobachter),summarise,
+                    nuSpecies=length(unique(Species)),
+                    nuRecs=length(Species))
+
+summary(obsRichness$nuSpecies)
+#1 to 66!!!
+
+qplot(log(nuRecs),log(nuSpecies),data=obsRichness)
+
+arrange(obsRichness,desc(nuRecs))
+
+```
+
+Characterise average expertise level
+
+```{r}
+
+allObservers <- as.character(sort(unique(datafile$Beobachter)))
+
+#for each observer, calculate how many records they were involved in collecting
+library(plyr)
+expertise <-ldply(allObservers,function(x){
+  data.frame(Beobachter=x,Level=sum(x==datafile$Beobachter))
+})
+
+hist(log(expertise$Level))  
+
+arrange(expertise,desc(Level))
+
+```
+
+Add information on expertise to the datafile
+
+```{r}
+
+datafile$Expertise <- expertise$Level[match(datafile$Beobachter,expertise$Beobachter)]
+
+summary(datafile$Expertise)
+
+```
+
+Save juvenile and adult data separately
+
+```{r}
+
+adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
+                           "Richness","lon","lat","Beobachter","count")]
+names(adult_datafile)[which(names(adult_datafile)=="count")] <- "Anzahl_min"
+save(adult_datafile,file="derived-data/adult_datafile_NS.RData")
+saveRDS(adult_datafile,file="derived-data/adult_datafile_NS.rds")
+
+```
+
+
+
