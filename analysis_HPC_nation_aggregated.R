@@ -11,8 +11,8 @@ adultFiles<-adultFiles[grepl("rds",adultFiles)]
 #combine these files
 library(plyr)
 adultData <- ldply(adultFiles,function(x){
-  #out<-readRDS(paste("derived-data",x,sep="/"))
-  out<-readRDS(paste("/data/idiv_ess/Odonata",x,sep="/"))
+  out<-readRDS(paste("derived-data",x,sep="/"))
+  #out<-readRDS(paste("/data/idiv_ess/Odonata",x,sep="/"))
   out$File <- x
   return(out)
 })
@@ -55,6 +55,14 @@ phenolData <- ldply(phenolFiles,function(x){
   out$File <- x
   return(out)
 })
+
+phenolFiles<-list.files()[grepl("speciesDays",list.files())]
+phenolData <- ldply(phenolFiles,function(x){
+  out<-read.delim(x)
+  out$File <- x
+  return(out)
+})
+
 
 #extract state from file name
 phenolData$State <- sapply(phenolData$File,function(x)strsplit(x,"\\.txt")[[1]][1])
