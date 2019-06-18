@@ -91,6 +91,7 @@ listlengthDF$shortList <- ifelse(listlengthDF$nuSpecies%in%2:3,1,0)
 listlengthDF$longList <- ifelse(listlengthDF$nuSpecies>3,1,0)
 
 ###########################################################################################
+
 #organise data for BUGS model
 bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                     nyear = length(unique(listlengthDF$yearIndex)),
@@ -109,6 +110,7 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
 listlengthDF$Species <- bugs.data$y
   
 #######################################################################################
+
 #specify initial values
 library(reshape2)
 zst <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=max)
@@ -116,6 +118,7 @@ zst [is.infinite(zst)] <- 0
 inits <- function(){list(z = zst)}
   
 ########################################################################################
+
 #define model params
 ni <- 6000   ;   nb <- 2000   ;   nt <- 5   ;   nc <- 3
 
@@ -131,12 +134,14 @@ set.factory("bugs::Conjugate", FALSE, type="sampler")
 n.cores = as.integer(Sys.getenv("NSLOTS", "1")) 
 
 ###########################################################################################
+
 #effort - linear length and single list
 bugs.data$Effort <- bugs.data[["nuSpecies"]]
 modelfile="/data/idiv_ess/Odonata/BUGS_dynamic.txt"
 
 #specify parameters to monitor
-params <- c("phenol.p","phenol2.p","effort.p","psi.fs","single.p","eta","a.persist","a.colonize")
+params <- c("phenol.p","phenol2.p","effort.p","psi.fs","single.p","eta",
+            "a.persist","a.colonize")
   
 #run model
 out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=nt,
@@ -144,4 +149,5 @@ out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=nt,
   
 #save as output file
 saveRDS(data.frame(out$summary),file=paste0("outSummary_dynamic_",stage,"_",state,"_", myspecies,".rds"))
+
 ############################################################################################
