@@ -6,7 +6,7 @@ library(rgdal)
 library(maptools)
 
 #get map of Germany
-germanyMap <- readRDS("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/gadm36_DEU_1_sp.rds")
+germanyMap <- readRDS("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/AdminBoundaries/gadm36_DEU_1_sp.rds")
 
 #MTBQ
 mtbqMap <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",
@@ -67,8 +67,10 @@ adultData$Year <- year(adultData$Date)
 
 #change state labels
 adultData$State <- as.factor(adultData$State)
-levels(adultData$State) <- c("Bavaria","North Rhine-Westphalia","Rheinland-Pfalz",
-                             "Saarland","Saxony-Anhalt","Saxony","Schleswig Holstein","Thuringia")
+levels(adultData$State) <- c("Bavaria","Brandenberg","Mecklenburg-Vorpommern",
+                             "North Rhine-Westphalia","Lower Saxony",
+                             "Rheinland-Pfalz","Saarland","Saxony-Anhalt",
+                             "Saxony","Schleswig Holstein","Thuringia")
 
 library(lubridate)
 adultData$Date <- as.Date(adultData$Date)
@@ -312,10 +314,9 @@ timeSummary[,3:6]<-sapply(timeSummary[,3:6],log)
 ggpairs(timeSummary[,3:6])
 
 ###############################################################################################
-###############################################################################################
 #get annual indices:
 
-modelFiles <- list.files("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_modelSummary/5053853")
+modelFiles <- list.files("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_modelSummary_flightperiod/5098409")
 modelFiles <- modelFiles[grepl("modelSummary",modelFiles)]
 
 #read in each one
@@ -326,6 +327,27 @@ modelSummary <- ldply(modelFiles, function(x){
   return(temp)
 })
 
+#############################################################################################
+
+#get new files(baseed on effort) - for MV and NS
+modelFiles <- c("modelSummary_effort_tests_Odonata_adult_MV.rds",
+                "modelSummary_effort_tests_Odonata_adult_NS.rds")
+
+#read in each one
+library(plyr)
+modelSummary2 <- ldply(modelFiles, function(x){
+  temp <- readRDS(paste("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs",x,sep="/"))
+  temp$Folder <- x
+  return(temp)
+})
+
+#get ones based on number of species for effort
+modelSummary2 <- modelSummary2[grepl("nuSpecies",modelSummary2$File),]
+modelSummary2$Folder <- gsub("effort_tests_","",modelSummary2$Folder)
+modelSummary <- rbind(modelSummary,modelSummary2)
+
+#################################################################################################
+
 #extract state and stage
 modelSummary$Stage <- sapply(modelSummary$Folder,function(x)strsplit(as.character(x),"_")[[1]][3])
 modelSummary$State <- sapply(modelSummary$Folder,function(x)strsplit(as.character(x),"_")[[1]][4])
@@ -334,6 +356,7 @@ modelSummary$State <- sapply(modelSummary$State,function(x)strsplit(as.character
 #extract species information
 modelSummary$Species <- gsub("\\.rds","",modelSummary$File)
 modelSummary$Species <- gsub("out_nuSpecies_","",modelSummary$Species)
+modelSummary$Species <- gsub("outSummary_nuSpecies_","",modelSummary$Species)
 #modelSummary$Species <- gsub("juv_","",modelSummary$Species)
 modelSummary$Species <- gsub("adult_","",modelSummary$Species)
 modelSummary$Species <- sapply(modelSummary$Species,function(x){
@@ -345,7 +368,7 @@ modelSummary$Species <- sapply(modelSummary$Species,function(x){
 })
 
 #in total 73 species
-unique(modelSummary$Species[modelSummary$Stage=="adult"])
+unique(modelSummary$Species)
 #unique(modelSummary$Species[modelSummary$Stage=="juv"])
 head(modelSummary)
 
@@ -354,8 +377,11 @@ head(modelSummary)
 #format state information
 modelSummary$kState <- modelSummary$State
 modelSummary$State <- as.factor(modelSummary$State)
-levels(modelSummary$State)<-c("Bavaria","North Rhine-Westphalia","Rheinland-Pfalz",
-                              "Saarland","Saxony-Anhalt","Saxony","Schleswig Holstein","Thuringia")
+levels(modelSummary$State)<-c("Bavaria","Mecklenburg-Vorpommern",
+                              "North Rhine-Westphalia","Lower Saxony",
+                              "Rheinland-Pfalz","Saarland",
+                              "Saxony-Anhalt","Saxony",
+                              "Schleswig Holstein","Thuringia")
 
 #############################################################################################
 #check Rhat
@@ -402,7 +428,7 @@ yearDF <- ldply(modelFiles, function(x){
   temp$Folder <- x
   return(temp)
 })
-modelSummary$StartYear <- yearDF$Year[match(modelSummary$kState,yearDF$State)]
+modelSummary$StartYear <- min(yearDF$Year[match(modelSummary$kState,yearDF$State)])
 modelSummary$Year <- modelSummary$StartYear + modelSummary$ParamNu - 1
 
 ##################################################################################################
@@ -427,14 +453,14 @@ ggplot(subset(modelSummary,kState=="Bav" & Stage=="adult"))+
   geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
   facet_wrap(~Code)+
   theme_bw()+ ylab("Occupancy")+
-  ggtitle("ria - Adults")
+  ggtitle("Bavarria - Adults")
 
-ggplot(subset(modelSummary,kState=="NRW" & Stage=="adult"))+
+ggplot(subset(modelSummary,kState=="RLP" & Stage=="adult"))+
   geom_line(aes(x=Year,y=mean))+
   geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
   facet_wrap(~Code)+
   theme_bw()+ ylab("Occupancy")+
-  ggtitle("NRW - Adults")
+  ggtitle("RLP - Adults")
  
 ggplot(subset(modelSummary,kState=="Sa" & Stage=="adult"))+
   geom_line(aes(x=Year,y=mean))+
@@ -451,12 +477,12 @@ ggplot(subset(modelSummary,kState=="Sax" & Stage=="adult"))+
   theme_bw()+ ylab("Occupancy")+
   ggtitle("Saxony - Adults")
 
-ggplot(subset(modelSummary,kState=="SH" & Stage=="adult"))+
+ggplot(subset(modelSummary,kState=="Thu" & Stage=="adult"))+
   geom_line(aes(x=Year,y=mean))+
   geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
   facet_wrap(~Code)+
   theme_bw()+ ylab("Occupancy")+
-  ggtitle("Schlewig Holstein - Adults")
+  ggtitle("Thuringia - Adults")
 
 ################################################################################################
 
