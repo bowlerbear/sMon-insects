@@ -1,5 +1,5 @@
 #get species for this task
-myfolder <- "Odonata_adult_SAnhalt"
+myfolder <- "Odonata_adult_BB"
 
 #open folder and get list of files within
 folder1 <- paste0("/work/bowler/",myfolder)
@@ -18,4 +18,4 @@ modelSummary <- ldply(modelFiles, function(x){
 })
 
 #save the folder name as a column
-saveRDS(modelSummary,file=paste0("modelSummary_effort_tests_",myfolder,".rds"))
+saveRDS(modelSummary,file=paste0("modelSummary_flightperiod_",myfolder,".rds"))
