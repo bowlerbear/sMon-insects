@@ -24,7 +24,7 @@ Select state for analysis
 
 ```{r}
 
-state = "Sa"
+#state = "Sa"
 #state = "SH"
 #state = "Bav"
 #state = "NRW"
@@ -33,13 +33,14 @@ state = "Sa"
 #state="RLP"
 #state="Thu"
 #state="BB"
+#state="NS"
+state="MV"
 ```
 
 Read in the dataset
 
 ```{r warning=FALSE}
 
-#library(gdata)
 load(paste0("derived-data/adult_datafile_",state,".RData"))
 df <- adult_datafile
 
@@ -67,6 +68,7 @@ df <- subset(df,!(month==1&day==1))
 Step two: remove those with missing date entries
 
 ```{r}
+
 df <- subset(df,!is.na(day))
 df <- subset(df,!is.na(Year))
 df <- subset(df,!is.na(month))
@@ -124,8 +126,6 @@ How much data is there across large scale grids
 ```{r}
 
 load("mtbqsDF.RData")
-
-
 
 ```
 
@@ -325,6 +325,27 @@ save(outTrends,file=paste0("outTrends_nuRecords_adult_",state,".RData"))
 
 ```
 
+Test effect of fitting a spatial model
+```{r}
+
+#fit a spatial spline to occurrence probability
+listlengthDF$obs <- occMatrix[,"Aeshna cyanea"]
+
+#get x and y coords
+listlengthDF$MTB_Q <- gsub("/","",listlengthDF$MTB_Q)
+load("mtbqsDF.RData")
+listlengthDF$x <- mtbqsDF$x[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
+listlengthDF$y <- mtbqsDF$y[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
+
+library(mgcv)
+out1<-gam(obs ~ 1 + s(x,y),data=listlengthDF,family=binomial)
+listlengthDF$fits <- out1$fitted.values
+
+library(ggplot2)
+qplot(x,y,data=listlengthDF,colour=fits)+
+  scale_colour_gradient(low="blue",high="red")
+
+```
 
 Model name meaning on HPC
 ```{r}
