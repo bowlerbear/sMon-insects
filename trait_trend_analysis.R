@@ -3,12 +3,12 @@
 source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ######################################################################
-
+setwd("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects")
 #get traits data
 load("alltraits.RData")
 #limit to those with complete cases?
 
-load("trendEstimates.RData")
+load("model-outputs/trendEstimates.RData")
 
 #########################################################################
 
@@ -59,7 +59,7 @@ q1<-ggplot(subset(trendEstimates,Stage=="adult"),aes(x=TMean,y=trend,colour=Stat
   facet_grid(~State)+stat_smooth(method="lm")+
   theme(legend.position="none")
 q2<-ggplot(subset(trendEstimates,Stage=="adult"),aes(x=Habitat.y,y=trend,fill=State))+
-  geom_boxplot()+
+  geom_boxplot(outlier.shape = NA)+
   theme_bw()+
   ylab("Population trend")+xlab("Habitat preference")+
   facet_grid(~State)+
@@ -91,6 +91,8 @@ q6<-ggplot(subset(trendEstimates,Stage=="adult"),aes(x=wing_size,y=trend,colour=
 
 library(cowplot)
 plot_grid(q1,q2,q3,q4,q5,q6,align="v",ncol=1)
+
+plot_grid(q1,q2,align="v",ncol=1)
 
 library(gridExtra)
 grid.arrange(q5,q6,ncol=1)
