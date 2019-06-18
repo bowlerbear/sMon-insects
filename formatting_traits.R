@@ -148,3 +148,54 @@ ggplot(data=alltraits,aes(x=Habitat.y))+
   xlab("Habitat preference")+
   ylab("Number of species")
 
+#########################################################################################
+
+#distribution data analysis
+atlas <- read.csv("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Insects/traits/10750_2017_3495_MOESM2_ESM.csv",
+                  as.is=T,dec=",")
+#make sure first letter is a capital
+firstup <- function(x) {
+  substr(x, 1, 1) <- toupper(substr(x, 1, 1))
+  x
+}
+atlas$Species.name <- sapply(atlas$Species.name,function(x)firstup(x))
+atlas$Species.name[which(atlas$Species.name=="Leucorrhinia Dubia")]<-"Leucorrhinia dubia"
+
+#check all names match with our specieslist
+species$Species[!species$Species %in% atlas$Species.name]
+
+#subset atlas data to our species
+atlas <- subset(atlas, Species.name %in% species$Species)
+head(atlas)
+
+#convert units to utm
+#devtools::install_git("https://git.sr.ht/~hrbrmstr/mgrs")
+library(mgrs)
+atlas$MGRS.y <- mgrs_to_utm(atlas$MGRS.WGS84)[,"northing"]
+atlas$MGRS.x <- mgrs_to_utm(atlas$MGRS.WGS84)[,"easting"]
+temp <- unique(atlas[,c("Longitude","Latitude","MGRS.y","MGRS.x")])
+coordinates(temp) <- c("Longitude","Latitude")
+
+qplot(MGRS.x,MGRS.y,data=atlas)
+qplot(Longitude,Latitude,data=atlas)
+
+#create a raster with the mgrs plots
+#exlude points outside mainland europe
+library(rgdal)
+euro <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/Euro",
+                layer="europe")
+euro <- subset(euro, !CNTRY_NAME %in% c("Russia","West Bank","Turkey","Tunisia","Syria","Saudi Arabia",
+                                        "Morocco","Libya","Kazakhstan","Lebanon","Kuwait","Jordan",
+                                        "Iraq","Iran","Israel","Gaza Strip","Iceland","Egypt","Azerbaijan",
+                                        "Algeria","Georgia","Armenia"))
+plot(euro)
+plot(temp,col="red",add=T)
+proj4string(temp) <- crs(euro)
+
+#subset points to this region
+pointsS <- temp[!is.na(over(as(temp,'SpatialPoints'),as(euro,"SpatialPolygons"),fn=NULL)),]
+plot(euro)
+plot(pointsS,col="red",add=T)
+
+#now make into a raster
+plot(pointsS@data$MGRS.x,pointsS@data$MGRS.y)
