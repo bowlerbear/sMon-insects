@@ -29,12 +29,15 @@ library(sp)
 mtbqs_centroids <- data.frame(coordinates(mtbqs))
 coordinates(mtbqs_centroids) <- c("X1","X2")
 proj4string(mtbqs_centroids) <- proj4string(mtbqs)
-mtbqs_centroids <- spTransform(mtbqs_centroids,proj4string(germanAdmin))
+
+#add on x and y
+mtbqsDF$x <- mtbqs_centroids@coords[,1]
+mtbqsDF$y <- mtbqs_centroids@coords[,2]
 
 #add on county information
+mtbqs_centroids <- spTransform(mtbqs_centroids,proj4string(germanAdmin))
 mtbqs_counties <- over(mtbqs_centroids,germanAdmin)
 mtbqsDF$Counties <- as.character(mtbqs_counties$NAME_1)
-
 ########################################################################################################
 
 #get Natur raum for each MTBQ
@@ -161,5 +164,12 @@ mtbqsDF$MTB_Q <- paste0(as.character(mtbqsDF$Value),
                                  as.character(mtbqsDF$Q))
 
 save(mtbqsDF,file="mtbqsDF.RData")
+
+library(ggplot2)
+qplot(x,y,data=mtbqsDF,color=MTB_Natur)+
+  theme(legend.position="none")
+
+###################################################################################################
+#get MTBQs in datafile but not in this shapefile
 
 ###################################################################################################
