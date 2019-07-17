@@ -11,7 +11,7 @@ library(plyr)
 modelSummary <- ldply(modelFiles, function(x){
   temp <- readRDS(paste(folder1,folder2,x,sep="/"))
   #get summary of parameters
-  tempSummary <- data.frame(temp)
+  tempSummary <- data.frame(temp$summary)
   tempSummary$Param <- as.character(row.names(tempSummary))
   tempSummary$File <- x
   return(tempSummary)
