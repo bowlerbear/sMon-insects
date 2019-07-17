@@ -1,4 +1,4 @@
-cat("
+
   model{
 
   # State model
@@ -145,4 +145,4 @@ cat("
     tau.phenol2 ~ dgamma(.1,.1)    
     
   }
-    ",fill=TRUE,file="R/BUGS_dynamic_nation_state.txt")
+    
