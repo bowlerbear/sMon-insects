@@ -153,6 +153,10 @@ ggplot(data=alltraits,aes(x=Habitat.y))+
 #distribution data analysis
 atlas <- read.csv("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Insects/traits/10750_2017_3495_MOESM2_ESM.csv",
                   as.is=T,dec=",")
+#save grid
+atlasGrid <- unique(atlas[,c("Latitude","Longitude","MGRS.WGS84")])
+write.csv(atlasGrid,file="atlasGrid.csv")
+
 #make sure first letter is a capital
 firstup <- function(x) {
   substr(x, 1, 1) <- toupper(substr(x, 1, 1))
