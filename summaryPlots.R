@@ -86,6 +86,36 @@ species<- read.delim("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Insects/traits/s
 adultSpecies <- sort(unique(adultData$Species))
 adultSpecies[!adultSpecies%in%species$Species]
 
+#############################################################################################
+
+#how often is each site visits
+out <- ddply(adultData,.(Year,MTB_Q),summarise,nu = length(unique(yday)))
+summary(out$nu)
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#1.000   1.000   2.000   2.958   3.000 106.000
+
+#how many sites is a species usually present at
+out <- ddply(adultData,.(Species),summarise,nu = length(unique(MTB_Q)))
+length(unique(adultData$MTB_Q))#8231
+summary(out$nu/8231)
+#Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+#0.0001215 0.0297048 0.1132305 0.1974859 0.3422427 0.7307739
+
+#on how many visits is a species usually detected
+out <- ddply(adultData,.(MTB_Q,Year),summarise,nuVisits=length(unique(yday)))
+out2 <- ddply(adultData,.(Species,MTB_Q,Year),summarise,nuDets=length(unique(yday)))
+out <- merge(out,out2,by=c("MTB_Q","Year"))
+out$p <- out$nuDets/out$nuVisits
+summary(out$p)
+
+#Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#0.009434 0.250000 0.500000 0.522878 1.000000 1.000000
+
+out <- ddply(out,.(Species),summarise,meanp=mean(p))
+summary(out$meanp)
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#0.3789  0.4509  0.4941  0.5140  0.5519  0.7560
+
 ###############################################################################################
 
 #flight period check:
@@ -249,13 +279,14 @@ nrow(allDF)
 #data from 4186/12024
 
 #plot map of germany
+library(ggplot2)
 germanyMap <- spTransform(germanyMap,proj4string(mtbMap))
 AG <- fortify(germanyMap)
 ggplot()+ geom_polygon(data=AG, aes(long, lat, group = group), colour = "grey", fill=NA)+
   geom_point(data=allDF,aes(x=x,y=y,colour=log(nuRecs)))+
-  scale_colour_gradient2(low="red",mid="grey",high="darkblue",midpoint=median(log(allDF$nuRecs)))+
+  scale_colour_gradient(low="pink",high="darkred")+
   xlab("X")+ylab("Y")+
-  theme_bw()
+  theme_void()
 ggsave(filename="plots/Adult_map_effort.png",width=8,height=7)
 ggsave(filename="plots/Juv_map_effort.png",width=8,height=7)
 
@@ -322,7 +353,7 @@ modelFiles <- modelFiles[grepl("modelSummary",modelFiles)]
 #read in each one
 library(plyr)
 modelSummary <- ldply(modelFiles, function(x){
-  temp <- readRDS(paste("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_modelSummary/5053853",x,sep="/"))
+  temp <- readRDS(paste("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_modelSummary_flightperiod/5098409",x,sep="/"))
   temp$Folder <- x
   return(temp)
 })
@@ -357,6 +388,7 @@ modelSummary$State <- sapply(modelSummary$State,function(x)strsplit(as.character
 modelSummary$Species <- gsub("\\.rds","",modelSummary$File)
 modelSummary$Species <- gsub("out_nuSpecies_","",modelSummary$Species)
 modelSummary$Species <- gsub("outSummary_nuSpecies_","",modelSummary$Species)
+modelSummary$Species <- gsub("out_flightperiod_nuSpecies_","",modelSummary$Species)
 #modelSummary$Species <- gsub("juv_","",modelSummary$Species)
 modelSummary$Species <- gsub("adult_","",modelSummary$Species)
 modelSummary$Species <- sapply(modelSummary$Species,function(x){
@@ -377,7 +409,7 @@ head(modelSummary)
 #format state information
 modelSummary$kState <- modelSummary$State
 modelSummary$State <- as.factor(modelSummary$State)
-levels(modelSummary$State)<-c("Bavaria","Mecklenburg-Vorpommern",
+levels(modelSummary$State)<-c("Bavaria","Brandenburg","Mecklenburg-Vorpommern",
                               "North Rhine-Westphalia","Lower Saxony",
                               "Rheinland-Pfalz","Saarland",
                               "Saxony-Anhalt","Saxony",
@@ -448,12 +480,19 @@ modelSummary$Code <- paste(modelSummary$Genus,modelSummary$Spec,sep="_")
 library(ggplot2)
 
 #for each stage and state??
+ggplot(subset(modelSummary,kState=="BB" & Stage=="adult"))+
+  geom_line(aes(x=Year,y=mean))+
+  geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
+  facet_wrap(~Code)+
+  theme_bw()+ ylab("Occupancy")+
+  ggtitle("Brandenberg - Adults")
+
 ggplot(subset(modelSummary,kState=="Bav" & Stage=="adult"))+
   geom_line(aes(x=Year,y=mean))+
   geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
   facet_wrap(~Code)+
   theme_bw()+ ylab("Occupancy")+
-  ggtitle("Bavarria - Adults")
+  ggtitle("Bavaria - Adults")
 
 ggplot(subset(modelSummary,kState=="RLP" & Stage=="adult"))+
   geom_line(aes(x=Year,y=mean))+
@@ -462,13 +501,12 @@ ggplot(subset(modelSummary,kState=="RLP" & Stage=="adult"))+
   theme_bw()+ ylab("Occupancy")+
   ggtitle("RLP - Adults")
  
-ggplot(subset(modelSummary,kState=="Sa" & Stage=="adult"))+
+ggplot(subset(modelSummary,kState=="SH" & Stage=="adult"))+
   geom_line(aes(x=Year,y=mean))+
   geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
   facet_wrap(~Code)+
   theme_bw()+ ylab("Occupancy")+
-  ggtitle("Saarland - Adults")
-ggsave("plots/Saarland_timeseries.png")
+  ggtitle("SH - Adults")
 
 ggplot(subset(modelSummary,kState=="Sax" & Stage=="adult"))+
   geom_line(aes(x=Year,y=mean))+
@@ -483,6 +521,13 @@ ggplot(subset(modelSummary,kState=="Thu" & Stage=="adult"))+
   facet_wrap(~Code)+
   theme_bw()+ ylab("Occupancy")+
   ggtitle("Thuringia - Adults")
+
+ggplot(subset(modelSummary,kState=="SAnhalt" & Stage=="adult"))+
+  geom_line(aes(x=Year,y=mean))+
+  geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
+  facet_wrap(~Code)+
+  theme_bw()+ ylab("Occupancy")+
+  ggtitle("Sachsen Anhalt - Adults")
 
 ################################################################################################
 
