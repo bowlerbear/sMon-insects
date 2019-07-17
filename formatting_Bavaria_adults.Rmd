@@ -123,10 +123,10 @@ unique(datafile$es)
 table(datafile$es)
 
 #restrict to adults
-datafile <- subset(datafile, es %in% c("AD","EI","TA"))
+datafile <- subset(datafile, es %in% c("AD","TA","EX"))
 
 #or restrict to juvenles
-#datafile <- subset(datafile, es %in% c("EI","EX","JU","LK"))
+#datafile <- subset(datafile, es %in% c("EI","JU","LK"))
 
 
 ```

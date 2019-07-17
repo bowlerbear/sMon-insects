@@ -13,9 +13,9 @@ Read in data frame
 
 ```{r}
 
-library(readxl)
-
-datafile <- read_excel("raw-data/NiederSaschen/000_NDS_HB_data_export_iDiv_w_date.xlsx")
+datafile <- read.delim("raw-data/He/X_Jena.txt",as.is=T)
+datafile2 <- read.delim("raw-data/He/X_Jena2.txt",as.is=T)
+datafile <- unique(rbind(datafile,datafile2))
 
 source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
 
@@ -26,7 +26,8 @@ Format data info
 ```{r}
 
 library(lubridate)
-datafile$Date <- as.Date(datafile$date,format="%Y-%m-%d")
+datafile$Date <- sapply(datafile$Datum,function(x)strsplit(x," ")[[1]][1])
+datafile$Date <- as.Date(datafile$Date,format="%m/%d/%Y")
 datafile$Month <- month(datafile$Date)
 datafile$Year <- year(datafile$Date)
 datafile$yday <- yday(datafile$Date)
@@ -36,25 +37,31 @@ datafile$yday <- yday(datafile$Date)
 Fix column headings
 ```{r}
 
-datafile$Species <- datafile$species
-datafile$MTB_Q <- datafile$mtbq
-datafile$Beobachter <- datafile$observer_id
+datafile$Species <- datafile$Art
 
 ```
 
+Fix MTBQ
+```{r}
+
+datafile$Q <- sapply(as.character(datafile$Rasterfeld),function(x)substr(x,1,1))
+datafile$MTB_Q <- apply(datafile,1,function(x)paste0(x["MTB"],x["Q"]))
+
+```
 
 Check species names against the standard list
 
 ```{r}
 specieslist <- read.delim("specieslist_odonata.txt")
-
-
 unique(datafile$Species[!datafile$Species%in%specieslist$Species])
 
+#remove genus data
+datafile <- datafile[grepl(" ",datafile$Species),]
+  
 #correct species names
-datafile$Species[which(datafile$Species=="Lestes virens vestalis")]<-"Lestes virens"
-datafile$Species[which(datafile$Species=="Aeshna subarctica elisabethae")]<-"Aeshna subarctica"
+datafile$Species[which(datafile$Species=="Pyrrhosoma nympula")]<-"Pyrrhosoma nymphula"
 
+#check
 unique(datafile$Species[!datafile$Species%in%specieslist$Species])
 
 ```
@@ -63,28 +70,20 @@ Identifying adult observation
 
 ```{r}
 
-unique(datafile$unit)
-table(datafile$unit)
+unique(datafile$Einheit)
+table(datafile$Einheit)
 
-datafile <- subset(datafile, !unit %in% c("Larve","Jungtier"))
+datafile <- subset(datafile, Einheit %in% c("Alttier/Imago","Emergenz","Eiablage",
+                                            "Keine Angabe","Exuvien"))
 
 ```
 
-Restrict to adult sampling
+Sort count data
 
 ```{r}
-#check for extremes
-hist(datafile$count)
-summary(datafile$count)
-#quantile(datafile$count,0.99)
 
-#remove zero data
-nrow(subset(datafile,count==0))
-datafile <- subset(datafile,count!=0)
 
-#block upper values
-datafile$count[datafile$count > quantile(datafile$count,0.99,na.rm=T)] <- quantile(datafile$count,0.99,na.rm=T)
-hist(datafile$count)
+datafile$Anzahl_min <- NA
 
 ```
 
@@ -126,7 +125,7 @@ gridRichness <- ddply(datafile,.(MTB_Q),summarise,
                     nuDates = length(unique(Date)))
 
 summary(gridRichness$nuSpecies)
-#1 to 51!!!
+#1 to 50
 #1 is unlikely...
 
 qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
@@ -156,7 +155,7 @@ obsRichness <- ddply(datafile,.(Beobachter),summarise,
                     nuRecs=length(Species))
 
 summary(obsRichness$nuSpecies)
-#1 to 66!!!
+#1 to 60!!!
 
 qplot(log(nuRecs),log(nuSpecies),data=obsRichness)
 
@@ -197,10 +196,9 @@ Save juvenile and adult data separately
 ```{r}
 
 adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
-                           "Richness","lon","lat","Beobachter","count")]
-names(adult_datafile)[which(names(adult_datafile)=="count")] <- "Anzahl_min"
-save(adult_datafile,file="derived-data/adult_datafile_NS.RData")
-saveRDS(adult_datafile,file="derived-data/adult_datafile_NS.rds")
+                           "Richness","lon","lat","Beobachter","Anzahl_min")]
+save(adult_datafile,file="derived-data/adult_datafile_He.RData")
+saveRDS(adult_datafile,file="derived-data/adult_datafile_He.rds")
 
 ```
 

@@ -136,7 +136,7 @@ unique(datafile$BASIS_stadium)
 table(datafile$BASIS_stadium)
 
 #restrict to adults
-datafile <- subset(datafile,  BASIS_stadium%in% c("Imago"))
+datafile <- subset(datafile,  BASIS_stadium%in% c("Imago","Exuvie"))
 
 
 ```

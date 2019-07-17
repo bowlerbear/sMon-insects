@@ -73,6 +73,8 @@ Subset to just adults
 einheitDF <- read.csv("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/raw-data/MV/dbo_tblEinheiten.csv",sep=",",dec=",",as.is=T)
 datafile$Einheit <- einheitDF$Einheit[match(datafile$ID_Einheit,einheitDF$ID_Einheit)]
 table(datafile$Einheit)
+unique(datafile$Einheit)
+nrow(subset(datafile,!is.na(Einheit)))
 
 datafile <- subset(datafile,!Einheit %in% c("Jungtier","Larve"))
 

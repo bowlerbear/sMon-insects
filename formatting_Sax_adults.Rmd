@@ -109,9 +109,10 @@ Sort stage info and restrict to adult
 
 ```{r}
 
+unique(datafile$Einheit)
 table(datafile$Einheit)
 
-datafile <- subset(datafile,Einheit %in%c("Alttier/Imago","Kopula","Eiablage"))
+datafile <- subset(datafile,!Einheit %in%c("Larve","Jungtier"))
 
 ```
 

@@ -94,7 +94,7 @@ Identifying adult and juvenile observation
 #Jagdflug#all good
 #Jagend# all good
 #Ruhe# all good
-datafile$Adult <- apply(datafile[,c("Adulte","Jagdflug","Jagend","Ruhe","Eiablage","Kopula")],1,sum,na.rm=T)
+datafile$Adult <- apply(datafile[,c("Adulte","Jagdflug","Jagend","Ruhe","Eiablage","Kopula","Exuvien")],1,sum,na.rm=T)
 
 #create a total juvenile column
 datafile$Juv <- datafile$Larven + datafile$Exuvien + datafile$Juvenile
@@ -258,11 +258,11 @@ summary(datafile$Expertise)
 
 ```
 
-Get rid of unknown observers (if there are any)
+
 
 ```{r}
 
-datafile <- subset(datafile, Beobachter!="unbekannt")
+datafile$Expertise[which(datafile$Beobachter=="unbekannt")] <- 1
 
 ```
 

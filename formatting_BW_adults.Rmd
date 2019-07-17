@@ -13,9 +13,8 @@ Read in data frame
 
 ```{r}
 
-library(readxl)
-
-datafile <- read_excel("raw-data/NiederSaschen/000_NDS_HB_data_export_iDiv_w_date.xlsx")
+#datafile <- read.csv("raw-data/BW/Odonata_gesamt.csv",as.is=T,sep=";")
+datafile <- read.csv("raw-data/BW/SGL_Libellen_2006_bis_2018.csv",as.is=T,sep=";")
 
 source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
 
@@ -26,7 +25,8 @@ Format data info
 ```{r}
 
 library(lubridate)
-datafile$Date <- as.Date(datafile$date,format="%Y-%m-%d")
+datafile$Date <- sapply(datafile$Datum,function(x)strsplit(x," ")[[1]][1])
+datafile$Date <- as.Date(datafile$Date,format="%d.%m.%Y")
 datafile$Month <- month(datafile$Date)
 datafile$Year <- year(datafile$Date)
 datafile$yday <- yday(datafile$Date)
@@ -36,26 +36,29 @@ datafile$yday <- yday(datafile$Date)
 Fix column headings
 ```{r}
 
-datafile$Species <- datafile$species
-datafile$MTB_Q <- datafile$mtbq
-datafile$Beobachter <- datafile$observer_id
+datafile$Species <- datafile$Art_Wissenschaftlich
 
 ```
 
+Fix MTBQ
+```{r}
+
+datafile$MTB_Q <- apply(datafile,1,function(x)paste0(x["MTB"],x["MTBQ"]))
+
+```
 
 Check species names against the standard list
 
 ```{r}
 specieslist <- read.delim("specieslist_odonata.txt")
-
-
 unique(datafile$Species[!datafile$Species%in%specieslist$Species])
 
+#remove genus data
+datafile <- datafile[grepl(" ",datafile$Species),]
+  
 #correct species names
-datafile$Species[which(datafile$Species=="Lestes virens vestalis")]<-"Lestes virens"
-datafile$Species[which(datafile$Species=="Aeshna subarctica elisabethae")]<-"Aeshna subarctica"
+datafile <- subset(datafile, Species!="Orthetrum chrysostigma")
 
-unique(datafile$Species[!datafile$Species%in%specieslist$Species])
 
 ```
 
@@ -63,28 +66,29 @@ Identifying adult observation
 
 ```{r}
 
-unique(datafile$unit)
-table(datafile$unit)
+unique(datafile$Einheit)
+table(datafile$Einheit)
 
-datafile <- subset(datafile, !unit %in% c("Larve","Jungtier"))
+datafile <- subset(datafile, !Einheit %in% c("Larve","Jungtier"))
 
 ```
 
-Restrict to adult sampling
+Sort count data
 
 ```{r}
+
+
 #check for extremes
-hist(datafile$count)
-summary(datafile$count)
-#quantile(datafile$count,0.99)
+hist(datafile$Anzahl)
+summary(datafile$Anzahl)
 
 #remove zero data
-nrow(subset(datafile,count==0))
-datafile <- subset(datafile,count!=0)
+nrow(subset(datafile,Anzahl==0))
+datafile <- subset(datafile,Anzahl!=0)
 
 #block upper values
-datafile$count[datafile$count > quantile(datafile$count,0.99,na.rm=T)] <- quantile(datafile$count,0.99,na.rm=T)
-hist(datafile$count)
+datafile$Anzahl[datafile$Anzahl > quantile(datafile$Anzahl,0.99,na.rm=T)] <- quantile(datafile$Anzahl,0.99,na.rm=T)
+summary(datafile$Anzahl)
 
 ```
 
@@ -92,8 +96,8 @@ Get coords of the MTBs
 
 ```{r}
 load("mtbqsDF.RData")
-datafile$lon <- mtbqsDF$x[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]
-datafile$lat <- mtbqsDF$y[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]
+datafile$lon <- mtbqsDF$lon[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]
+datafile$lat <- mtbqsDF$lat[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]
 datafile <- subset(datafile,!is.na(lon))
 
 ```
@@ -126,7 +130,7 @@ gridRichness <- ddply(datafile,.(MTB_Q),summarise,
                     nuDates = length(unique(Date)))
 
 summary(gridRichness$nuSpecies)
-#1 to 51!!!
+#1 to 49
 #1 is unlikely...
 
 qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
@@ -144,7 +148,7 @@ Sort out the observer data:
 ```{r}
 
 sort(unique(datafile$Beobachter))
-
+#only 1 observer
 ```
 
 Characterize the total ability of each observer each year
@@ -156,7 +160,6 @@ obsRichness <- ddply(datafile,.(Beobachter),summarise,
                     nuRecs=length(Species))
 
 summary(obsRichness$nuSpecies)
-#1 to 66!!!
 
 qplot(log(nuRecs),log(nuSpecies),data=obsRichness)
 
@@ -197,10 +200,10 @@ Save juvenile and adult data separately
 ```{r}
 
 adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
-                           "Richness","lon","lat","Beobachter","count")]
-names(adult_datafile)[which(names(adult_datafile)=="count")] <- "Anzahl_min"
-save(adult_datafile,file="derived-data/adult_datafile_NS.RData")
-saveRDS(adult_datafile,file="derived-data/adult_datafile_NS.rds")
+                           "Richness","lon","lat","Beobachter","Anzahl")]
+names(adult_datafile)[which(names(adult_datafile)=="Anzahl")] <- "Anzahl_min"
+save(adult_datafile,file="derived-data/adult_datafile_BW.RData")
+saveRDS(adult_datafile,file="derived-data/adult_datafile_BW.rds")
 
 ```
 

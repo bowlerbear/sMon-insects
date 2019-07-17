@@ -84,9 +84,10 @@ Restrict to adult sampling
 
 ```{r}
 table(datafile$VERH)
+unique(datafile$VERH)
 
 datafile <- subset(datafile, VERH %in% 
-                     c("I","PA","EI"))#imagos, pairs copulating, laying eggs
+                     c("I","PA","EI","E",NA))#imagos, pairs copulating, laying eggs
 
 #check for extremes
 hist(datafile$ANZAHL)

@@ -95,8 +95,7 @@ unique(datafile$Einheit)
 table(datafile$Einheit)
 
 #restrict to adults
-datafile <- subset(datafile, Einheit %in% c("Alttier/Imago","Kopula","Eiablage",
-                                            "Individuum (unbest. Altersklassen)"))
+datafile <- subset(datafile, !Einheit %in% c("Larve","Jungtier"))
 
 ```
 

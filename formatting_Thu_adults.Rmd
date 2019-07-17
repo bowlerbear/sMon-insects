@@ -90,9 +90,9 @@ datafile$lat <- mycoords@coords[,2]
 
 Subset to adults
 ```{r}
-
+unique(datafile$STATUS_K_R)
 table(datafile$STATUS_K_R)
-datafile <- subset(datafile,STATUS_K_R %in% c("Im","k","e","If","MI","WI"))
+datafile <- subset(datafile,STATUS_K_R %in% c("Im","k","e","If","MI","WI","?","Ex"))
 
 ```
 
@@ -112,7 +112,6 @@ surveys <- ddply(datafile,.(MTB_Q,Date,Year,Month,yday),summarise,
 
 library(GGally)
 ggpairs(surveys[,5:9])
-
 
 ```
 
