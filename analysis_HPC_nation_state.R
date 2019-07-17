@@ -17,6 +17,7 @@ adultData <- ldply(adultFiles,function(x){
   return(out)
 })
 
+
 #extract state from file name
 adultData$State <- sapply(adultData$File,function(x)strsplit(x,"\\.rds")[[1]][1])
 adultData$State <- sapply(adultData$State,function(x)strsplit(x,"_")[[1]][3])
@@ -70,6 +71,11 @@ phenolData$State <- sapply(phenolData$State,function(x)strsplit(x,"_")[[1]][3])
 phenolData <- subset(phenolData, Species==myspecies)
 
 df <- subset(df,interaction(yday,State) %in% interaction(phenolData$day,phenolData$State))
+
+#####################################################################################
+
+#reduce data to 5%%
+#df <- df[sample(1:nrow(df),round(0.05*nrow(df))),]
 
 ######################################################################################
 
@@ -240,20 +246,23 @@ n.cores = as.integer(Sys.getenv("NSLOTS", "1"))
 
 ###########################################################################################
 
-modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_state.txt"
+modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_state.txt"
+#modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_state.txt"
 #modelfile="R/BUGS_sparta_nation_state.txt"
 
 effort = "nuSpecies"
 bugs.data$Effort <- bugs.data[[effort]]
 
 #specify parameters to monitor
-params <- c("int","state.a.effect","state.t.effect","effort.p","single.p","psi.fs")
+#params <- c("int","state.a.effect","state.t.effect","effort.p","single.p","psi.fs")
+#params <- c("mean.growth","mean.p","state.persist","state.colonize")
+params <- c("psi.state","mean.growth.state","psi.fs","psi2","z")
 
 #run model
 out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=nt,
-            n.chains=n.cores, n.burnin=10000,n.iter=50000,parallel=T)
+            n.chains=n.cores, n.burnin=200,n.iter=500,parallel=T)
 
 #save as output file
-saveRDS(data.frame(out$summary),file=paste0("outSummary_nation_state_",stage,"_",myspecies,".rds"))
+saveRDS(data.frame(out$summary),file=paste0("outSummary_dynamic_nation_state_reduced_",stage,"_",myspecies,".rds"))
 
 ########################################################################################
