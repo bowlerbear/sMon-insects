@@ -1,4 +1,5 @@
 library(rgdal)
+library(maptools)
 
 ######################################################################################################
 #get datafiles
@@ -12,6 +13,7 @@ nr <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/Narurr
 
 #get german county boundaries
 germanAdmin <- readRDS("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/AdminBoundaries/gadm36_DEU_1_sp.rds")
+germany <- unionSpatialPolygons(germanAdmin,rep(1, length(germanAdmin)))
 
 #get MTBQs
 mtbqs <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",
@@ -38,6 +40,11 @@ mtbqsDF$y <- mtbqs_centroids@coords[,2]
 mtbqs_centroids <- spTransform(mtbqs_centroids,proj4string(germanAdmin))
 mtbqs_counties <- over(mtbqs_centroids,germanAdmin)
 mtbqsDF$Counties <- as.character(mtbqs_counties$NAME_1)
+
+#add on lon/lat info
+mtbqsDF$lon <- mtbqs_centroids@coords[,1]
+mtbqsDF$lat <- mtbqs_centroids@coords[,2]
+
 ########################################################################################################
 
 #get Natur raum for each MTBQ
@@ -115,6 +122,20 @@ mtbqsDF$MTB_Natur<-all.nr_Mode$Name[match(mtbqsDF$Value,all.nr_Mode$MTB)]
 
 ###################################################################################################
  
+#sort MTBQs
+mtbqsDF$Q <- NA
+mtbqsDF$Q[which(mtbqsDF$Quadrant=="NW")]<-1
+mtbqsDF$Q[which(mtbqsDF$Quadrant=="NO")]<-2
+mtbqsDF$Q[which(mtbqsDF$Quadrant=="SW")]<-3
+mtbqsDF$Q[which(mtbqsDF$Quadrant=="SO")]<-4
+mtbqsDF$MTB_Q <- paste0(as.character(mtbqsDF$Value),
+                        as.character(mtbqsDF$Q))
+library(ggplot2)
+qplot(x,y,data=mtbqsDF,color=MTB_Natur)+
+  theme(legend.position="none")
+
+###################################################################################################
+
 save(mtbqsDF,file="mtbqsDF.RData")
 
 ###################################################################################################
@@ -130,7 +151,7 @@ projection(newRaster) <- proj4string(mtbqs)
 plot(newRaster)
 germanAdmin <- spTransform(germanAdmin,proj4string(mtbqs))
 plot(germanAdmin,add=T)
-writeRaster(newRaster,file='km50grid.tif',format="GTiff")
+writeRaster(newRaster,file='km50grid.tif',format="GTiff",overwrite=T)
 
 #add to mtbq to each one
 mtbqs_centroids <- spTransform(mtbqs_centroids,proj4string(mtbqs))
@@ -145,6 +166,7 @@ projection(newRaster) <- proj4string(mtbs)
 plot(newRaster)
 germanAdmin <- spTransform(germanAdmin,proj4string(mtbs))
 plot(germanAdmin,add=T)
+writeRaster(newRaster,file='km100grid.tif',format="GTiff",overwrite=T)
 
 #add to mtbq to each one
 mtbqs_centroids <- spTransform(mtbqs_centroids,proj4string(mtbs))
@@ -153,23 +175,86 @@ mtbqsDF$km100 <- extract(newRaster,mtbqs_centroids)
 length(unique(mtbqsDF$km50))#191
 length(unique(mtbqsDF$km100))#54
 
-###################################################################################################
+#################################################################################################
 
-mtbqsDF$Q <- NA
-mtbqsDF$Q[which(mtbqsDF$Quadrant=="NW")]<-1
-mtbqsDF$Q[which(mtbqsDF$Quadrant=="NO")]<-2
-mtbqsDF$Q[which(mtbqsDF$Quadrant=="SW")]<-3
-mtbqsDF$Q[which(mtbqsDF$Quadrant=="SO")]<-4
-mtbqsDF$MTB_Q <- paste0(as.character(mtbqsDF$Value),
-                                 as.character(mtbqsDF$Q))
+#hexagonal grid
+#https://stackoverflow.com/questions/29374004/how-do-i-generate-a-hexagonal-grid-in-r
+#http://strimas.com/spatial/hexagonal-grids/
+require(sp)
+library(rgeos)
+
+#making hexagonal polygons
+meuse.sr = germany
+meuse.sr = spTransform(germany,CRS(proj4string(mtbqs)))
+plot(meuse.sr)
+meuse.large = gBuffer(meuse.sr, width = 200000)
+HexPts <-spsample(meuse.large, type="hexagonal", cellsize=100000)
+HexPols <- HexPoints2SpatialPolygons(HexPts)
+plot(HexPols[meuse.sr,], add=TRUE)
+
+#make data frame
+Spol <- HexPols
+#Creating a dataframe with Spol IDs
+Spol_df<- as.data.frame(sapply(slot(Spol, "polygons"), function(x) slot(x, "ID")))
+#Making the IDs row names 
+row.names(Spol_df) <- sapply(slot(Spol, "polygons"), function(x) slot(x, "ID"))
+# Making the spatial polygon data frame
+HexPols <- SpatialPolygonsDataFrame(Spol, data =Spol_df)
+
+#write shape file
+writeOGR(HexPols, dsn = "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data",
+         layer = "HexPols",driver="ESRI Shapefile")
+
+germanyDF <- as(germany,'SpatialPolygonsDataFrame')
+writeOGR(germanyDF, dsn = "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data",
+         layer = "Germany",driver="ESRI Shapefile")
+
+#read in edited file by Volker
+HexPols <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data",
+                   layer="HexPolsEdit")
+germany <- spTransform(germany,CRS(proj4string(HexPols)))
+plot(germany)
+plot(HexPols,add=T)
+
+#crop to germany
+HexPols <- gIntersection(HexPols,gUnaryUnion(mtbqs),byid=TRUE)
+plot(HexPols)
+#label the polygons
+nums <- sapply(slot(HexPols, "polygons"), function(x) slot(x, "ID"))
+Spol <- HexPols
+Spol_df<- as.data.frame(sapply(slot(Spol, "polygons"), function(x) slot(x, "ID")))
+row.names(Spol_df) <- sapply(slot(Spol, "polygons"), function(x) slot(x, "ID"))
+HexPols <- SpatialPolygonsDataFrame(Spol, data =Spol_df)
+
+#for each mtbq, get the polygon
+getmode <- function(v) {
+  v <- v[!is.na(v)]
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+library(plyr)
+mtbqsPolygons <- ldply(1:nrow(mtbqs),
+                       function(x){
+                         mtbqsCentres = spsample(mtbqs[x,],100,type="regular")
+                         Polygon = getmode(over(mtbqsCentres,HexPols))
+                         data.frame(Name = mtbqs@data$Name[x],
+                                    Value =mtbqs@data$Value[x],
+                                    Quadrant =mtbqs@data$Quadrant[x],
+                                    Polygon)
+                       })
+mtbqsDF$HexPol <- mtbqsPolygons$Polygon[match(interaction(mtbqsDF$Value,mtbqsDF$Quadrant),
+                                              interaction(mtbqsPolygons$Value,mtbqsPolygons$Quadrant))]
+
+#get centroids of the polygons
+id <- sapply(slot(HexPols, "polygons"), function(x) slot(x, "ID"))
+HexPol_x <- sapply(slot(HexPols, "polygons"), function(x) slot(x, "labpt")[1])
+HexPol_y <- sapply(slot(HexPols, "polygons"), function(x) slot(x, "labpt")[2])
+mtbqsDF$HexPol_x <- HexPol_x[match(mtbqsDF$HexPol,id)]
+mtbqsDF$HexPol_y <- HexPol_y[match(mtbqsDF$HexPol,id)]
 
 save(mtbqsDF,file="mtbqsDF.RData")
 
-library(ggplot2)
-qplot(x,y,data=mtbqsDF,color=MTB_Natur)+
-  theme(legend.position="none")
-
 ###################################################################################################
-#get MTBQs in datafile but not in this shapefile
-
+load("mtbqsDF.RData")
+table(mtbqsDF$Counties)# - usually 500 ish per state
 ###################################################################################################
