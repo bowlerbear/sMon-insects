@@ -125,7 +125,7 @@ listlengthDF <- arrange(listlengthDF,visit)
 #Examine amount of data per 50 km box
 df <- subset(df, Species==myspecies)
 df <- merge(df,mtbqsDF,by="MTB_Q",all.x=T)
-boxData <- ddply(df, .(km50),summarise,
+boxData <- ddply(df, .(km100),summarise,
                  nuYears = length(unique(Year)),
                  nuRecs = length(Species))
 
@@ -133,10 +133,10 @@ boxData <- ddply(df, .(km50),summarise,
 library(raster)
 library(sp)
 germanAdmin <- readRDS("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/AdminBoundaries/gadm36_DEU_1_sp.rds")
-myGrid <- raster('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/km50grid.tif')
+myGrid <- raster('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/km100grid.tif')
 germanAdmin <- spTransform(germanAdmin,projection(myGrid))
 myGrid[] <- NA
-myGrid[boxData$km50] <- boxData$nuYears
+myGrid[boxData$km100] <- boxData$nuYears
 plot(myGrid)
 plot(germanAdmin,add=T)
 
@@ -226,3 +226,46 @@ ggplot(modelSummary)+
   theme(strip.text = element_text(size = rel(0.75)))
 
 ##########################################################################################
+
+#dynamic state model
+#modelSummary <- readRDS("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/outSummary_dynamic_nation_state_reduced_adult_Aeshna cyanea.rds")
+modelSummary <- readRDS("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/outSummary_dynamic_nation_state_adult_Aeshna cyanea.rds")
+modelSummary$Param <- row.names(modelSummary)
+oldModelSummary <- modelSummary
+
+nrow(subset(modelSummary,Rhat<1.1))
+nrow(subset(modelSummary,Rhat>1.1))
+#about 10% didnt converge
+
+#plot stat.persist
+modelSummary <- modelSummary[grepl("state.persist",modelSummary$Param),]
+modelSummary$Temp <- sapply(modelSummary$Param,function(x){
+  sub(".*\\[([^][]+)].*", "\\1", x)})
+modelSummary$Year <- as.numeric(sapply(modelSummary$Temp,function(x)strsplit(x,",")[[1]][2]))
+modelSummary$State <- sapply(modelSummary$Temp,function(x)strsplit(x,",")[[1]][1])
+
+library(ggplot2)
+ggplot(modelSummary)+
+  geom_line(aes(x=Year,y=mean))+
+  facet_wrap(~State)+
+  geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
+  theme_bw()+
+  theme(strip.text = element_text(size = rel(0.75)))
+
+#plot state.colonize
+modelSummary <- oldModelSummary
+modelSummary <- modelSummary[grepl("state.colonize",modelSummary$Param),]
+modelSummary$Temp <- sapply(modelSummary$Param,function(x){
+  sub(".*\\[([^][]+)].*", "\\1", x)})
+modelSummary$Year <- as.numeric(sapply(modelSummary$Temp,function(x)strsplit(x,",")[[1]][2]))
+modelSummary$State <- sapply(modelSummary$Temp,function(x)strsplit(x,",")[[1]][1])
+
+library(ggplot2)
+ggplot(modelSummary)+
+  geom_line(aes(x=Year,y=mean))+
+  facet_wrap(~State)+
+  geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
+  theme_bw()+
+  theme(strip.text = element_text(size = rel(0.75)))
+
+##########################################################################
