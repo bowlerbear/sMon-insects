@@ -27,6 +27,7 @@ mtbs <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Information
 ########################################################################################################
 
 #get centroid of each mtbq and use that to determin the county it is assigned to
+
 library(sp)
 mtbqs_centroids <- data.frame(coordinates(mtbqs))
 coordinates(mtbqs_centroids) <- c("X1","X2")
@@ -45,6 +46,47 @@ mtbqsDF$Counties <- as.character(mtbqs_counties$NAME_1)
 mtbqsDF$lon <- mtbqs_centroids@coords[,1]
 mtbqsDF$lat <- mtbqs_centroids@coords[,2]
 
+#######################################################################################################
+
+#but many mtbqs have NA for county based on this method
+
+#get nr to right project
+germanAdmin <- spTransform(germanAdmin,proj4string(mtbqs))
+
+#get 100 uniformly space points in each box
+library(sp)
+library(plyr)
+#for each polygon for list of points
+all.points <- llply(mtbqs@polygons,function(x){
+  my.sample<-spsample(x,100,type="regular")
+  proj4string(my.sample)<-proj4string(mtbqs)
+  return(my.sample)
+})
+
+#overlay with the germanAdmin
+all.nr <- ldply(1:length(all.points),function(x){
+  temp <- over(all.points[[x]],germanAdmin)
+  temp$MTB <- mtbqs$Value[x]
+  temp$Q <- mtbqs$Quadrant[x]
+  return(temp)
+})
+
+#get the mode Name for each mtbq
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+all.nr_Mode <- ddply(all.nr,.(MTB,Q),summarise,Name=Mode(NAME_1[!is.na(NAME_1)]))
+
+#get MTB level
+MTB_County <- unique(all.nr_Mode[,c("MTB","Name")])
+MTB_County <- subset(MTB_County,!is.na(Name))
+all.nr_Mode$MTB_County <- MTB_County$Name[match(all.nr_Mode$MTB,MTB_County$MTB)]
+all.nr_Mode$Name[is.na(all.nr_Mode$Name)] <- all.nr_Mode$MTB_County[is.na(all.nr_Mode$Name)]
+
+#add on to the mtqbs dataframe
+mtbqsDF$Counties<-all.nr_Mode$Name[match(interaction(mtbqsDF$Value,mtbqsDF$Quadrant),
+                                      interaction(all.nr_Mode$MTB,all.nr_Mode$Q))] 
 ########################################################################################################
 
 #get Natur raum for each MTBQ
@@ -252,9 +294,48 @@ HexPol_y <- sapply(slot(HexPols, "polygons"), function(x) slot(x, "labpt")[2])
 mtbqsDF$HexPol_x <- HexPol_x[match(mtbqsDF$HexPol,id)]
 mtbqsDF$HexPol_y <- HexPol_y[match(mtbqsDF$HexPol,id)]
 
+###################################################################################################
+
+#fill in remaining missing county data manually
+
+out <- subset(mtbqsDF,is.na(Counties))
+mtbqsDF$Counties[mtbqsDF$Value=="1226"]<-"Schleswig-Holstein"
+mtbqsDF$Counties[mtbqsDF$Value=="1633"]<-"Schleswig-Holstein"
+mtbqsDF$Counties[mtbqsDF$Value=="1815"]<-"Schleswig-Holstein"
+mtbqsDF$Counties[mtbqsDF$Value=="1816"]<-"Schleswig-Holstein"
+mtbqsDF$Counties[mtbqsDF$Value=="2452"]<-"Mecklenburg-Vorpommern"
+mtbqsDF$Counties[mtbqsDF$Value=="4003"]<-"Nordrhein-Westfalen"
+mtbqsDF$Counties[mtbqsDF$Value=="4455"]<-"Sachsen"
+mtbqsDF$Counties[mtbqsDF$Value=="5155"]<-"Sachsen"
+mtbqsDF$Counties[mtbqsDF$Value=="5702"]<-"Rheinland-Pfalz"
+mtbqsDF$Counties[mtbqsDF$Value=="5840"]<-"Nordrhein-Westfalen"
+mtbqsDF$Counties[mtbqsDF$Value=="7349"]<-"Bayern"
+mtbqsDF$Counties[mtbqsDF$Value=="8439"]<-"Bayern"
+mtbqsDF$Counties[mtbqsDF$Value=="8535"]<-"Bayern"
+unique(mtbqsDF$Counties)
+
+#city states to surrounding ones 
+mtbqsDF$Counties[mtbqsDF$Counties=="Hamburg"]<-"Schleswig-Holstein"
+mtbqsDF$Counties[mtbqsDF$Counties=="Bremen"]<-"Niedersachsen"
+mtbqsDF$Counties[mtbqsDF$Counties=="Berlin"]<-"Brandenburg"
+
+##################################################################################################
+
 save(mtbqsDF,file="mtbqsDF.RData")
 
 ###################################################################################################
 load("mtbqsDF.RData")
 table(mtbqsDF$Counties)# - usually 500 ish per state
+###################################################################################################
+#checl mtbqs for which we have data but no coordinates
+#63012,50561,51561
+subset(mtbqsDF,Value=="6301")
+subset(mtbqsDF,Value=="5056")
+subset(mtbqsDF,Value=="5156")
+##################################################################################################
+mtbsDF <- mtbs@data
+subset(mtbsDF,Value=="6301")
+subset(mtbsDF,Value=="5056")
+subset(mtbsDF,Value=="5156")
+#dont exist....
 ###################################################################################################
