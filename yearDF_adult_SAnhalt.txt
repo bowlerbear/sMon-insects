@@ -1,4 +1,7 @@
 "Year"	"State"
+1991	"SAnhalt"
+1992	"SAnhalt"
+1993	"SAnhalt"
 1994	"SAnhalt"
 1995	"SAnhalt"
 1996	"SAnhalt"
