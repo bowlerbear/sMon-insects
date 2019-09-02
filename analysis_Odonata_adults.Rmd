@@ -24,19 +24,19 @@ Select state for analysis
 
 ```{r}
 
-#state = "Sa"
-#state = "SH"
-#state = "Bav"
-#state = "NRW"
-#state = "Sax"
-#state="SAnhalt"
-#state="RLP"
-#state="Thu"
-#state="BB"
-#state="NS"
-#state="MV"
+state = "Sa"
+state = "SH"
+state = "Bav"
+state = "NRW"
+state = "Sax"
+state="SAnhalt"
+state="RLP"
+state="Thu"
+state="BB"
+state="NS"
+state="MV"
 state="He"
-
+state="BW"
 ```
 
 Read in the dataset
@@ -149,15 +149,15 @@ df0$day <- yday(df0$Date)
 df0$Year <- year(df0$Date)
 
 #look at plots
-library(ggplot2)
-ggplot(df0,aes(x=day,y=Anzahl_min))+
-  stat_smooth(method="loess")+
-  facet_wrap(~Species,scales="free")
+#library(ggplot2)
+#ggplot(df0,aes(x=day,y=Anzahl_min))+
+#  stat_smooth(method="loess")+
+#  facet_wrap(~Species,scales="free")
 
 
-ggplot(df0,aes(x=day,y=Anzahl_min))+
-  stat_smooth(formula = y ~ poly(x,2),method="glm",method.args = list(family = "binomial"))+
-  facet_wrap(~Species,scales="free")
+#ggplot(df0,aes(x=day,y=Anzahl_min))+
+#  stat_smooth(formula = y ~ poly(x,2),method="glm",method.args = list(family = #"binomial"))+
+#  facet_wrap(~Species,scales="free")
 
 ```
 
@@ -168,6 +168,11 @@ Fit a model with cyclic cubic regression splines
 library(mgcv)
 df0$fYear <- as.factor(df0$Year)
 df0 <- subset(df0, Species %in% outSummary$Species[outSummary$nuRecs>25])
+#species 1 not fit for SH
+#species 9 doesnt work for Bav
+#species 46 doesnt work for Sax
+#species 53 doesnt for SAnhalt
+#species 58 doesnt work for BB
 out <- ddply(df0,.(Species),function(x){
              gam1 <- gamm(Anzahl_min ~  1 + s(day, bs="cc"), 
                           random = list(fYear=~1), 
@@ -176,9 +181,9 @@ out <- ddply(df0,.(Species),function(x){
              return(fits)
             })
 
-ggplot(out)+
-  geom_line(aes(x=day,y=fits))+
-  facet_wrap(~Species,scales="free")
+#ggplot(out)+
+#  geom_line(aes(x=day,y=fits))+
+#  facet_wrap(~Species,scales="free")
 
 ```
 
