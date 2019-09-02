@@ -36,10 +36,19 @@ datafile$yday <- yday(datafile$Date)
 datafile$Species <- as.character(datafile$Art_Wissenschaftlich)
 datafile$Beobachter <- datafile$GUID_Beobachter
 datafile$Fundort <- datafile$Ortsbezeichnung
-datafile$MTB_Q <- paste0(datafile$MTB,datafile$MTBQ)
 datafile <- subset(datafile, !is.na(yday))
 datafile <- subset(datafile, yday!=1)
 ```
+
+Sort MTBQ
+```{r}
+
+datafile <- subset(datafile,!is.na(MTB))
+datafile <- subset(datafile,!is.na(MTBQ))
+datafile$MTB_Q <- paste0(datafile$MTB,datafile$MTBQ)
+
+```
+
 
 Subset to just dragonflies
 
