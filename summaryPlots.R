@@ -1,6 +1,11 @@
 #summaryPlots
 library(rgdal)
+library(ggplot2)
 
+###################################################################################################
+
+#species being analysed
+mySpecies <- read.delim("speciesTaskID_adult.txt",as.is=T)$Species
 ################################################################################################
 
 library(maptools)
@@ -67,7 +72,8 @@ adultData$Year <- year(adultData$Date)
 
 #change state labels
 adultData$State <- as.factor(adultData$State)
-levels(adultData$State) <- c("Bavaria","Brandenberg","Mecklenburg-Vorpommern",
+levels(adultData$State) <- c("Bavaria","Brandenberg","Baden-Wuttemberg","Hesse",
+                             "Mecklenburg-Vorpommern",
                              "North Rhine-Westphalia","Lower Saxony",
                              "Rheinland-Pfalz","Saarland","Saxony-Anhalt",
                              "Saxony","Schleswig Holstein","Thuringia")
@@ -88,7 +94,7 @@ adultSpecies[!adultSpecies%in%species$Species]
 
 #############################################################################################
 
-#how often is each site visits
+#how often is each site visited
 out <- ddply(adultData,.(Year,MTB_Q),summarise,nu = length(unique(yday)))
 summary(out$nu)
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
@@ -155,7 +161,6 @@ ggplot(subset(out,Species%in%unique(out$Species)[1:39]))+
 
 #convert dat to julian date
 
-
 #take Berd Trockur data
 adultData_BT <- subset(adultData, Beobachter=="Bernd Trockur")
 
@@ -200,37 +205,6 @@ ggplot(subset(adultData,Year>1979 & Year <2016))+
   facet_wrap(~State)+
   coord_flip()
   
-################################################################################################
-
-#changes in records per year
-
-#per year, for each state,
-#get the number of
-
-obsSummary <- ddply(adultData,.(Year,State),summarise,
-                    nuRecs = length(Species),
-                    nuGrids = length(unique(interaction(lon,lat))),
-                    nuMTBs = length(unique(MTB_Q)),
-                    nuObs = length(unique(Beobachter)),
-                    nuVisits = length(unique(Date)))
-
-#melt data frame
-library(reshape2)
-obsSummary2 <- melt(obsSummary,id=c("Year","State"))
-
-ggplot(subset(obsSummary2,Year>1980))+
-  geom_line(aes(x=Year,y=value))+
-  facet_wrap(variable ~ State,scales="free_y")
-
-#also get average list length
-listSummary <- ddply(adultData,.(Year,State,Beobachter,Date),summarise,
-                    nuList = length(unique(Species)),
-                    nuRecs = length(Species))
-
-ggplot(subset(listSummary,Year>1980))+
-  geom_boxplot(aes(x=as.factor(Year),y=nuList))+
-  facet_wrap(~State)
-
 ###############################################################################################
 
 #plot number of records per MTB
@@ -257,7 +231,7 @@ adultDataS$MTB<- sapply(adultDataS$MTB, function(x){
 
 #look at data without a quadrant
 temp <- subset(adultDataS, as.numeric(Q)>4 |is.na(Q))
-table(temp$Stat)#just 37 in SH
+table(temp$Stat)#just 29 in SH
 #these probably are supposed to have a zero at the start
 adultDataS$MTB[which(adultDataS$MTB_Q==9162)]<-"916"
 adultDataS$Q[which(adultDataS$MTB_Q==9162)]<-"2"
@@ -298,7 +272,7 @@ timeSummary <- ddply(adultData,.(Year,State),summarise,
                      nuRecs=length(Species),
                      nuSpecies=length(unique(Species)),
                      nuPlots=length(unique(MTB_Q)),
-                     nuVisits=length(unique(interaction(Date,MTB_Q))))
+                     nuVisits=length(unique(Beobachter)))
 
 #number of records
 library(ggplot2)
@@ -306,31 +280,32 @@ q1 <- qplot(Year,nuRecs,data=subset(timeSummary,Year>1979),colour=State)+
   geom_line()+
   theme_bw()+
   scale_y_log10()+
-  theme(legend.position="right")+
+  theme(legend.position="none")+
   ylab("Number of records")
 #ggsave(filename="plots/Adult_timeseries_effort_q1.png",width=5,height=4)
-
 
 #number of species seen per year
 q2 <- qplot(Year,nuSpecies,data=subset(timeSummary,Year>1979),colour=State)+
   geom_line()+
   theme_bw()+
-  theme(legend.position="right")+
+  theme(legend.position="none")+
   ylab("Number of species")
 
 #number of visits
 q3 <- qplot(Year,nuVisits,data=subset(timeSummary,Year>1979),colour=State)+
   geom_line()+
   theme_bw()+
-  theme(legend.position="right")+
-  ylab("Number of visits")
+  theme(legend.position="none")+
+  scale_y_log10()+
+  ylab("Number of observers")
 
 #number of sampling points
 q4 <- qplot(Year,nuPlots,data=subset(timeSummary,Year>1979),colour=State)+
   geom_line()+
   theme_bw()+
-  theme(legend.position="right")+
-  ylab("Number of MTBQ")
+  theme(legend.position="none")+
+  scale_y_log10()+
+  ylab("Number of MTBQs")
 
 library(cowplot)
 plot_grid(q1,q2,q3,q4)
@@ -345,6 +320,7 @@ timeSummary[,3:6]<-sapply(timeSummary[,3:6],log)
 ggpairs(timeSummary[,3:6])
 
 ###############################################################################################
+
 #get annual indices:
 
 modelFiles <- list.files("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_modelSummary_flightperiod/5098409")
@@ -475,7 +451,7 @@ modelSummary$Code <- paste(modelSummary$Genus,modelSummary$Spec,sep="_")
   
 #################################################################################################
 
-#plot them at the species level:
+#plot them at the species level per state:
 
 library(ggplot2)
 
@@ -531,10 +507,10 @@ ggplot(subset(modelSummary,kState=="SAnhalt" & Stage=="adult"))+
 
 ################################################################################################
 
-#get average per region:
+#get average across states
 
 nationSummary <- ddply(subset(modelSummary, Stage=="adult"),.(Code,Species,Year),summarise,
-                       meanMean = weighted.mean(mean,1/sd),
+                       meanMean = median(mean,na.rm=T),
                        meanSD = mean(sd))
 nationSummary$lowerCI <- nationSummary$meanMean - 1.96*nationSummary$meanSD
 nationSummary$upperCI <- nationSummary$meanMean + 1.96*nationSummary$meanSD
@@ -549,15 +525,18 @@ ggplot(nationSummary)+
 
 #cluster them into groups of species with similar dyanamics
 
-modelSummary2 <- subset(modelSummary,Stage=="adult" & kState=="NRW")
-
-#cast population dynamics matrix
+modelSummary2 <- nationSummary
 library(reshape2)
-mydata <- acast(modelSummary2,Species~Year,value.var="mean")
 
+#######################
+#cluster on occurences#
+#######################
+
+mydata <- acast(modelSummary2,Species~Year,value.var="meanMean")
+mydata[is.na(mydata)]<-0
 #apply cluster analysis
 d <- dist(mydata, method = "euclidean") 
-fit <- hclust(d, method="ward")
+fit <- hclust(d, method="ward.D2")
 plot(fit) # display dendogram
 
 wss <- (nrow(mydata)-1)*sum(apply(mydata,2,var))
@@ -566,6 +545,58 @@ for (i in 2:15) wss[i] <- sum(kmeans(mydata,
 plot(1:15, wss, type="b", xlab="Number of Clusters",
      ylab="Within groups sum of squares") 
 
+#pam
+library(cluster)
+fit <- kmeans(mydata, 6) 
+
+# get cluster means
+aggregate(mydata,by=list(fit$cluster),FUN=mean)
+# append cluster assignment
+mydata <- data.frame(mydata, fit$cluster) 
+mydata$Species <- row.names(mydata)
+
+#add to dataframe 
+modelSummary2$cluster <- mydata$fit.cluster[match(modelSummary2$Species,mydata$Species)]
+
+#order
+modelSummary2$cluster <- as.factor(modelSummary2$cluster)
+modelSummary2$cluster <- factor(modelSummary2$cluster, levels=c("3","2","6","1","4","5"))
+levels(modelSummary2$cluster) <- c("1","2","3","4","5","6")
+ddply(modelSummary2,.(cluster),summarise,nuS = length(unique(Species)))
+levels(modelSummary2$cluster) <- c("16 sp","13 sp","11 sp","6 sp","10 sp","17 sp")
+
+#plot
+ggplot(modelSummary2)+
+  geom_line(aes(x=Year,y=meanMean,colour=Species))+
+  facet_wrap(~cluster)+
+  theme_bw()+ ylab("Occupancy")+
+  theme(legend.position="none")
+
+
+##########################
+#cluster on growth rates##
+##########################
+
+mydata <- ddply(modelSummary2,.(Species),function(x){
+  len = length(x$Year)
+  growth = (x$meanMean[2:len]/(1-x$meanMean[2:len]))/(x$meanMean[1:(len-1)]/(1-x$meanMean[1:(len-1)]))
+  data.frame(Species=rep(unique(x$Species),(len-1)),growth,Year=2:len)
+})
+mydata <- acast(mydata,Species~Year,value.var="growth")
+mydata[is.na(mydata)]<-0
+
+#apply cluster analysis
+d <- dist(mydata, method = "euclidean") 
+fit <- hclust(d, method="ward.D2")
+plot(fit) # display dendogram
+
+wss <- (nrow(mydata)-1)*sum(apply(mydata,2,var))
+for (i in 2:15) wss[i] <- sum(kmeans(mydata,
+                                     centers=i)$withinss)
+plot(1:15, wss, type="b", xlab="Number of Clusters",
+     ylab="Within groups sum of squares") 
+
+#choose cluster
 fit <- kmeans(mydata, 4) 
 
 # get cluster means
@@ -579,23 +610,21 @@ modelSummary2$cluster <- mydata$fit.cluster[match(modelSummary2$Species,mydata$S
 
 #plot
 ggplot(modelSummary2)+
-  geom_line(aes(x=Year,y=mean,colour=Species))+
+  geom_line(aes(x=Year,y=meanMean,colour=Species))+
   facet_wrap(~cluster)+
   theme_bw()+ ylab("Occupancy")+
-  theme(legend.position="none")+
-  ggtitle("Adult - NRW")
+  theme(legend.position="none")
 
 ################################################################################################
 
 #get population trends per region and species
 source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
 
-
 trendEstimates <- ddply(modelSummary,.(Species,State,Stage),
                         function(x){
                           fitTrends(x)
                         })
-save(trendEstimates,file="trendEstimates.RData")
+save(trendEstimates,file="derived-data/trendEstimates.RData")
 
 trendEstimates <- ddply(subset(modelSummary,Stage=="adult"),.(Species,State),
                         function(x){
@@ -648,6 +677,33 @@ ggplot(subset(trendSummary,Stage=="adult"))+
 ggsave(file="German_Trends.tiff",dpi=300,width=5,height=3)
 
 summary(lm(trend~Stage+State,data=trendEstimates))
+
+#############################################################################################
+
+#national trends
+
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+names(nationSummary)[4:5]<-c("mean","sd")
+
+trendEstimates <- ddply(nationSummary,.(Species),
+                        function(x){
+                          fitTrends(x)
+                        })
+
+save(trendEstimates,file="derived-data/trendEstimatesNational.RData")
+
+#plot as histogram
+head(trendEstimates)
+trendEstimates$state <- NA
+trendEstimates$state[which(trendEstimates$lowerCI>0 & trendEstimates$upperCI>0)] <- "sig. increase"
+trendEstimates$state[which(trendEstimates$lowerCI<0 & trendEstimates$upperCI<0)] <- "sig. decrease"
+trendEstimates$state[is.na(trendEstimates$state)]<-"non sig"
+trendEstimates$change <- factor(trendEstimates$state,levels=c("sig. decrease","sig. increase","non sig"))
+
+ggplot(trendEstimates)+
+  geom_histogram(aes(trend,fill=change))+
+  theme_bw()+
+  geom_vline(xintercept=0,colour="black",linetype="dashed")
 
 ###############################################################################################
 
@@ -703,6 +759,8 @@ ggplot(sortTrends,aes(x=adult,y=juv))+
   theme_bw()
 
 ##############################################################################################
+
+#community samples
 
 #drawn 1000 possible communities for each year
 
@@ -783,6 +841,7 @@ ggplot(euroTrends)+
   xlab("")+ylab("number of species")
 
 ############################################################################################
+
 #thinning records
 z <- coda::as.mcmc.list(out$samples)
 z2 <- window(z, start=601, end=1000)
