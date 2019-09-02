@@ -148,12 +148,11 @@ cat("
 
     #splines
     #spline model for initial occupancy
-    for (i in 1:1) { b[i] ~ dnorm(0,0.018) }
     eta <- X %*% b
     K1 <- S1[1:nspline,1:nspline] * lambda[1]  + S1[1:nspline,nspline1:nspline2] * lambda[2]
-    b[2:nspline1] ~ dmnorm(zero[2:nspline1],K1) 
+    b[1:nspline1] ~ dmnorm(zero[1:nspline1],K1) 
     
-    ## smoothing parameter priors CHECK...
+    ## smoothing parameter priors 
     for (i in 1:2) {
       lambda[i] ~ dgamma(.05,.005)
       rho[i] <- log(lambda[i])
@@ -164,7 +163,7 @@ cat("
     K1.p <- S1[1:nspline,1:nspline] * lambda.p[1]  + S1[1:nspline,nspline1:nspline2] * lambda.p[2]
     b.p[1:nspline] ~ dmnorm(zero[1:nspline],K1.p)  
     
-    ## smoothing parameter priors CHECK...
+    ## smoothing parameter priors
     for (i in 1:2) {
       lambda.p[i] ~ dgamma(.05,.005)
       rho.p[i] <- log(lambda.p[i])
@@ -175,7 +174,7 @@ cat("
     K1.c <- S1[1:nspline,1:nspline] * lambda.c[1]  + S1[1:nspline,nspline1:nspline2] * lambda.c[2]
     b.c[1:nspline] ~ dmnorm(zero[1:nspline],K1.c)  
     
-    ## smoothing parameter priors CHECK...
+    ## smoothing parameter priors 
     for (i in 1:2) {
       lambda.c[i] ~ dgamma(.05,.005)
       rho.c[i] <- log(lambda.c[i])
