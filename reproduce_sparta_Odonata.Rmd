@@ -23,7 +23,7 @@ Each row in the data frame is a species observation.
 ```{r warning=FALSE}
 
 library(gdata)
-df <- read.xls("raw-data/Odonata_Saarland_Trockur.xls",sheet=5)
+df <- read.xls("raw-data/Saarland/Odonata_Saarland_Trockur.xls",sheet=5)
 
 ```
 
@@ -58,7 +58,7 @@ Filter one: focus on the months that were most sampled. The results suggest this
 
 table(df$month)
 
-df <- subset(df, month %in% c(4:9))
+df <- subset(df, month %in% c(5:9))
 
 ```
 
@@ -92,6 +92,26 @@ Summary info per species
 
 library(plyr)
 ddply(df,.(Species),summarise,nuRecs=length(unique(Date)),nuYears=length(unique(Year)),nuSites=length(unique(MTB_Q)))
+
+```
+
+
+Run model using sparta
+```{r}
+tempDF <- formatOccData(taxa= as.character(df$Species), 
+                site= as.character(df$MTB_Q), 
+                survey = df$Date,
+                includeJDay = TRUE)
+
+
+results <- occDetFunc(taxa_name = "Aeshna cyanea",
+                      n_iterations = 500,
+                      burnin = 100, 
+                      occDetdata = tempDF[[2]],
+                      spp_vis = tempDF[[1]],
+                      write_results = FALSE)
+
+plot(results)
 
 ```
 
