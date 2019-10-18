@@ -6,27 +6,22 @@ cat("
   for (i in 1:nsite){ 
     
     #first year/initial occupancy, model
+    z[i,1] ~ dbern(psi1[i])
+    logit(psi1[i]) <- mu + state.a[stateS[i]] + site.a[i]
 
-    #data distribution
-    z[i,1] ~ dbern(muZ[i,1])
-    
-    logit(muZ[i,1]) <- logit.mu + state.a[stateS[i]]
-
-  
+    #subsequent years
     for (t in 2:nyear){
-      
-      #data distribution
       z[i,t] ~ dbern(muZ[i,t]) 
 
       #overall model
-      muZ[i,t] <- persist[i,t]*muZ[i,t-1] + colonize[i,t]*(1-muZ[i,t-1])
+      muZ[i,t] <- persist[i,t-1]*z[i,t-1] + colonize[i,t-1]*(1-z[i,t-1])
       
       #persistence occupancy model
-      logit(persist[i,t]) <- muphi[t] + lphi[stateS[i]]
+      logit(persist[i,t-1]) <- muphi[t-1] + lphi[stateS[i]] + lphi.site[i]
       #lphi.mtb[mtbS[i]]
 
       #colonization occupancy model
-      logit(colonize[i,t]) <- mugam[t] + lgam[stateS[i]] 
+      logit(colonize[i,t-1]) <- mugam[t-1] + lgam[stateS[i]] + lphi.site[i]
       #lgam.mtb[mtbS[i]]
     }
   }   
@@ -52,137 +47,143 @@ cat("
   #metapopulation-level
    for(t in 1:nyear){
       psi.fs[t] <- sum(z[,t])/nsite
+   }
+
+  for(s in 1:nstate){
+    for(t in 1:nyear){
+      psi.state[s,t] <- mean(z[stateS,t])
     }
-    
+  }
+
   #yearly-growth
   e <- 0.0000001
   for(t in 1:(nyear-1)){  
-    growthr[t] <- ((psi.fs[t+1]+e)/(1-psi.fs[t+1]+e))/((psi.fs[t]+e)/(1-psi.fs[t]+e))
+    growth.odds.r[t] <- log(((psi.fs[t+1]+e)/(1-psi.fs[t+1]+e))/((psi.fs[t]+e)/(1-psi.fs[t]+e)))
   } 
+  
+  for(t in 1:(nyear-1)){  
+    growth.r[t] <- log((psi.fs[t+1]+e)/(psi.fs[t]+e))
+  }
 
   #overall
-    mean.growth <- mean(growthr)
+    #mean.growth <- mean(growth.r)
+    mean.growth <- pow(prod(growth.odds.r),nyear)
+    psi.total.change <- psi.fs[nyear] - psi.fs[1]
     mean.p <- mean(p)#mean detection probability
-
-  #state-level
-  for(s in 1:nstate){
-      psi.state[s,1] <- logit.mu + state.a[s]
-    for(t in 2:nyear){
-      psi.state[s,t] <- persist.S[s,t]*psi.state[s,t-1] + colonize.S[s,t]*(1-psi.state[s,t-1])
-      logit(persist.S[s,t]) <- muphi[t] + lphi[s]
-      logit(colonize.S[s,t]) <- mugam[t] + lgam[s]
-    }
-  }
 
   #yearly state-level growth
   for(s in 1:nstate){
     for(t in 1:(nyear-1)){  
-      state.growthr[s,t] <- ((psi.state[s,t+1]+e)/(1-psi.state[s,t+1]+e))/((psi.state[s,t]+e)/(1-psi.state[s,t]+e)) 
+      state.growth.odds.r[s,t] <- log(((psi.state[s,t+1]+e)/(1-psi.state[s,t+1]+e))/((psi.state[s,t]+e)/(1-psi.state[s,t]+e))) 
+      state.growth.r[s,t] <- log((psi.state[s,t+1]+e)/(psi.state[s,t]+e))
     } 
+  }
+
+  for(s in 1:nstate){
+    psi.state.change[s] <- psi.state[s,nyear]-psi.state[s,1]
   }
 
   #state growth
   for(s in 1:nstate){
-    state.mean.growth[s] <- mean(state.growthr[s,])
+    state.mean.growth[s] <- pow(prod(state.growth.odds.r[s,]),nyear)
   }
 
   #Priors 
 
   # State model priors
   
-  #spatial effects
+  ####################################
+  #spatial effect year 1 model
 
     #intercept
-    mu ~ dunif(0,1)
-    logit.mu <- logit(mu)
+    mu ~ dnorm(0,0.1)
 
     #state.a random effects
     for (s in 1:nstate) {
       state.a[s] ~ dnorm(0, tau.state.a)       
     } 
-    tau.state.a ~ dgamma(.1,.1) 
+    tau.state.a <- 1/(sd.state.a * sd.state.a)
+    sd.state.a ~ dt(0, 1, 1)T(0,)
 
-    #mtbq random effects
+    #site.a random effects
     for (s in 1:nsite) {
       site.a[s] ~ dnorm(0, tau.site.a)       
     } 
-    tau.site.a ~ dgamma(.1,.1) 
+    tau.site.a <- 1/(sd.site.a * sd.site.a)
+    sd.site.a ~ dt(0, 1, 1)T(0,)
 
-    #mtb effects
-    for (s in 1:nmtb) {
-      site.mtb[s] ~ dnorm(0, tau.mtb.a)       
-    } 
-    tau.mtb.a ~ dgamma(.1,.1)
+###############################################
 
   #temporal intercepts
-    
-    #detection model 
-    for(i in 1:nyear){
-      mup.prob[i] ~ dunif(0,1)
-      mup[i] <- logit(mup.prob[i])
+  
+    #year effects - fixed effects
+    for(i in 1:(nyear-1)){
+      muphi[i] ~ dnorm(0,0.1)
+      mugam[i] ~ dnorm(0,0.1)
     }
-
-    #persist/colon
-    for(i in 2:nyear){
-      muphi.prob[i] ~ dunif(0,1)
-      muphi[i] <- logit(muphi.prob[i])
-      
-      mugam.prob[i] ~ dunif(0,1)
-      mugam[i] <- logit(mugam.prob[i])
-    }
-    
     
   #random state variation
-
-    tau.phi ~ dgamma(.1,.1)
-    tau.gam ~ dgamma(.1,.1)
-    taup ~ dgamma(.1,.1)
-  
+    tau.phi <- 1/(sd.phi * sd.phi)
+    tau.gam <- 1/(sd.gam * sd.gam)
+    sd.phi ~ dt(0, 1, 1)T(0,)
+    sd.gam ~ dt(0, 1, 1)T(0,)
+    
     for(s in 1:nstate){
       lphi[s] ~ dnorm(0,tau.phi)
       lgam[s]  ~ dnorm(0,tau.gam)
-      lp[s]  ~ dnorm(0,taup)
     }
 
   #random site variation
-    tau.site.phi ~ dgamma(.1,.1)
-    tau.site.gam ~ dgamma(.1,.1)
-    taup.site ~ dgamma(.1,.1)
+    tau.site.phi <- 1/(sd.site.phi * sd.site.phi)
+    tau.site.gam <- 1/(sd.site.gam * sd.site.gam)
+    sd.site.phi ~ dt(0, 1, 1)T(0,)
+    sd.site.gam ~ dt(0, 1, 1)T(0,)
     
     for(s in 1:nsite){
       lphi.site[s] ~ dnorm(0,tau.site.phi)
       lgam.site[s]  ~ dnorm(0,tau.site.gam)
-      lp.site[s]  ~ dnorm(0,taup.site)
     }
 
-   #random mtb variation
-    tau.mtb.phi ~ dgamma(.1,.1)
-    tau.mtb.gam ~ dgamma(.1,.1)
-    taup.mtb ~ dgamma(.1,.1)
-    
-   for(s in 1:nmtb){
-      lphi.mtb[s] ~ dnorm(0,tau.mtb.phi)
-      lgam.mtb[s]  ~ dnorm(0,tau.mtb.gam)
-      lp.mtb[s]  ~ dnorm(0,taup.mtb)
-    }
-
+    #############################################
     #Observation model priors
-    #intercept - see above
-    #site-level variaion - see above
+
+    #detection model
+
+    #fixed year effects
+    for(i in 1:nyear){
+    mup[i] ~ dnorm(0,0.1)
+    }
+
+    #site-level random variaion 
+     for(s in 1:nsite){
+        lp.site[s]  ~ dnorm(0,taup.site)
+      }   
+    taup.site <- 1/(sdp.site * sdp.site)
+    sdp.site ~ dt(0, 1, 1)T(0,)
+
+    #state-level random variation
+    for(s in 1:nstate){
+      lp[s]  ~ dnorm(0,taup)
+    }
+    taup <- 1/(sdp * sdp)
+    sdp ~ dt(0, 1, 1)T(0,)
 
     #effort effects
-    effort.p ~ dnorm(0, 0.01)
-    single.p ~ dnorm(0, 0.01)
+    effort.p ~ dnorm(0, 0.1)
+    single.p ~ dnorm(0, 0.1)
 
     #random slopes for phenology
     for(s in 1:nstate){
       phenol.s[s] ~ dnorm(0, tau.phenol)
       phenol2.s[s] ~ dnorm(0, tau.phenol2)
     }
-    mu.phenol ~ dnorm(0,0.01)
-    mu.phenol2 ~ dnorm(0,0.01)
-    tau.phenol ~ dgamma(.1,.1)
-    tau.phenol2 ~ dgamma(.1,.1)    
-    
+
+    mu.phenol ~ dnorm(0,0.1)
+    mu.phenol2 ~ dnorm(0,0.1)
+    tau.phenol <- 1/(sd.phenol * sd.phenol)
+    tau.phenol2 <- 1/(sd.phenol2 * sd.phenol2)
+    sd.phenol ~ dt(0, 1, 1)T(0,)
+    sd.phenol2 ~ dt(0, 1, 1)T(0,)   
   }
+
     ",fill=TRUE,file="R/BUGS_dynamic_nation_state.txt")
