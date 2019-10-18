@@ -9,6 +9,7 @@ mySpecies <- read.delim("speciesTaskID_adult.txt",as.is=T)$Species
 ################################################################################################
 
 library(maptools)
+library(sp)
 
 #get map of Germany
 germanyMap <- readRDS("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/AdminBoundaries/gadm36_DEU_1_sp.rds")
@@ -16,12 +17,31 @@ germanyMap <- readRDS("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/Ad
 #MTBQ
 mtbqMap <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",
                    layer="MTBQ_25833")
+
+#coonvert to raster
+library(raster)
+mtbqMapR <- spTransform(mtbqMap,CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+mtbqDF <- data.frame(mtbqMapR@data,x=coordinates(mtbqMapR)[,1],y=coordinates(mtbqMapR)[,2])
+mtbqDF$Q <- NA
+mtbqDF$Q[which(mtbqDF$Quadrant=="NW")]<-1
+mtbqDF$Q[which(mtbqDF$Quadrant=="NO")]<-2
+mtbqDF$Q[which(mtbqDF$Quadrant=="SW")]<-3
+mtbqDF$Q[which(mtbqDF$Quadrant=="SO")]<-4
+mtbqDF$MTB_Q <- paste0(mtbqDF$Value,mtbqDF$Q)
+pixels <- SpatialPixelsDataFrame(points=mtbqDF[,c('x','y')], 
+                                 data=mtbqDF[,c('Q','MTB_Q')],
+                                 tolerance = 0.916421)
+raster <- raster(pixels[,'MTB_Q'])
+plot(raster)
+
+#in utm
 mtbqDF <- data.frame(mtbqMap@data,x=coordinates(mtbqMap)[,1],y=coordinates(mtbqMap)[,2])
 mtbqDF$Q <- NA
 mtbqDF$Q[which(mtbqDF$Quadrant=="NW")]<-1
 mtbqDF$Q[which(mtbqDF$Quadrant=="NO")]<-2
 mtbqDF$Q[which(mtbqDF$Quadrant=="SW")]<-3
 mtbqDF$Q[which(mtbqDF$Quadrant=="SO")]<-4
+mtbqDF$MTB_Q <- paste0(mtbqDF$Value,mtbqDF$Q)
 
 #MTB
 mtbMap <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",
@@ -279,7 +299,7 @@ library(ggplot2)
 q1 <- qplot(Year,nuRecs,data=subset(timeSummary,Year>1979),colour=State)+
   geom_line()+
   theme_bw()+
-  scale_y_log10()+
+  facet_wrap(~State,scales="free")+
   theme(legend.position="none")+
   ylab("Number of records")
 #ggsave(filename="plots/Adult_timeseries_effort_q1.png",width=5,height=4)
@@ -423,6 +443,7 @@ all<-c(notLC,hd)
 
 #################################################################################################
 
+#################################################################################################
 #Restrict to occcurence indicies:
 
 modelSummary <- modelSummary[grepl("psi.fs",modelSummary$Param),]
@@ -525,14 +546,20 @@ ggplot(nationSummary)+
 
 #cluster them into groups of species with similar dyanamics
 
-modelSummary2 <- nationSummary
+modelSummary2 <- nationTrends
 library(reshape2)
 
 #######################
 #cluster on occurences#
 #######################
+mydata <- ddply(modelSummary2,.(Species),function(x){
+  require(zoo)
+  roll.mean <- rollmean(x$mean,5,align="center")
+  len <- length(roll.mean)
+  data.frame(Species=rep(unique(x$Species),len),roll.mean,Year=1:len)
+})
 
-mydata <- acast(modelSummary2,Species~Year,value.var="meanMean")
+mydata <- acast(mydata,Species~Year,value.var="roll.mean")
 mydata[is.na(mydata)]<-0
 #apply cluster analysis
 d <- dist(mydata, method = "euclidean") 
@@ -558,17 +585,24 @@ mydata$Species <- row.names(mydata)
 #add to dataframe 
 modelSummary2$cluster <- mydata$fit.cluster[match(modelSummary2$Species,mydata$Species)]
 
+
 #order
 modelSummary2$cluster <- as.factor(modelSummary2$cluster)
-modelSummary2$cluster <- factor(modelSummary2$cluster, levels=c("3","2","6","1","4","5"))
+
+modelSummary2$cluster <- factor(modelSummary2$cluster, levels=c("2","4","5","1","6","3"))
 levels(modelSummary2$cluster) <- c("1","2","3","4","5","6")
 ddply(modelSummary2,.(cluster),summarise,nuS = length(unique(Species)))
-levels(modelSummary2$cluster) <- c("16 sp","13 sp","11 sp","6 sp","10 sp","17 sp")
+levels(modelSummary2$cluster) <- c("18 sp","15 sp","12 sp","6 sp","11 sp","13 sp")
+
+unique(subset(modelSummary2,cluster==6)$Species)
+#"Aeshna juncea"          "Coenagrion hastulatum"  "Gomphus pulchellus"     "Ischnura pumilio"      
+#"Lestes dryas"           "Leucorrhinia rubicunda"
 
 #plot
-ggplot(modelSummary2)+
-  geom_line(aes(x=Year,y=meanMean,colour=Species))+
-  facet_wrap(~cluster)+
+ggplot(modelSummary2,aes(x=Year,y=mean))+
+  geom_line(aes(colour=Species))+
+  facet_wrap(~cluster,scales="free")+
+  #geom_smooth(aes(colour=Species),se=F)+
   theme_bw()+ ylab("Occupancy")+
   theme(legend.position="none")
 
@@ -576,10 +610,15 @@ ggplot(modelSummary2)+
 ##########################
 #cluster on growth rates##
 ##########################
+library(zoo)
+gee<- c(1:10)
+rollmean(gee,5,align="right")
 
 mydata <- ddply(modelSummary2,.(Species),function(x){
   len = length(x$Year)
-  growth = (x$meanMean[2:len]/(1-x$meanMean[2:len]))/(x$meanMean[1:(len-1)]/(1-x$meanMean[1:(len-1)]))
+  #roll.mean <- rollmean(x$mean,5,align="right")
+  #len = length(roll.mean)
+  growth = x$mean[2:len]/x$mean[1]
   data.frame(Species=rep(unique(x$Species),(len-1)),growth,Year=2:len)
 })
 mydata <- acast(mydata,Species~Year,value.var="growth")
@@ -597,7 +636,8 @@ plot(1:15, wss, type="b", xlab="Number of Clusters",
      ylab="Within groups sum of squares") 
 
 #choose cluster
-fit <- kmeans(mydata, 4) 
+fit <- kmeans(mydata, 6) 
+table(fit$cluster)
 
 # get cluster means
 aggregate(mydata,by=list(fit$cluster),FUN=mean)
@@ -607,11 +647,48 @@ mydata$Species <- row.names(mydata)
 
 #add to dataframe 
 modelSummary2$cluster <- mydata$fit.cluster[match(modelSummary2$Species,mydata$Species)]
+table(modelSummary2$cluster)
 
 #plot
 ggplot(modelSummary2)+
-  geom_line(aes(x=Year,y=meanMean,colour=Species))+
+  geom_line(aes(x=Year,y=mean,colour=Species))+
   facet_wrap(~cluster)+
+  theme_bw()+ ylab("Occupancy")+
+  theme(legend.position="none")
+
+#plot change in occupancy
+mydataM <- melt(mydata,id=c("fit.cluster","Species"))
+
+mydataM$Year <- as.numeric(gsub("X","",mydataM$variable))+1979
+mydataM$Year <- as.numeric(gsub("X","",mydataM$variable))
+
+ggplot(mydataM)+
+  geom_line(aes(x=Year,y=value,colour=Species))+
+  facet_wrap(~fit.cluster,nrow=2)+
+  theme_bw()+ ylab("Occupancy")+
+  theme(legend.position="none")
+
+#with order
+mydataM$fit.cluster <- as.factor(mydataM$fit.cluster)
+mydataM$fit.cluster <- factor(mydataM$fit.cluster, levels=c("5","1","6","2","4","3"))
+levels(mydataM$fit.cluster) <- c("1","2","3","4","5","6")
+ddply(mydataM,.(fit.cluster),summarise,nuS = length(unique(Species)))
+levels(mydataM$fit.cluster) <- c("18 sp","15 sp","12 sp","6 sp","11 sp","13 sp")
+
+unique(subset(mydataM,cluster==6)$Species)
+
+#two plots
+ggplot(subset(mydataM,fit.cluster %in% c("18 sp","15 sp","12 sp")))+
+  geom_line(aes(x=Year,y=value,colour=Species))+
+  facet_wrap(~fit.cluster,nrow=1)+
+  theme_bw()+ ylab("Occupancy")+
+  geom_smooth(aes(x=Year,y=value),se=F,colour="black")+
+  theme(legend.position="none")
+
+ggplot(subset(mydataM, fit.cluster %in% c("6 sp","11 sp","13 sp")))+
+  geom_line(aes(x=Year,y=value,colour=Species))+
+  facet_wrap(~fit.cluster,nrow=1)+
+  geom_smooth(aes(x=Year,y=value),se=F,colour="black")+
   theme_bw()+ ylab("Occupancy")+
   theme(legend.position="none")
 
@@ -680,17 +757,26 @@ summary(lm(trend~Stage+State,data=trendEstimates))
 
 #############################################################################################
 
+#get national level trends
+nationTrends <- readRDS("model-outputs/modelSummary_Odonata_adult_nation_state.rds") 
+#nationTrends <- subset(nationTrends,Param=="mean.growth")
+nationTrends <- nationTrends[grep("psi.fs",nationTrends$Param),]
+nationTrends$Species <- gsub(".rds","",nationTrends$File)
+nationTrends$Species <- gsub("outSummary_dynamic_nation_state_adult_","",nationTrends$Species)
+nationTrends$Year <- as.numeric(sub(".*\\[([^][]+)].*", "\\1", nationTrends$Param))
+nationTrends$Year <- nationTrends$Year + 1979
+
+############################################################################################
+
 #national trends
 
 source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
-names(nationSummary)[4:5]<-c("mean","sd")
+#names(nationSummary)[4:5]<-c("mean","sd")
 
-trendEstimates <- ddply(nationSummary,.(Species),
+trendEstimates <- ddply(nationTrends,.(Species),
                         function(x){
                           fitTrends(x)
                         })
-
-save(trendEstimates,file="derived-data/trendEstimatesNational.RData")
 
 #plot as histogram
 head(trendEstimates)
@@ -699,11 +785,14 @@ trendEstimates$state[which(trendEstimates$lowerCI>0 & trendEstimates$upperCI>0)]
 trendEstimates$state[which(trendEstimates$lowerCI<0 & trendEstimates$upperCI<0)] <- "sig. decrease"
 trendEstimates$state[is.na(trendEstimates$state)]<-"non sig"
 trendEstimates$change <- factor(trendEstimates$state,levels=c("sig. decrease","sig. increase","non sig"))
+save(trendEstimates,file="derived-data/trendEstimatesNational.RData")
 
 ggplot(trendEstimates)+
-  geom_histogram(aes(trend,fill=change))+
+  geom_histogram(aes(trend))+
   theme_bw()+
-  geom_vline(xintercept=0,colour="black",linetype="dashed")
+  ylab("number of species")+
+  xlab("population trend")
+  geom_vline(xintercept=0,colour="red",linetype="dashed")
 
 ###############################################################################################
 
@@ -849,5 +938,91 @@ summary(z2)
 
 gelman.diag(z2,multivariate=FALSE)
 #Rhat is the potential scale reduction factor (at convergence, Rhat=1).
+
+############################################################################################
+
+#spline analysis
+splineData <- readRDS("model-outputs/outSummary_dynamicspline_adult_Crocothemis erythraea2.rds")
+summary(splineData$Rhat)
+splineData$Param <- row.names(splineData)
+splineData$ParamNu <- sub(".*\\[([^][]+)].*", "\\1", splineData$Param)
+splineData$Site <- as.numeric(sapply(splineData$ParamNu,function(x)strsplit(x,",")[[1]][1]))
+splineData$Year <- as.numeric(sapply(splineData$ParamNu,function(x)strsplit(x,",")[[1]][2]))
+splineData <- subset(splineData,Param!="deviance")
+summary(splineData$mean)
+
+#get MTBQ data
+load("siteInfo.RData")
+splineData$MTBQ <- siteInfo$MTB_Q[match(splineData$Site,siteInfo$siteIndex)]
+
+fill.na <- function(x, i=13) {
+  if( is.na(x)[i] ) {
+    return( median(x, na.rm=TRUE) )
+  } else {
+    return( x[i] )
+  }
+}
+
+library(ggplot2)
+#library(rasterVis)
+library(viridis)
+
+#for last year
+for(i in 1:37){
+splineData20 <- subset(splineData,Year==i)
+summary(splineData20$mean)
+mean(splineData20$mean==1)
+mtbqDF$Occupancy <- splineData20$mean[match(mtbqDF$MTB_Q,splineData20$MTBQ)]
+
+#as raster
+pixels <- SpatialPixelsDataFrame(points=mtbqDF[,c('x','y')], 
+                                 data=mtbqDF[,c('Q','MTB_Q','Occupancy')],
+                                 tolerance = 0.916421)
+r <- raster(pixels[,'Occupancy'])
+#plot(r)
+
+#interpolate over missing values
+#https://gis.stackexchange.com/questions/181011/fill-the-gaps-using-nearest-neighbors
+r2 <- focal(r, w = matrix(1,5,5), fun = fill.na, 
+            pad = TRUE, na.rm = FALSE )
+
+#remove 1
+r2[r2==1] <- NA
+r3 <- focal(r2, w = matrix(1,5,5), fun = fill.na, 
+            pad = TRUE, na.rm = FALSE )
+
+#mask cells outside germany
+r3 <- mask(r3,germanyMap)
+
+r2F <- as.data.frame(r3,xy=T)
+names(r2F)[3] <- "Occupancy"
+ggplot(r2F) +
+  geom_tile(aes(x,y,fill=Occupancy)) +
+  scale_fill_viridis(limits=c(0,1),na.value="white")+
+  theme_void()+
+  ggtitle(paste(i+1979))
+
+ggsave(paste0("gifs/year",i,".tiff"),width=5,height=5)
+
+}
+
+#https://stackoverflow.com/questions/1298100/creating-a-movie-from-a-series-of-plots-in-r
+#https://ryanpeek.github.io/2016-10-19-animated-gif_maps_in_R/
+
+############################################################################################
+#make an animated gifs
+library(magick)
+library(purrr) 
+
+list.files("gifs/") %>% 
+  map(image_read) %>% # reads each path file
+  image_join() %>% # joins image
+  image_animate(fps=2) %>% # animates, can opt for number of loops
+  image_write("thermo.gif") # write to current dir
+
+system("/opt/local/bin/convert -delay 80 *.png example_1.gif")
+
+animation <- image_animate(img, fps = 2)
+write.gif()
 
 ############################################################################################
