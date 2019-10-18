@@ -1,4 +1,4 @@
-cat("
+
   model{
     
     # State model
@@ -156,11 +156,4 @@ cat("
 
     
     }
-    ",fill=TRUE,file="R/BUGS_dynamic_nation_spline.txt")
-
-
-  
     
-
-
-   
