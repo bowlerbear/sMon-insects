@@ -1,18 +1,23 @@
 ########################################################################################
 
+#need to include NAs for missing MTB data
+
+Sys.time()
+
+library(plyr)
+
 #load in regional datasets
-#myfiles <- list.files("derived-data")
-myfiles <- list.files("/data/idiv_ess/Odonata")
+myfiles <- list.files("derived-data")
+#myfiles <- list.files("/data/idiv_ess/Odonata")
 
 #read in and combine all adult files
-adultFiles<-myfiles[grepl("adult_datafile",myfiles)]
-adultFiles<-adultFiles[grepl("rds",adultFiles)]
+adultFiles <- myfiles[grepl("adult_datafile",myfiles)]
+adultFiles <- adultFiles[grepl("rds",adultFiles)]
 
 #combine these files
-library(plyr)
 adultData <- ldply(adultFiles,function(x){
-  #out<-readRDS(paste("derived-data",x,sep="/"))
-  out<-readRDS(paste("/data/idiv_ess/Odonata",x,sep="/"))
+  out<-readRDS(paste("derived-data",x,sep="/"))
+  #out<-readRDS(paste("/data/idiv_ess/Odonata",x,sep="/"))
   out$File <- x
   return(out)
 })
@@ -21,6 +26,18 @@ adultData <- ldply(adultFiles,function(x){
 #extract state from file name
 adultData$State <- sapply(adultData$File,function(x)strsplit(x,"\\.rds")[[1]][1])
 adultData$State <- sapply(adultData$State,function(x)strsplit(x,"_")[[1]][3])
+nrow(adultData)#1023689
+##########################################################################################
+
+#add gbif data to fill gaps
+gbifdata <- readRDS("derived-data/datafile_GBIF.rds")
+#gbifdata <- readRDS("/data/idiv_ess/Odonata/datafile_GBIF.rds")
+#nrow(gbifdata)#38191
+
+#combine the two
+adultData <- rbind(adultData,gbifdata)
+
+######################################################################################
 
 #format date
 library(lubridate)
@@ -32,7 +49,12 @@ adultData$Month <- month(adultData$Date)
 adultData$Day <- day(adultData$Date)
 adultData <- subset(adultData,!is.na(Date))
 adultData <- subset(adultData,yday!=1)
+
+#####################################################################################
+
+#remove MTBQs not in the shapefile = "51561" "50561" "49563"
 adultData$MTB_Q <- gsub("/","",adultData$MTB_Q)
+adultData <- subset(adultData, !MTB_Q %in% c("51561","50561","49563","55484","63012"))
 
 ###################################################################################
 #filter to 1980 onwards
@@ -42,7 +64,8 @@ df <- subset(adultData, Year>=1980  & Year<2017)
 ######################################################################################
 
 #pick species
-myspecies="Aeshna cyanea"
+#range expanding species
+myspecies="Crocothemis erythraea"
 stage="adult"
 
 ######################################################################################
@@ -50,38 +73,69 @@ stage="adult"
 #subset to phenology by regions
 
 #read in and combine all phenology files
-phenolFiles<-list.files("/data/idiv_ess/Odonata")[grepl("speciesDays",list.files("/data/idiv_ess/Odonata"))]
-phenolData <- ldply(phenolFiles,function(x){
-  out<-read.delim(paste("/data/idiv_ess/Odonata",x,sep="/"))
-  out$File <- x
-  return(out)
-})
-
+# phenolFiles<-list.files("/data/idiv_ess/Odonata")[grepl("speciesDays",list.files("/data/idiv_ess/Odonata"))]
+# phenolData <- ldply(phenolFiles,function(x){
+#   out<-read.delim(paste("/data/idiv_ess/Odonata",x,sep="/"))
+#   out$File <- x
+#   return(out)
+# })
+# 
 # phenolFiles<-list.files()[grepl("speciesDays",list.files())]
 # phenolData <- ldply(phenolFiles,function(x){
 #  out<-read.delim(x)
 #  out$File <- x
 #  return(out)
 # })
+# 
+# 
+# #extract state from file name
+# phenolData$State <- sapply(phenolData$File,function(x)strsplit(x,"\\.txt")[[1]][1])
+# phenolData$State <- sapply(phenolData$State,function(x)strsplit(x,"_")[[1]][3])
+# phenolData <- subset(phenolData, Species==myspecies)
+# 
+# df <- subset(df,interaction(yday,State) %in% interaction(phenolData$day,phenolData$State))
 
+#if no phenolData for a given state, use max and min phenoldays
+dfS <- subset(df, Species==myspecies)
+obsPhenolData <- ddply(dfS,.(State),summarise,
+                       minDay = round(quantile(yday,0.05)),
+                       maxDay = round(quantile(yday,0.95)))
 
-#extract state from file name
-phenolData$State <- sapply(phenolData$File,function(x)strsplit(x,"\\.txt")[[1]][1])
-phenolData$State <- sapply(phenolData$State,function(x)strsplit(x,"_")[[1]][3])
-phenolData <- subset(phenolData, Species==myspecies)
+#expand to list all days between these days
+obsPhenolData <- ddply(obsPhenolData,.(State),function(x){
+  data.frame(Species=myspecies,
+             day=as.numeric(x["minDay"]):as.numeric(x["maxDay"]),
+             fits=NA,
+             File=NA,
+             State=x["State"])})
 
-df <- subset(df,interaction(yday,State) %in% interaction(phenolData$day,phenolData$State))
+df <- subset(df,interaction(yday,State) %in% interaction(obsPhenolData$day,obsPhenolData$State))
 
 #####################################################################################
+
+#reduce size of the dataset
 
 #reduce data to 5%%
 #df <- df[sample(1:nrow(df),round(0.05*nrow(df))),]
 
+#any oversampled plots???
+out <- ddply(df,.(MTB_Q,Year),summarise,
+             nuDates=length(unique(Date)))
+#out <- arrange(out,desc(nuDates))
+summary(out$nuDates)
+
+#subset to at most 50 dates per year
+nrow(df)
+df <- ddply(df, .(Year,MTB_Q),function(x){
+  mydates <- ifelse(length(unique(x$Date))>20,
+                    sample(unique(x$Date),20),unique(x$Date))
+  subset(x, Date %in% mydates)
+})
+nrow(df)
+
 ######################################################################################
 
-#define a visit
 df$visit <- paste(df$MTB_Q,df$Date,df$Beobachter,sep="_")
-#df$visit <- paste(df$MTB_Q,df$Date,sep="_")
 
 #get occurence matrix  - detection and non-detection
 getOccurrenceMatrix<-function(df){
@@ -108,90 +162,61 @@ getListLength<-function(df){
 }
 listlengthDF <- getListLength(df)
 
+#get MTB
+listlengthDF$MTB <- sapply(as.character(listlengthDF$MTB_Q),function(x){
+  len <- nchar(x)
+  substr(x,1,(len-1))})
+
 #rows of occuMatrix match visits
 all(listlengthDF$visit==row.names(occMatrix))
 
+##########################################################################################
+
+#get nationwide boxes
+load("mtbqsDF.RData")
+#load("/data/idiv_ess/Odonata/mtbqsDF.RData")
+all(df$MTB_Q%in% mtbqsDF$MTB_Q)
+#unique(df$MTB_Q[!df$MTB_Q %in% mtbqsDF$MTB_Q])
+
+#add on box info to listlength
+listlengthDF$km50 <- mtbqsDF$km50[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
+summary(listlengthDF$km50)
+listlengthDF$km100 <- mtbqsDF$km100[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
+summary(listlengthDF$km100)
+
+#########################################################################################
+
 #add on some indices
+listlengthDF$State <- mtbqsDF$Counties[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
 listlengthDF$Date <- as.Date(listlengthDF$Date)
 listlengthDF$Year <- year(listlengthDF$Date)
 listlengthDF$yday <- yday(listlengthDF$Date)
-listlengthDF$State <- df$State[match(listlengthDF$MTB_Q,df$MTB_Q)]
 listlengthDF$yearIndex <- as.numeric(factor(listlengthDF$Year))
 listlengthDF$stateIndex <- as.numeric(factor(listlengthDF$State))
-
+listlengthDF$boxIndex <- as.numeric(factor(paste0(listlengthDF$stateIndex,listlengthDF$km50)))
+listlengthDF$siteIndex <- as.numeric(factor(paste0(listlengthDF$stateIndex,
+                                                   listlengthDF$MTB_Q)))
+listlengthDF$mtbIndex <- as.numeric(factor(paste0(listlengthDF$stateIndex,
+                                                  listlengthDF$MTB)))
 #get other effort variables
 listlengthDF$singleList <- ifelse(listlengthDF$nuSpecies==1,1,0)
 listlengthDF$shortList <- ifelse(listlengthDF$nuSpecies%in%2:3,1,0)
 listlengthDF$longList <- ifelse(listlengthDF$nuSpecies>3,1,0)
 
-##########################################################################################
-
-#get nationwide boxes
-#load("mtbqsDF.RData")
-load("/data/idiv_ess/Odonata/mtbqsDF.RData")
-all(df$MTB_Q%in% mtbqsDF$MTB_Q)
-
-#add on box info to listlength
-listlengthDF$km50 <- mtbqsDF$km50[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
-summary(listlengthDF$km50)
-
-#add in dummy for small number of NAs - need to fix this..
-listlengthDF$km50[is.na(listlengthDF$km50)]<-length(unique(listlengthDF$km50))+1
-listlengthDF$boxIndex <- as.numeric(factor(paste0(listlengthDF$stateIndex,listlengthDF$km50)))
-listlengthDF$siteIndex <- as.numeric(factor(paste0(listlengthDF$stateIndex,
-                                                   listlengthDF$km50,
-                                                   listlengthDF$MTB_Q)))
-listlengthDF <- arrange(listlengthDF,visit)
-
-#########################################################################################
-
-# Examine amount of data per 50 km box
-# df <- subset(df, Species==myspecies)
-# df <- merge(df,mtbqsDF,by="MTB_Q",all.x=T)
-# boxData <- ddply(df, .(km50),summarise,
-#                  nuYears = length(unique(Year)),
-#                  nuRecs = length(Species))
-# 
-# #plotting
-# library(raster)
-# library(sp)
-# germanAdmin <- readRDS("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/AdminBoundaries/gadm36_DEU_1_sp.rds")
-# myGrid <- raster('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/km50grid.tif')
-# germanAdmin <- spTransform(germanAdmin,projection(myGrid))
-# myGrid[] <- NA
-# myGrid[boxData$km50] <- boxData$nuYears
-# plot(myGrid)
-# #myGrid[boxData$km50] <- boxData$nuRecs
-# #plot(myGrid)
-# plot(germanAdmin,add=T)
-
-#######################################################################################
-
-#get coordinates of mtb boxes
-
-#get MTB Q
-#MTBshapefile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",layer="MTBQ_25833")
-#crs specified as +proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs
-#MTBshapefile@data$Q <- NA
-#MTBshapefile@data$Q[which(MTBshapefile@data$Quadrant=="NW")]<-1
-#MTBshapefile@data$Q[which(MTBshapefile@data$Quadrant=="NO")]<-2
-#MTBshapefile@data$Q[which(MTBshapefile@data$Quadrant=="SW")]<-3
-#MTBshapefile@data$Q[which(MTBshapefile@data$Quadrant=="SO")]<-4
-#MTBshapefile@data$MTBQ <- paste0(as.character(MTBshapefile@data$Value),
-#                                 as.character(MTBshapefile@data$Q))
-
-#make spline code
-
 #######################################################################################
 #get summary site info data
 
-siteInfo <- unique(listlengthDF[,c("stateIndex","siteIndex","boxIndex")])
-siteInfo <- arrange(siteInfo,stateIndex,boxIndex,siteIndex)
+siteInfo <- unique(listlengthDF[,c("stateIndex","mtbIndex","siteIndex","boxIndex","MTB_Q")])
 head(siteInfo)
+save(siteInfo,file="siteInfo.RData")
 
-########################################################################################
+#######################################################################################
 
-#fit nation-wide model with random slopes to each box
+#order data
+listlengthDF <- arrange(listlengthDF,visit)
+all(row.names(occMatrix)==listlengthDF$visit)
+siteInfo <- arrange(siteInfo,siteIndex)
+nrow(siteInfo)==max(siteInfo$siteIndex)
 
 ########################################################################################
 
@@ -219,19 +244,17 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
 listlengthDF$Species <- bugs.data$y
 
 all(row.names(occMatrix)==listlengthDF$visit)
+
 #######################################################################################
 
 # #set up the spline info
 siteInfo$x <- mtbqsDF$x[match(siteInfo$MTB_Q,mtbqsDF$MTB_Q)]
 siteInfo$y <- mtbqsDF$y[match(siteInfo$MTB_Q,mtbqsDF$MTB_Q)]
-#  
+ 
 # #get info on whether species was seen at each site
- speciesSite <- ddply(listlengthDF,.(siteIndex),summarise,PA=max(Species,na.rm=T))
- siteInfo$obs <- speciesSite$PA[match(siteInfo$siteIndex,speciesSite$siteIndex)]
- siteInfo <- subset(siteInfo,!is.na(obs))
- subset(siteInfo,is.na(x))#63012,50561,51561
- siteInfo <- subset(siteInfo,!is.na(x))
-# 
+speciesSite <- ddply(listlengthDF,.(siteIndex),summarise,PA=max(Species,na.rm=T))
+siteInfo$obs <- speciesSite$PA[match(siteInfo$siteIndex,speciesSite$siteIndex)]
+
 # #fit normal gam
 # library(mgcv)
 # gam1 <- gam(obs ~ 1 + s(x,y), data=siteInfo, family=binomial)
@@ -264,19 +287,16 @@ siteInfo$y <- mtbqsDF$y[match(siteInfo$MTB_Q,mtbqsDF$MTB_Q)]
 #######################################################################################
 
 #get BUGS code using jagam
-#difference in nrow(siteInfo) and bugs.data$nsite
 library(mgcv)
-jags.ready <- jagam(obs ~ 1 + s(x,y), data=siteInfo, family=binomial,file="jagam.txt")
+jags.ready <- jagam(obs ~ 1 + s(x,y,k=15), data=siteInfo, family=binomial,file="jagam.txt")
 
 #extract bits for the model
- 
-#including intercept
-bugs.data$X = jags.ready$jags.data$X
+bugs.data$X = jags.ready$jags.data$X[,-1]
 bugs.data$S1 = jags.ready$jags.data$S1
-bugs.data$zero = jags.ready$jags.data$zero
-bugs.data$nspline = length(bugs.data$zero)-1
-bugs.data$nspline1 = length(bugs.data$zero)
-bugs.data$nspline2 = (length(bugs.data$zero)-1)*2
+bugs.data$zero = jags.ready$jags.data$zero[-1]
+bugs.data$nspline = length(bugs.data$zero)
+bugs.data$nspline1 = length(bugs.data$zero)+1
+bugs.data$nspline2 = (length(bugs.data$zero))*2
 
 ########################################################################################
 
@@ -301,22 +321,24 @@ set.factory("bugs::Conjugate", FALSE, type="sampler")
 
 #get core info
 n.cores = as.integer(Sys.getenv("NSLOTS", "1")) 
+#n.cores = 3
 
 ###########################################################################################
 
-#modelfile="R/BUGS_dynamic_spline.txt"
-modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_spline.txt"
+#modelfile="R/BUGS_dynamic_nation_spline.txt"
+modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_spline.txt"
 
 effort = "nuSpecies"
 bugs.data$Effort <- bugs.data[[effort]]
 
 #specify parameters to monitor
-params <- c("phenol.p","phenol2.p","effort.p","psi.fs","single.p","eta",
-            "a.persist","a.colonize")
+params <- c("z")
 
+Sys.time()
 #run model
-out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=nt,
-            n.chains=n.cores, n.burnin=3000,n.iter=10000,parallel=T)
+out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=nt,n.adapt=1500,
+            n.chains=n.cores, n.burnin=2000,n.iter=5000,parallel=T)
+Sys.time()
 
 #save as output file
 saveRDS(data.frame(out$summary),file=paste0("outSummary_dynamicspline_",stage,"_", myspecies,".rds"))
