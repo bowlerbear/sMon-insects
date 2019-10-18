@@ -22,6 +22,12 @@ cat("
                     phenol2.p * pow(yday[j], 2) + 
                     effort.p * Effort[j] +
                     single.p * singleList[j]
+
+
+    #missing covariate model
+    day ~ 1
+
+
     } 
   
   # Derived parameters - annual occupancy
