@@ -13,6 +13,7 @@ load("alltraits.RData")
 #load("model-outputs/trendEstimatesNational.RData")
 load("model-outputs/trendEstimates.RData")
 
+#merge in one data frame
 trendEstimates$Species[!trendEstimates$Species %in% alltraits$Species]
 trendEstimates <- merge(trendEstimates,alltraits,by="Species")
 
