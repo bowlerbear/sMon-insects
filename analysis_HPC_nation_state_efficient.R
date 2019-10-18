@@ -11,9 +11,7 @@ suppressMessages(library(plyr))
 
 #get random number seed info (contine seed if one has been made)
 seed = as.integer(Sys.getenv("SEED", as.integer(Sys.time())))
-#print("my seed is", seed)
-write.table(seed,file="seed.txt",sep="\t",col.names=FALSE,row.names=FALSE)
-
+#seed
 
 #load the relational table of task ids and species
 speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult.txt"),as.is=T)
@@ -24,14 +22,23 @@ myspecies <- speciesTaskID$Species[which(speciesTaskID$TaskID==task.id)]
 
 #intermediate, unconverged model file name
 intermediate_file = paste0("intermediate_dynamic_nation_state_",myspecies,".rds")
+intermediate_file
 
 #number of MCMC samples
 niterations = 100
 
+#when are we?
 Sys.time()
 
+#where are we?
+getwd()
+
+#get job chain info
+Job_Chain = as.integer(Sys.getenv("Job_Chain","1"))
+Job_Chain
+
 #first check whether there is an unconverged model file
-out <- if(file.exists(intermediate_file)){
+out <- if(file.exists(intermediate_file) & Job_Chain>1){
   
   print("i am continuting from the previous run")
   
@@ -39,10 +46,13 @@ out <- if(file.exists(intermediate_file)){
   
   update(intfile,n.iter=niterations,seed = seed)
   
-} else {
+} else if(file.exists(intermediate_file) & Job_Chain==1){
   
   #if not, start data processing to fit first model
   print("i am starting from stratch")
+  
+#print("my seed is", seed)
+write.table(seed,file="seed.txt",sep="\t",col.names=FALSE,row.names=FALSE)
   
 #load in regional datasets
 #myfiles <- list.files("derived-data")
@@ -173,20 +183,20 @@ df <- subset(df,interaction(yday,State) %in% interaction(obsPhenolData$day,obsPh
 #reduce size of the dataset
 
 #reduce data to 5%%
-#df <- df[sample(1:nrow(df),round(0.05*nrow(df))),]
+df <- df[sample(1:nrow(df),round(0.05*nrow(df))),]
 
 #any oversampled plots???
-out <- ddply(df,.(MTB_Q,Year),summarise,nuDates = length(unique(Date)))
-out <- arrange(out,desc(nuDates))
-summary(out$nuDates)
+#out <- ddply(df,.(MTB_Q,Year),summarise,nuDates=length(unique(Date)))
+#out <- arrange(out,desc(nuDates))
+#summary(out$nuDates)
 
 #subset to at most 50 dates per year
 nrow(df)
-df <- ddply(df, .(Year,MTB_Q),function(x){
-  mydates <- ifelse(length(unique(x$Date))>20,
-                    sample(unique(x$Date),20),unique(x$Date))
-  subset(x, Date %in% mydates)
-})
+#df <- ddply(df, .(Year,MTB_Q),function(x){
+#  mydates <- ifelse(length(unique(x$Date))>20,
+#                    sample(unique(x$Date),20),unique(x$Date))
+#  subset(x, Date %in% mydates)
+#})
 nrow(df)
 
 ######################################################################################
@@ -375,8 +385,14 @@ jags(bugs.data, inits=inits, params, modelfile, n.thin=2,
             n.chains=n.cores, n.burnin=niterations/4,
             n.iter=niterations,parallel=T,
             seed = seed)
+#up to here, we are doing first iterations
 
-} #up to here, we are doing first iterations
+
+} else if(file.exists(intermediate_file) & Job_Chain==1){
+  quit(status = 1)
+} else if (!file.exists(intermediate_file) & Job_Chain>1){
+  quit(status = 1)
+}
 
 ########################################################################################
 
@@ -392,9 +408,11 @@ jags(bugs.data, inits=inits, params, modelfile, n.thin=2,
 ########################################################################################
 
 indicator <- data.frame(out$summary)
+print(head(indicator))
+
 Sys.time()
 
-if (mean(indicator$Rhat<1.1)>0.9){
+if (mean(indicator$Rhat<1.1,na.rm=T)>0.9){
   saveRDS(data.frame(out$summary),file=paste0("outSummary_dynamic_nation_state_",myspecies,".rds"))
   quit(status=0)#successful finish R since model has converged
 }else{
