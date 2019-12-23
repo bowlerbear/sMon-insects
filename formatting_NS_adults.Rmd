@@ -40,6 +40,10 @@ datafile$Species <- datafile$species
 datafile$MTB_Q <- datafile$mtbq
 datafile$Beobachter <- datafile$observer_id
 
+#save natural region info
+naturraum_Saarland <- unique(datafile[,c("MTB_Q","nat_reg_id")])
+saveRDS(naturraum_Saarland,file="naturraum_Saarland.rds")
+
 ```
 
 
