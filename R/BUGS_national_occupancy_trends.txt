@@ -1,0 +1,29 @@
+
+  model{
+  
+  alpha ~ dnorm(0,0.1)
+  for(i in 1:nyear){
+    dummy[i] ~ dpois(mu.p[i])
+    log(mu.p[i]) <- alpha
+  }
+
+  for(t in 1:nyear){
+    tauOcc[t] <- 1/(sdOcc[t] * sdOcc[t]) 
+    psi.fs[t] ~ dnorm(meanOcc[t],tauOcc[t])
+  }  
+
+  # overall trend in occpuancy
+    sumY <- sum(psi.fs[1:nyear])
+    for (t in 1:nyear) {
+      sumxy[t] <- psi.fs[t]*t
+    }
+    sumXY <- sum(sumxy[1:nyear])
+    regres.psi <- (sumXY - ((sumX*sumY)/nyear))/(sumX2 - ((sumX*sumX)/nyear))#linear regression trend
+    
+    totalChange <- (1-pow(psi.fs[nyear]/psi.fs[1],1/nyear))*100 #check against what Charloie had!!
+
+    #coefficient of variation
+    CoV <- sd(psi.fs)/mean(psi.fs)
+    
+  }
+    
