@@ -16,3 +16,6 @@ gifs/*
 mtbqsDF.RData
 *.png
 alltraits*
+alltraits.RData
+stateIndices.RData
+randomMatrix*
