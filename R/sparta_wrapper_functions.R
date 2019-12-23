@@ -18,6 +18,57 @@ getSpartaModels<-function(dir){
   return(models)
 }
 
+
+#for other models
+getModelSummaries <- function(dir){
+  myFiles <- list.files(dir)
+  require(plyr)
+  temp <- ldply(myFiles,function(x){
+    out <- readRDS(paste(dir,x,sep="/"))
+    outS <- data.frame(out$summary)
+    outS$Param <- row.names(out$summary)
+    outS$File <- x
+    return(outS)
+  })
+  return(temp)
+}
+
+
+getModels <- function(dir){
+  myFiles <- list.files(dir)
+  require(plyr)
+  temp <- ldply(myFiles,function(x){
+    out <- readRDS(paste(dir,x,sep="/"))
+    outS <- data.frame(out)
+    outS$Param <- row.names(out)
+    outS$File <- x
+    return(outS)
+  })
+  return(temp)
+}
+
+
+plotTS <- function(x){
+  require(ggplot2)
+  g1 <- ggplot(x)+
+    geom_line(aes(x=Year,y=mean))+
+    geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
+    facet_wrap(~Species)
+  print(g1)
+}
+
+plotCluster <- function(x){
+  require(ggplot2)
+  g1 <- ggplot(x)+
+    geom_line(aes(x=Year,y=mean,colour=Species))+
+    facet_wrap(~cluster)+
+    theme_bw()+
+    ylab("predicted occupancy")+
+    theme(legend.position="none")
+  print(g1)
+}
+
+
 #get annual predictions of occupancy for each species
 #@param models = output of getSpartaModels()
 
@@ -53,6 +104,10 @@ annualPredictions <- function(models){
   return(out)
 
 }
+
+
+
+
 
 #plot these predictions (restrict to species with more than 50 observations)
 #@param myAnnualPredictions = output from annualPredictions()
@@ -151,14 +206,16 @@ plotModels<-function(models,param="psi.fs\\["){
   
 }
 
-getOccurrenceMatrix<-function(df){
-  require(reshape2)
-  out<-acast(df,visit~Species,value.var="Anzahl_min",fun=function(x)length(x[x!=0]))
-  out[out>0]<-1
-  return(out)
-}
 
 
+tracePlot <- function(x){
+  library(coda)
+  
+  #get the chains
+  plot(out$samples,trace=TRUE,density=FALSE,ask=TRUE)
+  
+  }
+  
 getListLength<-function(df){
   require(plyr)
   out <- ddply(df,.(visit,Date,Year,month,day,MTB_Q),summarise,
@@ -182,6 +239,16 @@ getBUGSfits <- function(out,param="trend.year"){
   out <- as.data.frame(out)
   out <- out[grepl(param,out$Param),]
   out$ParamNu <- as.numeric(sub(".*\\[([^][]+)].*", "\\1", out$Param))
+  return(out)
+}
+
+
+getBUGSfitsII <- function(out,param="psi.state"){
+  out <- as.data.frame(out)
+  out <- out[grepl(param,out$Param),]
+  out$ParamNu <- sub(".*\\[([^][]+)].*", "\\1", out$Param)
+  out$Year <- as.numeric(sapply(out$ParamNu,function(x)strsplit(x,",")[[1]][2]))
+  out$State <- as.numeric(sapply(out$ParamNu,function(x)strsplit(x,",")[[1]][1]))
   return(out)
 }
 
