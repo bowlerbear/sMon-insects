@@ -1,0 +1,167 @@
+
+  model{
+
+  # State model
+
+  #fixed year and state but random year
+
+  for (i in 1:nsite){ 
+    
+    #first year/initial occupancy, model
+    z[i,1] ~ dbern(psi1[i])
+    logit(psi1[i]) <- state.a[stateS[i]] + site.a[i]
+
+    #subsequent years
+    for (t in 2:nyear){
+      z[i,t] ~ dbern(muZ[i,t]) 
+
+      #overall model
+      muZ[i,t] <- persist[i,t-1]*z[i,t-1] + colonize[i,t-1]*(1-z[i,t-1])
+      
+      #persistence occupancy model
+      logit(persist[i,t-1]) <- muphi[t-1] + lphi[stateS[i]] + lphi.site[i]
+
+      #colonization occupancy model
+      logit(colonize[i,t-1]) <- mugam[t-1] + lgam[stateS[i]] + lphi.site[i]
+    }
+  }   
+ 
+  ### Observation Model
+  for(j in 1:nvisit) {
+    y[j] ~ dbern(Py[j]) #data is Y
+    Py[j]<- z[site[j],year[j]]*p[j] 
+
+    #detection model:
+    logit(p[j]) <-  int.p +
+                    mup[year[j]] +
+                    lp[state[j]] +
+                    phenol.s[state[j]] * yday[j] + 
+                    phenol2.s[state[j]] * pow(yday[j],2)+
+                    effort.p * Effort[j] +
+                    single.p * singleList[j]
+    } 
+  
+  # Derived parameters
+
+  #metapopulation-level
+   for(t in 1:nyear){
+      psi.fs[t] <- sum(z[,t])/nsite
+   }
+
+  #overall
+    psi.total.change <- psi.fs[nyear]-psi.fs[1]
+    mean.p <- mean(p)#mean detection probability
+
+
+    #state change
+    for(s in 1:nstate){
+      for(t in 1:nyear){
+        psi.state[s,t] <- sum(z[,t] * siteStates[,s])/nsiteState[s]
+      }
+    }
+
+    for(s in 1:nstate){
+      psi.state.change[s] <- psi.state[s,nyear]-psi.state[s,1]
+    }
+
+
+  #Priors 
+
+  # State model priors
+  
+  ####################################
+  #spatial effect year 1 model
+
+    #state.a fixed effects
+    for (s in 1:nstate) {
+      state.prop[s] ~ dunif(0.000001,priorS[s])
+      state.a[s] <- logit(state.prop[s])  
+    } 
+
+    #site.a random effects
+    for (s in 1:nsite) {
+      site.a[s] ~ dnorm(0, tau.site.a)       
+    } 
+    tau.site.a <- 1/(sd.site.a * sd.site.a)
+    sd.site.a ~ dt(0, 1, 1)T(0,)
+
+###############################################
+
+  #temporal intercepts
+  
+    #fixed state variation
+    for(s in 1:nstate){
+      lphi.prop[s] ~ dunif(0.000001,priorS[s])
+      lgam.prop[s] ~ dunif(0.000001,priorS[s])
+      lphi[s] <- logit(lphi.prop[s])
+      lgam[s] <- logit(lgam.prop[s])
+    }
+
+    #year effects - random effects
+    tau.muphi <- 1/(sd.muphi * sd.muphi)
+    tau.mugam <- 1/(sd.mugam * sd.mugam)
+    sd.muphi ~ dt(0, 1, 1)T(0,)
+    sd.mugam ~ dt(0, 1, 1)T(0,)
+    for(i in 1:(nyear-1)){
+      muphi[i] ~ dnorm(0,tau.muphi)
+      mugam[i] ~ dnorm(0,tau.mugam)
+    }
+    
+    #random site variation
+    tau.site.phi <- 1/(sd.site.phi * sd.site.phi)
+    tau.site.gam <- 1/(sd.site.gam * sd.site.gam)
+    sd.site.phi ~ dt(0, 1, 1)T(0,)
+    sd.site.gam ~ dt(0, 1, 1)T(0,)
+    
+    for(s in 1:nsite){
+      lphi.site[s] ~ dnorm(0,tau.site.phi)
+      lgam.site[s]  ~ dnorm(0,tau.site.gam)
+    }
+
+    #############################################
+    #Observation model priors
+
+    #detection model
+    int.p ~ dnorm(0,0.01)
+
+    #random year effects
+    for(t in 1:nyear){
+      mup[t]  ~ dnorm(0,tautp)
+    }
+    tautp <- 1/(sdtp * sdtp)
+    sdtp ~ dt(0, 1, 1)T(0,)
+
+    #site random effects
+     for(s in 1:nsite){
+        lp.site[s]  ~ dnorm(0,taup.site)
+      }   
+    taup.site <- 1/(sdp.site * sdp.site)
+    sdp.site ~ dt(0, 1, 1)T(0,)
+
+    #state random effects
+    for(s in 1:nstate){
+      lp[s]  ~ dnorm(0,taup)
+    }
+    taup <- 1/(sdp * sdp)
+    sdp ~ dt(0, 1, 1)T(0,)
+
+    #effort effects
+    effort.p ~ dnorm(0, 0.01)
+    single.p ~ dnorm(0, 0.01)
+
+    #phenology
+    mu.phenol ~ dnorm(0,0.01)
+    mu.phenol2 ~ dnorm(0,0.01)
+    tau.phenol <- 1/(sd.phenol * sd.phenol)
+    tau.phenol2 <- 1/(sd.phenol2 * sd.phenol2)
+    sd.phenol ~ dt(0, 1, 1)T(0,)
+    sd.phenol2 ~ dt(0, 1, 1)T(0,)
+    #random slopes for phenology
+    for(s in 1:nstate){
+      phenol.s[s] ~ dnorm(mu.phenol, tau.phenol)
+      phenol2.s[s] ~ dnorm(mu.phenol2, tau.phenol2)
+    }
+       
+  }
+
+    
