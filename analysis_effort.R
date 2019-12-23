@@ -87,14 +87,19 @@ ggplot(effortDF_phenol2.p)+
 effortDF_psi <- effortDF[grepl("psi",effortDF$Param),]
 effortDF_psi$Year <- sapply(effortDF_psi$Param,function(x){
   sub(".*\\[([^][]+)].*", "\\1", x)})
+effortDF_psi$Year <- as.numeric(effortDF_psi$Year)+1979
 
 ggplot(subset(effortDF_psi,State=="NRW"))+
   geom_point(aes(x=Year,y=mean,colour=effortType),alpha=0.5)+
   facet_wrap(~Species)
 
 ggplot(subset(effortDF_psi,State=="Sa"))+
-  geom_point(aes(x=Year,y=mean,colour=effortType),alpha=0.5)+
-  facet_wrap(~Species)
+  geom_line(aes(x=Year,y=mean,colour=effortType),alpha=0.5)+
+  facet_wrap(~species)+
+  scale_x_continuous(labels=c(1980,2010),breaks=c(1980,2010))+
+  ylab("Occupancy probability")+
+  theme_bw()+
+  theme(legend.position="top")
 
 ggplot(subset(effortDF_psi,State=="SAnhalt"))+
   geom_point(aes(x=Year,y=mean,colour=effortType),alpha=0.5)+
