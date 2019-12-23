@@ -115,7 +115,43 @@ plot(results)
 
 ```
 
-Organise data using the sparta function
+
+Using sparta with the region
+```{r}
+#add a dummy regional code to the dataset
+
+df$Region <- as.numeric(as.factor(df$Naturraum))
+table(df$Region)
+siteRegions <- unique(df[,c("MTB_Q","Region")])
+siteRegions <- dcast(siteRegions,MTB_Q~Region)
+names(siteRegions)[1] <- "site"
+siteRegions[is.na(siteRegions)] <- 0
+siteRegions[siteRegions>0 & siteRegions<12] <- 1
+
+
+tempDF <- formatOccData(taxa= as.character(df$Species), 
+                site= as.character(df$MTB_Q), 
+                survey = df$Date,
+                includeJDay = TRUE)
+
+
+results <- occDetFunc(taxa_name = "Aeshna cyanea",
+                      n_iterations = 500,
+                      burnin = 100, 
+                      occDetdata = tempDF[[2]],
+                      spp_vis = tempDF[[1]],
+                      regional_codes = siteRegions,
+                      region_aggs = list(all = names(siteRegions)[-1]),
+                      write_results = FALSE)
+
+plot(results)
+
+```
+
+
+
+
+Organise data using the sparta function but to run the model independently
 
 ```{r}
 
