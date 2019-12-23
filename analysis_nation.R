@@ -40,25 +40,45 @@ df <- subset(adultData, Year>=1980  & Year<2017)
 
 #pick species
 myspecies="Aeshna cyanea"
+myspecies="Aeshna caerulea"
 
 ######################################################################################
 
 #subset to phenology by regions
 
 #read in and combine all phenology files
-phenolFiles<-list.files()[grepl("speciesDays",list.files())]
-phenolData <- ldply(phenolFiles,function(x){
-  out<-read.delim(x)
-  out$File <- x
-  return(out)
-})
+# phenolFiles<-list.files()[grepl("speciesDays",list.files())]
+# phenolData <- ldply(phenolFiles,function(x){
+#   out<-read.delim(x)
+#   out$File <- x
+#   return(out)
+# })
+# 
+# #extract state from file name
+# phenolData$State <- sapply(phenolData$File,function(x)strsplit(x,"\\.txt")[[1]][1])
+# phenolData$State <- sapply(phenolData$State,function(x)strsplit(x,"_")[[1]][3])
+# phenolData <- subset(phenolData, Species==myspecies)
+# 
+# df <- subset(df,interaction(yday,State) %in% interaction(phenolData$day,phenolData$State))
 
-#extract state from file name
-phenolData$State <- sapply(phenolData$File,function(x)strsplit(x,"\\.txt")[[1]][1])
-phenolData$State <- sapply(phenolData$State,function(x)strsplit(x,"_")[[1]][3])
-phenolData <- subset(phenolData, Species==myspecies)
+dfS <- subset(df, Species==myspecies)
+obsPhenolData <- ddply(dfS,.(State),summarise,
+                       minDay = round(quantile(yday,0.1)),
+                       maxDay = round(quantile(yday,0.9)))
 
-df <- subset(df,interaction(yday,State) %in% interaction(phenolData$day,phenolData$State))
+#expand to list all days between these days
+obsPhenolData <- ddply(obsPhenolData,.(State),function(x){
+  data.frame(Species=myspecies,
+             day=as.numeric(x["minDay"]):as.numeric(x["maxDay"]),
+             fits=NA,
+             File=NA,
+             State=x["State"])})
+
+#remove any states already in the phenolData file
+#then rbind them
+#or just use these estimates??yes
+
+df <- subset(df,interaction(yday,State) %in% interaction(obsPhenolData$day,obsPhenolData$State))
 
 ######################################################################################
 
@@ -95,7 +115,7 @@ getListLength<-function(df){
 listlengthDF <- getListLength(df)
 
 #rows of occuMatrix match visits
-#all(listlengthDF$visit==row.names(occMatrix))
+all(listlengthDF$visit==row.names(occMatrix))
 
 #get other effort variables
 listlengthDF$singleList <- ifelse(listlengthDF$nuSpecies==1,1,0)
