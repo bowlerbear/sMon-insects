@@ -1,5 +1,6 @@
 library(rgdal)
 library(maptools)
+library(raster)
 
 ######################################################################################################
 #get datafiles
@@ -120,11 +121,16 @@ Mode <- function(x) {
   ux <- unique(x)
   ux[which.max(tabulate(match(x, ux)))]
 }
-all.nr_Mode <- ddply(all.nr,.(MTB,Q),summarise,Name=Mode(Name[!is.na(Name)]))
+all.nr_Mode <- ddply(all.nr,.(MTB,Q),summarise,
+                     Name=Mode(Name[!is.na(Name)]), 
+                     FolderPath=Mode(FolderPath[!is.na(FolderPath)]))
 
 #add on to the mtqbs dataframe
 mtbqsDF$Natur<-all.nr_Mode$Name[match(interaction(mtbqsDF$Value,mtbqsDF$Quadrant),
                                                   interaction(all.nr_Mode$MTB,all.nr_Mode$Q))] 
+
+mtbqsDF$CoarseNatur<-all.nr_Mode$FolderPath[match(interaction(mtbqsDF$Value,mtbqsDF$Quadrant),
+                                      interaction(all.nr_Mode$MTB,all.nr_Mode$Q))] 
 
 #there are quite a few NAs
 
@@ -155,12 +161,12 @@ Mode <- function(x) {
   ux <- unique(x)
   ux[which.max(tabulate(match(x, ux)))]
 }
-all.nr_Mode <- ddply(all.nr,.(MTB),summarise,Name=Mode(Name[!is.na(Name)]))
-
-mtbqsDF$Natur<-all.nr_Mode$Name[match(interaction(mtbqsDF$Value,mtbqsDF$Quadrant),
-                                      interaction(all.nr_Mode$MTB,all.nr_Mode$Q))]
+all.nr_Mode <- ddply(all.nr,.(MTB),summarise,
+                     Name=Mode(Name[!is.na(Name)]),
+                     FolderPath=Mode(FolderPath[!is.na(FolderPath)]))
 
 mtbqsDF$MTB_Natur<-all.nr_Mode$Name[match(mtbqsDF$Value,all.nr_Mode$MTB)]
+mtbqsDF$MTB_CoarseNatur<-all.nr_Mode$FolderPath[match(mtbqsDF$Value,all.nr_Mode$MTB)]
 
 ###################################################################################################
  
@@ -252,7 +258,7 @@ writeOGR(germanyDF, dsn = "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_dat
          layer = "Germany",driver="ESRI Shapefile")
 
 #read in edited file by Volker
-HexPols <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data",
+HexPols <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/Hexagonal_polygons",
                    layer="HexPolsEdit")
 germany <- spTransform(germany,CRS(proj4string(HexPols)))
 plot(germany)
@@ -338,4 +344,35 @@ subset(mtbsDF,Value=="6301")
 subset(mtbsDF,Value=="5056")
 subset(mtbsDF,Value=="5156")
 #dont exist....
+###################################################################################################
+
+#formatting terrestrial ecoregion data
+tdir <- "I:/ess/03_Projects_(incl_Data)/sMon/Gis-DataData/TEOW/official_teow/official"
+ecoregions <- readOGR(dsn = tdir,
+                      layer= "wwf_terr_ecos")
+ecoregionsC <- crop(ecoregions,extent(germany))
+plot(ecoregionsC)
+head(ecoregionsC)
+unique(ecoregionsC$ECO_NAME)#there are 5
+
+#match with MTBQ
+ecoregions <- spTransform(ecoregions,CRS(proj4string(mtbqs)))
+mtbqsEco <- over(mtbqs,ecoregions)
+mtbqsEco <- cbind(mtbqsEco,mtbqs@data)
+mtbqsEco$ECO_NAME <- factor(mtbqsEco$ECO_NAME)
+table(mtbqsEco$ECO_NAME)
+
+#is there missing data
+nrow(subset(mtbqsEco,is.na(ECO_NAME)))
+head(subset(mtbqsEco,is.na(ECO_NAME)))
+
+#get coords for these
+mtbqsEco <- cbind(mtbqsEco,coordinates(mtbqs))
+names(mtbqsEco)[25:26]<-c("x","y")
+
+#plot
+library(ggplot2)
+ggplot(mtbqsEco)+
+  geom_point(aes(x=x,y=y,colour=ECO_NAME))
+
 ###################################################################################################
