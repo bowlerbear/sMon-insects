@@ -1,12 +1,15 @@
 #summaryPlots
 library(rgdal)
 library(ggplot2)
+library(plyr)
+library(reshape2)
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
 
-###################################################################################################
+###Species list#################################################################################################
 
-#species being analysed
 mySpecies <- read.delim("speciesTaskID_adult.txt",as.is=T)$Species
-################################################################################################
+
+###German maps#############################################################################################
 
 library(maptools)
 library(sp)
@@ -18,7 +21,7 @@ germanyMap <- readRDS("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/Ad
 mtbqMap <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",
                    layer="MTBQ_25833")
 
-#coonvert to raster
+#convert to raster
 library(raster)
 mtbqMapR <- spTransform(mtbqMap,CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
 mtbqDF <- data.frame(mtbqMapR@data,x=coordinates(mtbqMapR)[,1],y=coordinates(mtbqMapR)[,2])
@@ -57,38 +60,31 @@ plot(mtbMap)
 plot(mtbqMap,add=T,col="red")
 #both in "+proj=utm +zone=33 +ellps=GRS80 +units=m +no_defs"
 
-#################################################################################################
+###Adult records##############################################################################################
 
-#get adult records
 myfiles <- list.files("derived-data")
 
 #read in and combine all adult files
-#adultFiles<-myfiles[grepl("juv",myfiles)]
-adultFiles<-myfiles[grepl("adult",myfiles)]
-adultFiles<-adultFiles[grepl("RData",adultFiles)]
+adultFiles <- myfiles[grepl("adult_datafile",myfiles)]
+adultFiles <- adultFiles[grepl("rds",adultFiles)]
 
 #combine these files
-library(plyr)
 adultData <- ldply(adultFiles,function(x){
-  load(paste("derived-data",x,sep="/"))
-  adult_datafile$File <- x
-  return(adult_datafile)
+  out<-readRDS(paste("derived-data",x,sep="/"))
+  out$File <- x
+  return(out)
 })
 
-#adultData <- ldply(adultFiles,function(x){
-#  load(paste("derived-data",x,sep="/"))
-#  juv_datafile$File <- x
-#  return(juv_datafile)
-#})
 
 #extract state from file name
-adultData$State <- sapply(adultData$File,function(x)strsplit(x,"\\.RData")[[1]][1])
+adultData$State <- sapply(adultData$File,function(x)strsplit(x,"\\.rds")[[1]][1])
 adultData$State <- sapply(adultData$State,function(x)strsplit(x,"_")[[1]][3])
+nrow(adultData)#1023689
 
-
-library(lubridate)
-adultData$Date<-as.Date(adultData$Date)
-adultData$Year <- year(adultData$Date)
+#add gbif data to fill gaps
+gbifdata <- readRDS("derived-data/datafile_GBIF.rds")
+#combine the two
+adultData <- rbind(adultData,gbifdata)
 
 #change state labels
 adultData$State <- as.factor(adultData$State)
@@ -100,19 +96,18 @@ levels(adultData$State) <- c("Bavaria","Brandenberg","Baden-Wuttemberg","Hesse",
 
 library(lubridate)
 adultData$Date <- as.Date(adultData$Date)
+adultData$Year <- year(adultData$Date)
 adultData$yday <- yday(adultData$Date)
 adultData$week <- week(adultData$Date)
 adultData$Month <- month(adultData$Date)
 adultData <- subset(adultData,!is.na(Date))
-
-#######################################################################################
 
 #fix names
 species<- read.delim("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Insects/traits/specieslist_odonata.txt")
 adultSpecies <- sort(unique(adultData$Species))
 adultSpecies[!adultSpecies%in%species$Species]
 
-#############################################################################################
+####Site visitation#########################################################################################
 
 #how often is each site visited
 out <- ddply(adultData,.(Year,MTB_Q),summarise,nu = length(unique(yday)))
@@ -142,7 +137,7 @@ summary(out$meanp)
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
 #0.3789  0.4509  0.4941  0.5140  0.5519  0.7560
 
-###############################################################################################
+####Flight period###########################################################################################
 
 #flight period check:
 
@@ -172,7 +167,7 @@ ggplot(subset(out,Species%in%unique(out$Species)[1:39]))+
   coord_flip()+
   facet_wrap(~State,nrow=1)
 
-###############################################################################################
+####Serial dependence###########################################################################################
 
 #serial dependence of observation?
 
@@ -225,7 +220,7 @@ ggplot(subset(adultData,Year>1979 & Year <2016))+
   facet_wrap(~State)+
   coord_flip()
   
-###############################################################################################
+####Record map###########################################################################################
 
 #plot number of records per MTB
 
@@ -263,14 +258,15 @@ adultDataS$Q[which(adultDataS$MTB_Q==9164)]<-"4"
 
 #work out records per quadrant and quadrant
 nuRecs <- ddply(subset(adultDataS,Year>1979),.(MTB,Q),
-                summarise,nuRecs = length(Species))
+                summarise,nuRecs = length(Species),
+                          nuYears = length(unique(Year)))
 
 
 #plot
 allDF <- merge(mtbqDF,nuRecs,by.x=c("Value","Q"),by.y=c("MTB","Q"))
 nrow(mtbqDF)
 nrow(allDF)
-#data from 4186/12024
+#data from 9833/12024
 
 #plot map of germany
 library(ggplot2)
@@ -278,13 +274,39 @@ germanyMap <- spTransform(germanyMap,proj4string(mtbMap))
 AG <- fortify(germanyMap)
 ggplot()+ geom_polygon(data=AG, aes(long, lat, group = group), colour = "grey", fill=NA)+
   geom_point(data=allDF,aes(x=x,y=y,colour=log(nuRecs)))+
-  scale_colour_gradient(low="pink",high="darkred")+
+  scale_colour_viridis_c()+
   xlab("X")+ylab("Y")+
   theme_void()
+
 ggsave(filename="plots/Adult_map_effort.png",width=8,height=7)
 ggsave(filename="plots/Juv_map_effort.png",width=8,height=7)
 
-################################################################################################
+#exclude sites visited once
+ggplot()+ geom_polygon(data=AG, aes(long, lat, group = group), colour = "grey", fill=NA)+
+  geom_point(data=subset(allDF,nuRecs==1),aes(x=x,y=y,colour=log(nuRecs)))+
+  scale_colour_viridis_c()+
+  xlab("X")+ylab("Y")+
+  theme_void()
+
+#not bad...
+ggplot()+ geom_polygon(data=AG, aes(long, lat, group = group), colour = "grey", fill=NA)+
+  geom_point(data=subset(allDF,nuYears!=1),aes(x=x,y=y,colour=log(nuRecs)))+
+  scale_colour_viridis_c()+
+  xlab("X")+ylab("Y")+
+  theme_void()
+
+#do we have data for all naturraums?
+load("mtbqsDF.RData")
+mtbqsDF$Data <- ifelse(mtbqsDF$MTB_Q %in% allDF$MTB_Q,1,0)
+
+#coarse
+ddply(mtbqsDF,.(CoarseNatur),summarise,nuRecs=sum(Data))
+
+#fine
+temp <- ddply(mtbqsDF,.(Natur),summarise,nuRecs=sum(Data))
+subset(temp, nuRecs<10)#only one with zero!!!
+
+####Record time series############################################################################################
 
 #Time series over time
 
@@ -332,14 +354,12 @@ plot_grid(q1,q2,q3,q4)
 ggsave(filename="plots/Adult_timeseries_effort.png",width=12,height=7)
 ggsave(filename="plots/Juv_timeseries_effort.png",width=12,height=7)
 
-###############################################################################################
-
 #examine relationship among these variables
 library(GGally)
 timeSummary[,3:6]<-sapply(timeSummary[,3:6],log)
 ggpairs(timeSummary[,3:6])
 
-###############################################################################################
+###State models############################################################################################
 
 #get annual indices:
 
@@ -353,8 +373,6 @@ modelSummary <- ldply(modelFiles, function(x){
   temp$Folder <- x
   return(temp)
 })
-
-#############################################################################################
 
 #get new files(baseed on effort) - for MV and NS
 modelFiles <- c("modelSummary_effort_tests_Odonata_adult_MV.rds",
@@ -372,8 +390,6 @@ modelSummary2 <- ldply(modelFiles, function(x){
 modelSummary2 <- modelSummary2[grepl("nuSpecies",modelSummary2$File),]
 modelSummary2$Folder <- gsub("effort_tests_","",modelSummary2$Folder)
 modelSummary <- rbind(modelSummary,modelSummary2)
-
-#################################################################################################
 
 #extract state and stage
 modelSummary$Stage <- sapply(modelSummary$Folder,function(x)strsplit(as.character(x),"_")[[1]][3])
@@ -400,8 +416,6 @@ unique(modelSummary$Species)
 #unique(modelSummary$Species[modelSummary$Stage=="juv"])
 head(modelSummary)
 
-##############################################################################################
-
 #format state information
 modelSummary$kState <- modelSummary$State
 modelSummary$State <- as.factor(modelSummary$State)
@@ -410,8 +424,6 @@ levels(modelSummary$State)<-c("Bavaria","Brandenburg","Mecklenburg-Vorpommern",
                               "Rheinland-Pfalz","Saarland",
                               "Saxony-Anhalt","Saxony",
                               "Schleswig Holstein","Thuringia")
-
-#############################################################################################
 #check Rhat
 
 out <- subset(modelSummary,Rhat > 1.1)
@@ -419,15 +431,13 @@ table(out$State)
 table(out$Species)
 table(out$Param)
 
-###############################################################################################
-
 #standardize species names
 
 species<- read.delim("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Insects/traits/specieslist_odonata.txt")
 modelSpecies <- unique(modelSummary$Species)
 modelSpecies[!modelSpecies%in%species$Species]
 
-################################################################################################
+###Habitat directive#############################################################################################
 
 #how many habitat directive species
 
@@ -441,9 +451,6 @@ hd <- c("Aeshna viridis","Coenagrion hylas","Coenagrion mercuriale","Coenagrion 
         "Oxygastra curtisii","Sympecma paedisca") 
 all<-c(notLC,hd)
 
-#################################################################################################
-
-#################################################################################################
 #Restrict to occcurence indicies:
 
 modelSummary <- modelSummary[grepl("psi.fs",modelSummary$Param),]
@@ -460,7 +467,7 @@ yearDF <- ldply(modelFiles, function(x){
 modelSummary$StartYear <- min(yearDF$Year[match(modelSummary$kState,yearDF$State)])
 modelSummary$Year <- modelSummary$StartYear + modelSummary$ParamNu - 1
 
-##################################################################################################
+###Species code###############################################################################################
 
 #simplify species names to 3-letter code:
 
@@ -470,7 +477,7 @@ modelSummary$Spec <- sapply(modelSummary$Species, function(x)strsplit(x," ")[[1]
 modelSummary$Spec <- sapply(modelSummary$Spec, function(x) substr(x,1,3))
 modelSummary$Code <- paste(modelSummary$Genus,modelSummary$Spec,sep="_")
   
-#################################################################################################
+####State-species#############################################################################################
 
 #plot them at the species level per state:
 
@@ -526,191 +533,7 @@ ggplot(subset(modelSummary,kState=="SAnhalt" & Stage=="adult"))+
   theme_bw()+ ylab("Occupancy")+
   ggtitle("Sachsen Anhalt - Adults")
 
-################################################################################################
-
-#get average across states
-
-nationSummary <- ddply(subset(modelSummary, Stage=="adult"),.(Code,Species,Year),summarise,
-                       meanMean = median(mean,na.rm=T),
-                       meanSD = mean(sd))
-nationSummary$lowerCI <- nationSummary$meanMean - 1.96*nationSummary$meanSD
-nationSummary$upperCI <- nationSummary$meanMean + 1.96*nationSummary$meanSD
-
-ggplot(nationSummary)+
-  geom_line(aes(x=Year,y=meanMean))+
-  geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI),alpha=0.5)+
-  facet_wrap(~Code)+
-  theme_bw()+ ylab("Occupancy")
-
-################################################################################################
-
-#cluster them into groups of species with similar dyanamics
-
-modelSummary2 <- nationTrends
-library(reshape2)
-
-#######################
-#cluster on occurences#
-#######################
-mydata <- ddply(modelSummary2,.(Species),function(x){
-  require(zoo)
-  roll.mean <- rollmean(x$mean,5,align="center")
-  len <- length(roll.mean)
-  data.frame(Species=rep(unique(x$Species),len),roll.mean,Year=1:len)
-})
-
-mydata <- acast(mydata,Species~Year,value.var="roll.mean")
-mydata[is.na(mydata)]<-0
-#apply cluster analysis
-d <- dist(mydata, method = "euclidean") 
-fit <- hclust(d, method="ward.D2")
-plot(fit) # display dendogram
-
-wss <- (nrow(mydata)-1)*sum(apply(mydata,2,var))
-for (i in 2:15) wss[i] <- sum(kmeans(mydata,
-                                     centers=i)$withinss)
-plot(1:15, wss, type="b", xlab="Number of Clusters",
-     ylab="Within groups sum of squares") 
-
-#pam
-library(cluster)
-fit <- kmeans(mydata, 6) 
-
-# get cluster means
-aggregate(mydata,by=list(fit$cluster),FUN=mean)
-# append cluster assignment
-mydata <- data.frame(mydata, fit$cluster) 
-mydata$Species <- row.names(mydata)
-
-#add to dataframe 
-modelSummary2$cluster <- mydata$fit.cluster[match(modelSummary2$Species,mydata$Species)]
-
-
-#order
-modelSummary2$cluster <- as.factor(modelSummary2$cluster)
-
-modelSummary2$cluster <- factor(modelSummary2$cluster, levels=c("2","4","5","1","6","3"))
-levels(modelSummary2$cluster) <- c("1","2","3","4","5","6")
-ddply(modelSummary2,.(cluster),summarise,nuS = length(unique(Species)))
-levels(modelSummary2$cluster) <- c("18 sp","15 sp","12 sp","6 sp","11 sp","13 sp")
-
-unique(subset(modelSummary2,cluster==6)$Species)
-#"Aeshna juncea"          "Coenagrion hastulatum"  "Gomphus pulchellus"     "Ischnura pumilio"      
-#"Lestes dryas"           "Leucorrhinia rubicunda"
-
-#plot
-ggplot(modelSummary2,aes(x=Year,y=mean))+
-  geom_line(aes(colour=Species))+
-  facet_wrap(~cluster,scales="free")+
-  #geom_smooth(aes(colour=Species),se=F)+
-  theme_bw()+ ylab("Occupancy")+
-  theme(legend.position="none")
-
-
-##########################
-#cluster on growth rates##
-##########################
-library(zoo)
-gee<- c(1:10)
-rollmean(gee,5,align="right")
-
-mydata <- ddply(modelSummary2,.(Species),function(x){
-  len = length(x$Year)
-  #roll.mean <- rollmean(x$mean,5,align="right")
-  #len = length(roll.mean)
-  growth = x$mean[2:len]/x$mean[1]
-  data.frame(Species=rep(unique(x$Species),(len-1)),growth,Year=2:len)
-})
-mydata <- acast(mydata,Species~Year,value.var="growth")
-mydata[is.na(mydata)]<-0
-
-#apply cluster analysis
-d <- dist(mydata, method = "euclidean") 
-fit <- hclust(d, method="ward.D2")
-plot(fit) # display dendogram
-
-wss <- (nrow(mydata)-1)*sum(apply(mydata,2,var))
-for (i in 2:15) wss[i] <- sum(kmeans(mydata,
-                                     centers=i)$withinss)
-plot(1:15, wss, type="b", xlab="Number of Clusters",
-     ylab="Within groups sum of squares") 
-
-#choose cluster
-fit <- kmeans(mydata, 6) 
-table(fit$cluster)
-
-# get cluster means
-aggregate(mydata,by=list(fit$cluster),FUN=mean)
-# append cluster assignment
-mydata <- data.frame(mydata, fit$cluster) 
-mydata$Species <- row.names(mydata)
-
-#add to dataframe 
-modelSummary2$cluster <- mydata$fit.cluster[match(modelSummary2$Species,mydata$Species)]
-table(modelSummary2$cluster)
-
-#plot
-ggplot(modelSummary2)+
-  geom_line(aes(x=Year,y=mean,colour=Species))+
-  facet_wrap(~cluster)+
-  theme_bw()+ ylab("Occupancy")+
-  theme(legend.position="none")
-
-#plot change in occupancy
-mydataM <- melt(mydata,id=c("fit.cluster","Species"))
-
-mydataM$Year <- as.numeric(gsub("X","",mydataM$variable))+1979
-mydataM$Year <- as.numeric(gsub("X","",mydataM$variable))
-
-ggplot(mydataM)+
-  geom_line(aes(x=Year,y=value,colour=Species))+
-  facet_wrap(~fit.cluster,nrow=2)+
-  theme_bw()+ ylab("Occupancy")+
-  theme(legend.position="none")
-
-#with order
-mydataM$fit.cluster <- as.factor(mydataM$fit.cluster)
-mydataM$fit.cluster <- factor(mydataM$fit.cluster, levels=c("5","1","6","2","4","3"))
-levels(mydataM$fit.cluster) <- c("1","2","3","4","5","6")
-ddply(mydataM,.(fit.cluster),summarise,nuS = length(unique(Species)))
-levels(mydataM$fit.cluster) <- c("18 sp","15 sp","12 sp","6 sp","11 sp","13 sp")
-
-unique(subset(mydataM,cluster==6)$Species)
-
-#two plots
-ggplot(subset(mydataM,fit.cluster %in% c("18 sp","15 sp","12 sp")))+
-  geom_line(aes(x=Year,y=value,colour=Species))+
-  facet_wrap(~fit.cluster,nrow=1)+
-  theme_bw()+ ylab("Occupancy")+
-  geom_smooth(aes(x=Year,y=value),se=F,colour="black")+
-  theme(legend.position="none")
-
-ggplot(subset(mydataM, fit.cluster %in% c("6 sp","11 sp","13 sp")))+
-  geom_line(aes(x=Year,y=value,colour=Species))+
-  facet_wrap(~fit.cluster,nrow=1)+
-  geom_smooth(aes(x=Year,y=value),se=F,colour="black")+
-  theme_bw()+ ylab("Occupancy")+
-  theme(legend.position="none")
-
-################################################################################################
-
-#get population trends per region and species
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
-
-trendEstimates <- ddply(modelSummary,.(Species,State,Stage),
-                        function(x){
-                          fitTrends(x)
-                        })
-save(trendEstimates,file="derived-data/trendEstimates.RData")
-
-trendEstimates <- ddply(subset(modelSummary,Stage=="adult"),.(Species,State),
-                        function(x){
-                          fitTrendsBeta(x)
-                        })
-
-save(trendEstimates,file="trendEstimatesBeta.RData")
-
-##############################################################################################
+###State trends###########################################################################################
 
 #how many are changing in each lander
 load("derived-data/trendEstimates.RData")
@@ -755,46 +578,7 @@ ggsave(file="German_Trends.tiff",dpi=300,width=5,height=3)
 
 summary(lm(trend~Stage+State,data=trendEstimates))
 
-#############################################################################################
-
-#get national level trends
-nationTrends <- readRDS("model-outputs/modelSummary_Odonata_adult_nation_state.rds") 
-#nationTrends <- subset(nationTrends,Param=="mean.growth")
-nationTrends <- nationTrends[grep("psi.fs",nationTrends$Param),]
-nationTrends$Species <- gsub(".rds","",nationTrends$File)
-nationTrends$Species <- gsub("outSummary_dynamic_nation_state_adult_","",nationTrends$Species)
-nationTrends$Year <- as.numeric(sub(".*\\[([^][]+)].*", "\\1", nationTrends$Param))
-nationTrends$Year <- nationTrends$Year + 1979
-
-############################################################################################
-
-#national trends
-
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
-#names(nationSummary)[4:5]<-c("mean","sd")
-
-trendEstimates <- ddply(nationTrends,.(Species),
-                        function(x){
-                          fitTrends(x)
-                        })
-
-#plot as histogram
-head(trendEstimates)
-trendEstimates$state <- NA
-trendEstimates$state[which(trendEstimates$lowerCI>0 & trendEstimates$upperCI>0)] <- "sig. increase"
-trendEstimates$state[which(trendEstimates$lowerCI<0 & trendEstimates$upperCI<0)] <- "sig. decrease"
-trendEstimates$state[is.na(trendEstimates$state)]<-"non sig"
-trendEstimates$change <- factor(trendEstimates$state,levels=c("sig. decrease","sig. increase","non sig"))
-save(trendEstimates,file="derived-data/trendEstimatesNational.RData")
-
-ggplot(trendEstimates)+
-  geom_histogram(aes(trend))+
-  theme_bw()+
-  ylab("number of species")+
-  xlab("population trend")
-  geom_vline(xintercept=0,colour="red",linetype="dashed")
-
-###############################################################################################
+####State comparison###########################################################################################
 
 #pairwise comparison across lander
 
@@ -829,7 +613,7 @@ ggplot(trendEstimatesSD)+
   geom_hline(yintercept = 0, colour="black", linetype="dashed")+
   theme_bw()
   
-################################################################################################
+####Adult vs Juv############################################################################################
 
 #relationship between adult and juvenile trends
 
@@ -847,77 +631,32 @@ ggplot(sortTrends,aes(x=adult,y=juv))+
   stat_smooth(method="lm")+
   theme_bw()
 
-##############################################################################################
+####Community matrix##########################################################################################
 
 #community samples
 
 #drawn 1000 possible communities for each year
-
-modelSummary_Ad <- subset(modelSummary, Stage=="adult")
-
 #get matrix of possible communities for each year and species and lander
-myMatrix <- matrix(data=NA,nrow=nrow(modelSummary_Ad),ncol=1000) 
+myMatrix <- matrix(data=NA,nrow=nrow(annualDF),ncol=1000) 
 for(j in 1:ncol(myMatrix)){
   for(i in 1:nrow(myMatrix)){
-  myp <- dnorm(1,modelSummary_Ad$mean[i],modelSummary_Ad$sd[i]) 
-  myp[myp>1]<-0.9999
-  myp[myp<0]<-0.0001
-  myMatrix[i,j] <- rbinom(1,1,myp)
+  myp <- rnorm(n=1,mean=annualDF$mean[i],sd=annualDF$sd[i]) 
+  myp[myp>1]<-1
+  myp[myp<0]<-0
+  #myMatrix[i,j] <- rbinom(1,1,myp)
+  myMatrix[i,j] <- myp
   }
 }
-randomMatrix<-cbind(modelSummary_Ad[,c("State","Year","Species")],myMatrix)
+
+randomMatrix<-cbind(annualDF[,c("Year","Species")],myMatrix)
+
 save(randomMatrix,file="randomMatrix.RData")
-                                                 
-#get species richness for each community
-out <- ddply(randomMatrix,.(State,Year),function(x){
-  numcolwise(sum)(x)})
+                                            
+randomMatrix<-cbind(annualDF[,c("Year","Species","State")],myMatrix)
 
-#get mean and 95% CI across communities
-out$meanRichness<-apply(out[,3:1002],1,median)
-out$lowerRichness<-apply(out[,3:1002],1,function(x)quantile(x,0.025))
-out$upperRichness<-apply(out[,3:1002],1,function(x)quantile(x,0.975))
+save(randomMatrix,file="randomMatrixState.RData")#state is ecoregions
 
-out$State <- as.factor(out$State)
-levels(out$State)<-c("Bavaria","North Rhine-Westphalia","Saarland","Saxony","Schleswig Holstein")
-
-ggplot(out)+
-  geom_line(aes(x=Year,y=meanRichness,colour=State))+
-  geom_ribbon(aes(x=Year,ymin=lowerRichness,ymax=upperRichness,fill=State),alpha=0.3)+
-  theme_bw()+
-  ylab("Average species richness")+
-  facet_grid(~State)
-
-#plot disimmilarity
-library(vegan)
-randomMatrixM<-melt(randomMatrix,id=c("State","Year","Species"))
-randomMatrixM<-arrange(randomMatrixM,Species,Year,State)
-
-out <- ddply(randomMatrixM,.(State,variable),function(x){
-  moo2 <- acast(x,Year~Species,value.var="value")
-  diss <- as.numeric(as.matrix(vegdist(moo2,binary=TRUE))[,1])
-  year <- names(as.matrix(vegdist(moo2,binary=TRUE))[,1])
-  data.frame(year,diss)
-})
-
-out <- subset(out,year!=1981)
-
-#take average across all
-out <- ddply(out,.(State,year),summarise,
-             meanD = mean(diss),
-             lowerCI = quantile(diss,0.025),
-             upperCI = quantile(diss,0.975))
-
-out$State <- as.factor(out$State)
-levels(out$State)<-c("Bavaria","North Rhine-Westphalia","Saarland","Saxony","Schleswig Holstein")
-out$year <-as.numeric(as.character(out$year))
-ggplot(out)+
-  geom_line(aes(x=year,y=meanD,colour=State))+
-  geom_ribbon(aes(x=year,ymin=lowerCI,ymax=upperCI,fill=State),alpha=0.3)+
-  theme_bw()+
-  ylab("Average dissimilarity")+
-  facet_grid(~State)
-
-############################################################################################
+###Euro trends#########################################################################################
 
 #plot european trends
 
@@ -929,7 +668,7 @@ ggplot(euroTrends)+
   theme_bw()+
   xlab("")+ylab("number of species")
 
-############################################################################################
+###Thinning#########################################################################################
 
 #thinning records
 z <- coda::as.mcmc.list(out$samples)
@@ -939,7 +678,7 @@ summary(z2)
 gelman.diag(z2,multivariate=FALSE)
 #Rhat is the potential scale reduction factor (at convergence, Rhat=1).
 
-############################################################################################
+####Spline########################################################################################
 
 #spline analysis
 splineData <- readRDS("model-outputs/outSummary_dynamicspline_adult_Crocothemis erythraea2.rds")
@@ -1009,7 +748,7 @@ ggsave(paste0("gifs/year",i,".tiff"),width=5,height=5)
 #https://stackoverflow.com/questions/1298100/creating-a-movie-from-a-series-of-plots-in-r
 #https://ryanpeek.github.io/2016-10-19-animated-gif_maps_in_R/
 
-############################################################################################
+###GIF#########################################################################################
 #make an animated gifs
 library(magick)
 library(purrr) 
@@ -1025,4 +764,347 @@ system("/opt/local/bin/convert -delay 80 *.png example_1.gif")
 animation <- image_animate(img, fps = 2)
 write.gif()
 
-############################################################################################
+###Nation state model#########################################################################################
+
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_adult_nation_state"
+
+#read in model summaries
+modelDF <- getModelSummaries(mdir)
+
+#species code
+modelDF$Species <- gsub("out_dynamic_nation_state_adult_","",modelDF$File)
+modelDF$Species <- gsub(".rds","",modelDF$Species)
+modelDF$Genus <- sapply(modelDF$Species, function(x)strsplit(x," ")[[1]][1])
+modelDF$Genus <- sapply(modelDF$Genus, function(x) substr(x,1,3))
+modelDF$Spec <- sapply(modelDF$Species, function(x)strsplit(x," ")[[1]][2])
+modelDF$Spec <- sapply(modelDF$Spec, function(x) substr(x,1,3))
+modelDF$Code <- paste(modelDF$Genus,modelDF$Spec,sep="_")
+
+#annual tims series
+annualDF <- getBUGSfits(modelDF,param="psi.fs")
+annualDF$Year <- annualDF$ParamNu + 1979
+
+#plot
+plotTS(annualDF)
+table(annualDF$Rhat<1.1)
+#FALSE  TRUE 
+#1350  1351
+
+#where is not converging!!
+table(annualDF$Rhat<1.1,annualDF$Year)
+table(annualDF$Rhat<1.1,annualDF$Species)#variable...fits for some not for others
+
+
+#change between first and last year
+changeDF <- ddply(annualDF,.(Species),summarise,
+                  change=(mean[Year==2016]-mean[Year==1980])/mean[Year==1980],
+                  change2=(mean[Year==2016]-mean[Year==1985])/mean[Year==1985])
+
+summary(changeDF$change[changeDF$Species %in% trendEstimates$Species[trendEstimates$Trend=="significant increase"]])
+summary(changeDF$change2[changeDF$Species %in% trendEstimates$Species[trendEstimates$Trend=="significant increase"]])
+summary(changeDF$change[changeDF$Species %in% trendEstimates$Species[trendEstimates$Trend=="significant decrease"]])
+summary(changeDF$change2[changeDF$Species %in% trendEstimates$Species[trendEstimates$Trend=="significant decrease"]])
+
+#cut first few years
+annualDF <- subset(annualDF, Year >=1985)
+
+#traceplots
+setwd(mdir)
+out <- readRDS("out_dynamic_nation_state_adult_Aeshna affinis.rds")
+tracePlot(out)
+out <- readRDS("out_dynamic_nation_state_adult_Sympetrum danae.rds")
+tracePlot(out)
+out <- readRDS("out_dynamic_nation_state_adult_Anax imperator.rds")
+tracePlot(out)
+
+#maybe include random walk priors to help converge...?
+ggplot(annualDF)+
+  geom_line(aes(x=Year,y=mean*100))+
+  geom_ribbon(aes(x=Year,ymin=X2.5.*100,ymax=X97.5.*100),alpha=0.5)+
+  facet_wrap(~Code)+
+  theme_bw()+
+  ylab("% occupancy")
+
+###State patterns###############################################################
+
+#annual DF for each state
+annualDF <- getBUGSfitsII(modelDF,param="psi.state")
+annualDF$Year <- annualDF$Year + 1979
+
+load("stateIndices.RData")
+annualDF$State <- stateIndices$State[match(annualDF$State,stateIndices$stateIndex)]
+
+ggplot(annualDF)+
+  geom_line(aes(x=Year,y=mean*100,colour=State))+
+  #geom_ribbon(aes(x=Year,ymin=X2.5.*100,ymax=X97.5.*100,fill=factor(State)),alpha=0.5)+
+  facet_wrap(~Code)+
+  ylim(0,100)+
+  theme_bw()+
+  theme(legend.position="top")+
+  ylab("% Occupancy")
+
+####Nation trends############################################################### 
+
+#see analysis_HPC_trends
+
+trends <- readRDS("model-outputs/modelTrends_nation_state_trends.rds")
+trends$Species <- gsub("out_dynamic_nation_state_adult_","",
+                       trends$file)
+trends$Species <- gsub(".rds","",
+                       trends$Species)
+trends$Trend <- "insignificant"
+trends$Trend[trends$X2.5.>0 & trends$X97.5.>0]<-"significant increase"
+trends$Trend[trends$X2.5.<0 & trends$X97.5.<0]<-"significant decrease"
+table(trends$Trend)
+trends$Trend <- factor(trends$Trend,levels=c("significant decrease",
+                                             "insignificant",
+                                             "significant increase"))
+
+table(trends$Trend)
+#significant decrease        insignificant significant increase 
+#14                   32                   27 
+
+library(ggplot2)
+library(wesanderson)
+g1 <- ggplot(trends)+
+  geom_histogram(aes(x=mean,fill=Trend))+
+  theme_bw()+
+  xlab("trend estimate")+
+  ylab("number of species")+
+  geom_vline(xintercept=0,linetype="dashed")+
+  scale_fill_viridis_d()
+  
+
+#plot as freq poly
+trends$order <- rank(trends$mean)
+g1 <- ggplot(aes(x=order,y=mean),data=trends)+
+  geom_bar(aes(fill=Trend),stat="identity")+
+  geom_hline(yintercept=0,colour='black')+
+  theme_bw()+
+  scale_fill_viridis_d()+
+  xlab("Species")+
+  ylab("Population trend")+
+  theme(legend.position=c(0.35,0.80))
+  #theme(legend.position = "top")
+
+#which species are declining
+subset(trends,Trend=="significant decrease")
+#Sympetrum, Coenagrion
+
+####Naturraum models######################################################################
+
+#naturraum analysis
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum/5914536"
+
+#read in model summaries
+modelDF <- getModelSummaries(mdir)
+modelDF$Species <- gsub("out_dynamic_nation_naturraum_adult_","",modelDF$File)
+modelDF$Species <- gsub(".rds","",modelDF$Species)
+
+#national time series
+annualDF <- getBUGSfits(modelDF,param="psi.fs")
+annualDF$Year <- annualDF$ParamNu + 1979
+table(annualDF$Rhat<1.1)#better than before
+
+#annual time series
+annualDF <- getBUGSfitsII(modelDF,param="psi.raum")
+annualDF$Year <- annualDF$Year + 1979
+
+#convergence
+table(annualDF$Rhat<1.1)#better!!
+ggplot(annualDF)+
+  geom_line(aes(x=Year,y=mean,colour=factor(Species)))+
+  facet_wrap(~State)+
+  theme(legend.position="none")#each has a range
+
+ggplot(annualDF)+
+  geom_line(aes(x=Year,y=mean,colour=factor(State)))+
+  facet_wrap(~Species)+
+  theme(legend.position="none")
+
+#plot as time-series
+annualnaturraumDF <- ddply(annualDF,.(Year,State),summarise,nuSpecies=sum(mean))
+regions <- c("Alps",
+             "Alps foreland",
+             "NE lowlands",
+             "E uplands",
+             "SW uplands",
+             "W uplands",
+             "NW lowlands")
+
+annualnaturraumDF$naturraum <- as.factor(annualnaturraumDF$State)
+levels(annualnaturraumDF$naturraum) <- regions
+ggplot(subset(annualnaturraumDF,Year>=1985))+
+  geom_line(aes(x=Year,y=nuSpecies,colour=naturraum))+
+  facet_wrap(~naturraum)
+
+ggplot(subset(annualnaturraumDF,Year>=1985))+
+  geom_line(aes(x=Year,y=nuSpecies,colour=naturraum))
+
+
+#do same for small-scale naturraum
+
+###Naturraum trends######################################################
+
+trends <- readRDS("modelTrends_naturraum_trends.rds")
+
+trends$Trend <- "insignificant"
+trends$Trend[trends$X2.5.>0 & trends$X97.5.>0]<-"significant increase"
+trends$Trend[trends$X2.5.<0 & trends$X97.5.<0]<-"significant decrease"
+table(trends$Trend)
+
+#add species data
+trends$Species <- gsub("out_dynamic_nation_naturraum_adult_","",trends$file)
+trends$Species <- gsub(".rds","",trends$Species)
+
+#no increases in 1.
+#largest change in
+regions <- c("Alps","Alps foreland","NE lowlands","E uplands","SW uplands",
+             "W uplands","NW lowlands")
+
+trends$naturraum <- as.factor(trends$naturraum)
+levels(trends$naturraum) <- regions
+
+library(ggplot2)
+library(wesanderson)
+ggplot(trends)+
+  geom_histogram(aes(x=mean,fill=Trend))+
+  theme_bw()+
+  xlab("trend")+
+  facet_wrap(~naturraum,scales="free_y")+
+  ylab("number of species")+
+  geom_vline(xintercept=0,linetype="dashed")+
+  scale_fill_manual(values = wes_palette("Cavalcanti1", n = 5)[c(3,5,4)])
+
+ggplot(trends)+
+  geom_histogram(aes(x=mean,fill=Trend))+
+  theme_bw()+
+  xlab("trend")+
+  facet_grid(Trend~naturraum)+
+  ylab("number of species")+
+  geom_vline(xintercept=0,linetype="dashed")+
+  scale_fill_manual(values = wes_palette("Cavalcanti1", n = 5)[c(3,5,4)])
+
+#plot as dotplot
+ggplot(trends)+
+  geom_point(aes(x=Species,y=mean))+
+  facet_wrap(~naturraum,nrow=1)+
+  coord_flip()+
+  geom_hline(yintercept=0,colour="red")
+#order species by mean trend, graph ugly anyhow
+
+ggplot(trends)+
+  geom_histogram(aes(x=mean,fill=Trend))+
+  theme_bw()+
+  xlab("trend")+
+  ylab("number of species")+
+  geom_vline(xintercept=0,linetype="dashed")+
+  scale_fill_manual(values = wes_palette("Cavalcanti1", n = 5)[c(3,5,4)])
+
+
+#get number of species increasing/decreasing in each region
+summaryTrends <- ddply(trends,.(Trend,naturraum),summarise,nuSpecies=length(unique(Species)))
+ggplot(subset(summaryTrends,Trend!="insignificant"))+
+  geom_bar(aes(x=naturraum,y=nuSpecies,fill=Trend),position="dodge",stat="identity")+
+  coord_flip()+
+  scale_fill_manual(values = wes_palette("Darjeeling1", n = 5)[c(1,3)])+
+  theme_bw()
+
+###Naturraum percol####################################################################
+
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_5000iter/6057269"
+
+#read in all files
+modelDF <- getModelSummaries(mdir)
+modelDF$Species <- gsub("out_dynamic_nation_naturraum_adult_","",modelDF$File)
+modelDF$Species <- gsub(".rds","",modelDF$Species)
+
+#compare mean colonization and persistence rates
+modelDF <- subset(modelDF, Param %in% c("meanPersist","meanColonize"))
+colper <- dcast(modelDF,Species~Param,value.var="mean")
+colper$trend <- trends$mean[match(colper$Species,trends$Species)]
+colper$TrendSig <- trends$Trend[match(colper$Species,trends$Species)]
+
+g2 <- ggplot(colper,aes(x=meanColonize,y=meanPersist,color=TrendSig))+
+  geom_point()+
+  scale_x_log10()+
+  scale_colour_viridis_d()+
+  xlab("colonization probability")+
+  ylab("persistence probability")+
+  theme_bw()+
+  theme(legend.position = "none")
+
+###Nation spline#######################################################################
+
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_adult_nation_spline/5952992"
+
+#read in all files
+modelDF <- getModels(mdir)
+modelDF$Species <- gsub("outSummary_dynamicspline_adult_","",modelDF$File)
+modelDF$Species <- gsub(".rds","",modelDF$Species)
+
+#compare mean colonization and persistence rates
+modelDF$Param <- sapply(modelDF$Param,function(x)ifelse(grepl("persist",x),"persist","colonise"))
+modelDF <- ddply(modelDF,.(Param,Species),summarise,meanVal=mean(mean,na.rm=T))
+
+ggplot(modelDF,aes(x=Species,y=meanVal))+
+  geom_point()+
+  coord_flip()+
+  facet_wrap(~Param,scales="free")
+  
+#compare colonization and persistence
+library(reshape2)
+colper <- dcast(modelDF,Species~Param,value.var="meanVal")
+colper$trend <- trends$mean[match(colper$Species,trends$Species)]
+colper$TrendSig <- trends$Trend[match(colper$Species,trends$Species)]
+
+g2 <- ggplot(colper,aes(x=colonise/7,y=persist,color=TrendSig))+
+          geom_point()+
+          scale_x_log10()+
+          scale_colour_viridis_d()+
+          xlab("colonization probability")+
+          ylab("persistence probability")+
+          theme_bw()+
+          theme(legend.position = "none")
+
+library(cowplot)
+plot_grid(g1,g2)
+
+#species vary more in colonisation dyanmics
+cor.test(colper$trend,colper$colonise)
+cor.test(colper$trend,colper$persist)
+
+###range-expanding species###################################################################
+
+modelSummary <- data.frame(readRDS(paste(mdir,"outSummary_dynamicspline_adult_Crocothemis erythraea.rds",sep="/")))
+modelSummary$Param <- row.names(modelSummary)
+
+#colonize
+modelSummaryP <- subset(modelSummary,grepl("colonize",modelSummary$Param))
+modelSummaryP$Index <- sapply(modelSummaryP$Param,function(x){sub(".*\\[([^][]+)].*", "\\1", x)})
+modelSummaryP$Index <- as.numeric(modelSummaryP$Index)
+
+#add x and y data
+load("siteInfo.RData")
+length(unique(siteInfo$siteIndex))
+nrow(modelSummaryP)
+modelSummaryP$MTB_Q <- siteInfo$MTB_Q[match(modelSummaryP$Index,siteInfo$siteIndex)]
+summary(modelSummaryP)
+sum(is.na(modelSummaryP$MTB_Q))
+
+#add to mtbqd data frame
+load("mtbqsDF.RData")
+head(mtbqsDF)
+mtbqsDF$colonize <- modelSummaryP$mean[match(mtbqsDF$MTB_Q,modelSummaryP$MTB_Q)]
+
+#plotting
+ggplot(mtbqsDF)+
+  geom_point(aes(x=x,y=y,colour=colonize))+
+  scale_color_gradient2(low="blue",high='red',midpoint=median(mtbqsDF$colonize,na.rm=T))
+
+
