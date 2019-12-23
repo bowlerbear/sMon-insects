@@ -7,3 +7,12 @@ raw-data/*
 derived-data/*
 model-outputs/*
 mtbqsDF.RData
+siteInfo.RData
+HPC_play.R
+play.R
+naturraum_Saarland.rds
+atlasGrid.csv
+gifs/*
+mtbqsDF.RData
+*.png
+alltraits*
