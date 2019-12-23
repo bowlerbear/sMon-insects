@@ -20,8 +20,11 @@ myspecies <- speciesTaskID$Species[which(speciesTaskID$TaskID==task.id)]
 #set stage
 stage="adult"
 
+#set seed
+set.seed(3)
+
 #number of MCMC samples
-niterations = 5000
+niterations = 50000
 
 Sys.time()
 
@@ -35,8 +38,8 @@ adultFiles <- adultFiles[grepl("rds",adultFiles)]
 
 #combine these files
 adultData <- ldply(adultFiles,function(x){
-  #out<-readRDS(paste("derived-data",x,sep="/"))
-  out<-readRDS(paste("/data/idiv_ess/Odonata",x,sep="/"))
+  out<-readRDS(paste("derived-data",x,sep="/"))
+  #out<-readRDS(paste("/data/idiv_ess/Odonata",x,sep="/"))
   out$File <- x
   return(out)
 })
@@ -50,8 +53,8 @@ nrow(adultData)#1023689
 ##########################################################################################
 
 #add gbif data to fill gaps
-#gbifdata <- readRDS("derived-data/datafile_GBIF.rds")
-gbifdata <- readRDS("/data/idiv_ess/Odonata/datafile_GBIF.rds")
+gbifdata <- readRDS("derived-data/datafile_GBIF.rds")
+#gbifdata <- readRDS("/data/idiv_ess/Odonata/datafile_GBIF.rds")
 #nrow(gbifdata)#38191
 
 #combine the two
@@ -105,12 +108,17 @@ df <- subset(adultData, Year>=1980  & Year<2017)
 #myspecies="Aeshna cyanea"
 #stage="adult"
 
+#####################################################################################
+
+#remove sites visited once
+siteSummary <- ddply(df,.(MTB_Q),summarise,nuYears=length(unique(Year)))
+df <- subset(df, MTB_Q %in% siteSummary$MTB_Q[siteSummary$nuYears>1])
+
 ######################################################################################
 
-
 #get nationwide boxes
-#load("mtbqsDF.RData")
-load("/data/idiv_ess/Odonata/mtbqsDF.RData")
+load("mtbqsDF.RData")
+#load("/data/idiv_ess/Odonata/mtbqsDF.RData")
 all(df$MTB_Q%in% mtbqsDF$MTB_Q)
 #unique(df$MTB_Q[!df$MTB_Q %in% mtbqsDF$MTB_Q])
 df$State <- mtbqsDF$Counties[match(df$MTB_Q,mtbqsDF$MTB_Q)]
@@ -140,24 +148,33 @@ df$State <- mtbqsDF$Counties[match(df$MTB_Q,mtbqsDF$MTB_Q)]
 # phenolData <- subset(phenolData, Species==myspecies)
 
 #if no phenolData for a given state, use max and min phenoldays
+# dfS <- subset(df, Species==myspecies)
+# obsPhenolData <- ddply(dfS,.(State),summarise,
+#                        minDay = round(quantile(yday,0.05)),
+#                        maxDay = round(quantile(yday,0.95)))
+# 
+# #expand to list all days between these days
+# obsPhenolData <- ddply(obsPhenolData,.(State),function(x){
+#                   data.frame(Species=myspecies,
+#                              day=as.numeric(x["minDay"]):as.numeric(x["maxDay"]),
+#                              fits=NA,
+#                              File=NA,
+#                              State=x["State"])})
+# 
+# #remove any states already in the phenolData file
+# #then rbind them
+# #or just use these estimates??yes
+# 
+# df <- subset(df,interaction(yday,State) %in% interaction(obsPhenolData$day,obsPhenolData$State))
+# ####################################################################################
+
+#subset by average phenology across whole germany
+
 dfS <- subset(df, Species==myspecies)
-obsPhenolData <- ddply(dfS,.(State),summarise,
-                       minDay = round(quantile(yday,0.05)),
-                       maxDay = round(quantile(yday,0.95)))
-
-#expand to list all days between these days
-obsPhenolData <- ddply(obsPhenolData,.(State),function(x){
-                  data.frame(Species=myspecies,
-                             day=as.numeric(x["minDay"]):as.numeric(x["maxDay"]),
-                             fits=NA,
-                             File=NA,
-                             State=x["State"])})
-
-#remove any states already in the phenolData file
-#then rbind them
-#or just use these estimates??yes
-
-df <- subset(df,interaction(yday,State) %in% interaction(obsPhenolData$day,obsPhenolData$State))
+obsPhenolData <- summarise(dfS,
+                           minDay = round(quantile(yday,0.05)),
+                           maxDay = round(quantile(yday,0.95)))
+df <- subset(df, yday > obsPhenolData$minDay & yday < obsPhenolData$maxDay)
 
 #####################################################################################
 
@@ -174,8 +191,8 @@ summary(out$nuDates)
 #subset to at most 20 dates per year
 nrow(df)
 df <- ddply(df, .(Year,MTB_Q),function(x){
-  mydates <- ifelse(length(unique(x$Date))>20,
-                    sample(unique(x$Date),20),unique(x$Date))
+  mydates <- ifelse(length(unique(x$Date))>50,
+                    sample(unique(x$Date),50),unique(x$Date))
   subset(x, Date %in% mydates)
 })
 nrow(df)
@@ -249,6 +266,20 @@ listlengthDF$longList <- ifelse(listlengthDF$nuSpecies>3,1,0)
 siteInfo <- unique(listlengthDF[,c("stateIndex","mtbIndex","siteIndex","boxIndex")])
 head(siteInfo)
 
+stateIndices <- unique(listlengthDF[,c("State","stateIndex")])
+save(stateIndices,file="stateIndices.RData")
+
+#######################################################################################
+
+#get matrix of site versus state
+
+siteInfo$dummy <- 1
+siteStates <- acast(siteInfo,siteIndex~stateIndex,value.var="dummy")
+siteStates[is.na(siteStates)] <- 0
+
+#get number of sites for each state
+statesSiteNu <- as.numeric(colSums(siteStates))
+
 ########################################################################################
 
 #order data
@@ -308,18 +339,33 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   nuSS = log(listlengthDF$samplingSites) - log(median(listlengthDF$samplingSites)),# up to 3
                   expertise = log(listlengthDF$expertise)-median(log(listlengthDF$expertise)),
                   RpS = log(listlengthDF$RpS) - median(log(listlengthDF$RpS)),
-                  y = as.numeric(occMatrix[,myspecies]))
+                  y = as.numeric(occMatrix[,myspecies]),
+                  siteStates = siteStates,
+                  nsiteState = statesSiteNu)
 listlengthDF$Species <- bugs.data$y
 
 #another check
 all(row.names(occMatrix)==listlengthDF$visit)
+
+#set prior to zero if species never recorded in that state??
+temp <- ddply(listlengthDF,.(stateIndex),summarise,species=sum(Species))
+bugs.data$priorS <- ifelse(temp$species>0,0.99999,0.05)
+bugs.data$priorT <- ifelse(temp$species>0,0.001,10)
 
 #######################################################################################
 
 #specify initial values
 zst <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=max)
 zst [is.infinite(zst)] <- 0
-inits <- function(){list(z = zst)}
+#inits <- function(){list(z = zst)}
+
+inits <- function(){list(z = zst,
+                         #state.a = runif(bugs.data$nstate,0.0001,0.01),
+                         #lphi = runif(bugs.data$nstate,0,0.01),
+                         #lgam = runif(bugs.data$nstate,0,0.01),
+                         effort.p = runif(1,0,0.01),
+                         mu.phenol = runif(1,-0.01,0.01),
+                         mu.phenol2 = runif(1,-0.01,0.01))}
 
 ########################################################################################
 
@@ -331,22 +377,17 @@ set.factory("bugs::Conjugate", FALSE, type="sampler")
 n.cores = as.integer(Sys.getenv("NSLOTS", "1")) 
 
 ###########################################################################################
+
 #choose model file
-if(bugs.data$nstate>1){
-  modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_stateFE.txt"
-}else{
-  modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_state.txt"  
-}
+modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_stateFE_yearRE.txt"
+
 
 effort = "nuSpecies"
 bugs.data$Effort <- bugs.data[[effort]]
 
 #specify parameters to monitor
-#params <- c("int","state.a.effect","state.t.effect","effort.p","single.p","psi.fs")
-#params <- c("mean.growth","mean.p","state.persist","state.colonize")
-params <- c("mean.growth","mean.p","state.mean.growth",
-            "psi.total.change","psi.state.change",
-            "psi.fs","psi.state")
+params <- c("mean.p","psi.fs","psi.state",
+            "psi.total.change","psi.state.change")
 
 
 #run model
