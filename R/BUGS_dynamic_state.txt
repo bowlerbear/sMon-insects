@@ -9,7 +9,7 @@
     
     #first year/initial occupancy, model
     z[i,1] ~ dbern(psi1[i])
-    logit(psi1[i]) <- state.a[stateS[i]] + site.a[i]
+    logit(psi1[i]) <- site.a[i]
 
     #subsequent years
     for (t in 2:nyear){
@@ -19,11 +19,11 @@
       muZ[i,t] <- persist[i,t-1]*z[i,t-1] + colonize[i,t-1]*(1-z[i,t-1])
       
       #persistence occupancy model
-      logit(persist[i,t-1]) <- muphi[t-1] + lphi[stateS[i]] + lphi.site[i]
+      logit(persist[i,t-1]) <- muphi[t-1] + lphi.site[i]
       #lphi.mtb[mtbS[i]]
 
       #colonization occupancy model
-      logit(colonize[i,t-1]) <- mugam[t-1] + lgam[stateS[i]] + lphi.site[i]
+      logit(colonize[i,t-1]) <- mugam[t-1] + lphi.site[i]
       #lgam.mtb[mtbS[i]]
     }
   }   
@@ -35,7 +35,7 @@
 
     #detection model:
     logit(p[j]) <-  mup[year[j]] +
-                    lp[state[j]] +
+                    #lp[site[j]] +
                     mu.phenol * yday[j] + 
                     mu.phenol2 * pow(yday[j], 2) +
                     phenol.s[state[j]] * yday[j] + 
@@ -51,11 +51,6 @@
       psi.fs[t] <- sum(z[,t])/nsite
    }
 
-  for(s in 1:nstate){
-    for(t in 1:nyear){
-      psi.state[s,t] <- mean(z[stateS,t])
-    }
-  }
 
   #yearly-growth
   e <- 0.0000001
@@ -103,8 +98,8 @@
   
     #year effects - fixed effects
     for(i in 1:(nyear-1)){
-      muphi[i] ~ dnorm(0,0.1)
-      mugam[i] ~ dnorm(0,0.1)
+      muphi[i] ~ dnorm(0,0.05)
+      mugam[i] ~ dnorm(0,0.05)
     }
     
     #random site variation
@@ -125,7 +120,7 @@
 
     #fixed year effects
     for(i in 1:nyear){
-      mup[i] ~ dnorm(0,0.1)
+      mup[i] ~ dnorm(0,0.05)
     }
 
     #site-level random variaion 
@@ -136,11 +131,11 @@
     sdp.site ~ dt(0, 1, 1)T(0,)
 
     #effort effects
-    effort.p ~ dnorm(0, 0.1)
-    single.p ~ dnorm(0, 0.1)
+    effort.p ~ dnorm(0, 0.05)
+    single.p ~ dnorm(0, 0.05)
 
-    mu.phenol ~ dnorm(0,0.1)
-    mu.phenol2 ~ dnorm(0,0.1)
+    mu.phenol ~ dnorm(0,0.05)
+    mu.phenol2 ~ dnorm(0,0.05)
     tau.phenol <- 1/(sd.phenol * sd.phenol)
     tau.phenol2 <- 1/(sd.phenol2 * sd.phenol2)
     sd.phenol ~ dt(0, 1, 1)T(0,)

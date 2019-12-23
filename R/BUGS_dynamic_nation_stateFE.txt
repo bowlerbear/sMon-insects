@@ -20,11 +20,9 @@
       
       #persistence occupancy model
       logit(persist[i,t-1]) <- muphi[t-1] + lphi[stateS[i]] + lphi.site[i]
-      #lphi.mtb[mtbS[i]]
 
       #colonization occupancy model
       logit(colonize[i,t-1]) <- mugam[t-1] + lgam[stateS[i]] + lphi.site[i]
-      #lgam.mtb[mtbS[i]]
     }
   }   
  
@@ -51,44 +49,22 @@
       psi.fs[t] <- sum(z[,t])/nsite
    }
 
-  for(s in 1:nstate){
-    for(t in 1:nyear){
-      psi.state[s,t] <- mean(z[stateS,t])
-    }
-  }
-
-  #yearly-growth
-  e <- 0.0000001
-  for(t in 1:(nyear-1)){  
-    growth.odds.r[t] <- log(((psi.fs[t+1]+e)/(1-psi.fs[t+1]+e))/((psi.fs[t]+e)/(1-psi.fs[t]+e)))
-  } 
-  
-  for(t in 1:(nyear-1)){  
-    growth.r[t] <- log((psi.fs[t+1]+e)/(psi.fs[t]+e))
-  }
-
   #overall
-    #mean.growth <- mean(growth.r)
-    mean.growth <- pow(prod(growth.odds.r),nyear)
     psi.total.change <- psi.fs[nyear] - psi.fs[1]
     mean.p <- mean(p)#mean detection probability
 
-  #yearly state-level growth
-  for(s in 1:nstate){
-    for(t in 1:(nyear-1)){  
-      state.growth.odds.r[s,t] <- log(((psi.state[s,t+1]+e)/(1-psi.state[s,t+1]+e))/((psi.state[s,t]+e)/(1-psi.state[s,t]+e))) 
-      state.growth.r[s,t] <- log((psi.state[s,t+1]+e)/(psi.state[s,t]+e))
-    } 
-  }
 
-  for(s in 1:nstate){
-    psi.state.change[s] <- psi.state[s,nyear]-psi.state[s,1]
-  }
+    #state change
+    for(s in 1:nstate){
+      for(t in 1:nyear){
+        psi.state[s,t] <- sum(z[,t] * siteStates[,s])/nsiteState[s]
+      }
+    }
 
-  #state growth
-  for(s in 1:nstate){
-    state.mean.growth[s] <- pow(prod(state.growth.odds.r[s,]),nyear)
-  }
+    for(s in 1:nstate){
+      psi.state.change[s] <- psi.state[s,nyear]-psi.state[s,1]
+    }
+
 
   #Priors 
 
@@ -99,7 +75,7 @@
 
     #state.a fixed effects
     for (s in 1:nstate) {
-      state.a[s] ~ dnorm(0,0.1)  
+      state.a[s] ~ dnorm(0,0.05)  
     } 
 
     #site.a random effects
@@ -115,16 +91,16 @@
   
     #year effects - fixed effects
     for(i in 2:(nyear-1)){
-      muphi[i] ~ dnorm(0,0.1)
-      mugam[i] ~ dnorm(0,0.1)
+      muphi[i] ~ dnorm(0,0.05)
+      mugam[i] ~ dnorm(0,0.05)
     }
     muphi[1] <- 0
     mugam[1] <- 0    
 
    #fixed state variation
     for(s in 1:nstate){
-      lphi[s] ~ dnorm(0,0.1)
-      lgam[s] ~ dnorm(0,0.1)
+      lphi[s] ~ dnorm(0,0.05)
+      lgam[s] ~ dnorm(0,0.05)
     }
 
     #random site variation
@@ -145,7 +121,7 @@
 
     #fixed year effects
     for(i in 1:nyear){
-      mup[i] ~ dnorm(0,0.1)
+      mup[i] ~ dnorm(0,0.05)
     }
 
     #site-level random variaion 
@@ -163,8 +139,8 @@
     sdp ~ dt(0, 1, 1)T(0,)
 
     #effort effects
-    effort.p ~ dnorm(0, 0.1)
-    single.p ~ dnorm(0, 0.1)
+    effort.p ~ dnorm(0, 0.05)
+    single.p ~ dnorm(0, 0.05)
 
     #random slopes for phenology
     for(s in 1:nstate){
@@ -172,8 +148,8 @@
       phenol2.s[s] ~ dnorm(0, tau.phenol2)
     }
 
-    mu.phenol ~ dnorm(0,0.1)
-    mu.phenol2 ~ dnorm(0,0.1)
+    mu.phenol ~ dnorm(0,0.05)
+    mu.phenol2 ~ dnorm(0,0.05)
     tau.phenol <- 1/(sd.phenol * sd.phenol)
     tau.phenol2 <- 1/(sd.phenol2 * sd.phenol2)
     sd.phenol ~ dt(0, 1, 1)T(0,)
