@@ -1,5 +1,3 @@
-########################################################################################
-
 #get all libraries we need
 #suppressMessages()
 suppressMessages(library(rjags))
@@ -20,8 +18,11 @@ myspecies <- speciesTaskID$Species[which(speciesTaskID$TaskID==task.id)]
 #set stage
 stage="adult"
 
+#set seed
+set.seed(3)
+
 #number of MCMC samples
-niterations = 100000
+niterations = 5000
 
 Sys.time()
 
@@ -51,17 +52,11 @@ nrow(adultData)#1023689
 
 #add gbif data to fill gaps
 #gbifdata <- readRDS("derived-data/datafile_GBIF.rds")
-#gbifdata <- readRDS("/data/idiv_ess/Odonata/datafile_GBIF.rds")
+gbifdata <- readRDS("/data/idiv_ess/Odonata/datafile_GBIF.rds")
 #nrow(gbifdata)#38191
 
 #combine the two
-#adultData <- rbind(adultData,gbifdata)
-
-###########################################################################################
-
-#subset to a certain state
-
-adultData <- subset(adultData, State=="NS")
+adultData <- rbind(adultData,gbifdata)
 
 ##########################################################################################
 
@@ -78,8 +73,10 @@ adultData <- subset(adultData,yday!=1)
 #####################################################################################
 
 #remove MTBQs not in the shapefile = "51561" "50561" "49563"
+#remove MTBQS without naurraum 81443, 44553, 58401
 adultData$MTB_Q <- gsub("/","",adultData$MTB_Q)
-adultData <- subset(adultData, !MTB_Q %in% c("51561","50561","49563","55484","63012"))
+adultData <- subset(adultData, !MTB_Q %in% c("51561","50561","49563","55484","63012",
+                                             "81443","44553","58401"))
 
 ###################################################################################
 #filter to 1980 onwards
@@ -111,7 +108,33 @@ df <- subset(adultData, Year>=1980  & Year<2017)
 #myspecies="Aeshna cyanea"
 #stage="adult"
 
+#####################################################################################
+
+#remove sites visited once
+siteSummary <- ddply(df,.(MTB_Q),summarise,nuYears=length(unique(Year)))
+df <- subset(df, MTB_Q %in% siteSummary$MTB_Q[siteSummary$nuYears>1])
+
 ######################################################################################
+
+#get nationwide boxes
+#load("mtbqsDF.RData")
+load("/data/idiv_ess/Odonata/mtbqsDF.RData")
+all(df$MTB_Q%in% mtbqsDF$MTB_Q)
+#unique(df$MTB_Q[!df$MTB_Q %in% mtbqsDF$MTB_Q])
+
+df$State <- mtbqsDF$Counties[match(df$MTB_Q,mtbqsDF$MTB_Q)]
+sum(is.na(df$State))
+
+#check missing naturruam data
+mtbqsDF$Natur[is.na(mtbqsDF$Natur)] <- mtbqsDF$MTB_Natur[is.na(mtbqsDF$Natur)]
+df$Natur <- mtbqsDF$Natur[match(df$MTB_Q,mtbqsDF$MTB_Q)]
+sum(is.na(df$Natur))
+
+mtbqsDF$CoarseNatur[is.na(mtbqsDF$CoarseNatur)] <- mtbqsDF$MTB_CoarseNatur[is.na(mtbqsDF$CoarseNatur)]
+df$CoarseNatur <- mtbqsDF$CoarseNatur[match(df$MTB_Q,mtbqsDF$MTB_Q)]
+sum(is.na(df$CoarseNatur))
+
+##########################################################################################
 
 #subset to phenology by regions
 
@@ -136,47 +159,54 @@ df <- subset(adultData, Year>=1980  & Year<2017)
 # phenolData <- subset(phenolData, Species==myspecies)
 
 #if no phenolData for a given state, use max and min phenoldays
+# dfS <- subset(df, Species==myspecies)
+# obsPhenolData <- ddply(dfS,.(State),summarise,
+#                        minDay = round(quantile(yday,0.05)),
+#                        maxDay = round(quantile(yday,0.95)))
+# 
+# #expand to list all days between these days
+# obsPhenolData <- ddply(obsPhenolData,.(State),function(x){
+#                   data.frame(Species=myspecies,
+#                              day=as.numeric(x["minDay"]):as.numeric(x["maxDay"]),
+#                              fits=NA,
+#                              File=NA,
+#                              State=x["State"])})
+# 
+# #remove any states already in the phenolData file
+# #then rbind them
+# #or just use these estimates??yes
+# 
+# df <- subset(df,interaction(yday,State) %in% interaction(obsPhenolData$day,obsPhenolData$State))
+# ####################################################################################
+
+#subset by average phenology across whole germany
+
 dfS <- subset(df, Species==myspecies)
-obsPhenolData <- ddply(dfS,.(State),summarise,
-                       minDay = round(quantile(yday,0.05)),
-                       maxDay = round(quantile(yday,0.95)))
-
-#expand to list all days between these days
-obsPhenolData <- ddply(obsPhenolData,.(State),function(x){
-                  data.frame(Species=myspecies,
-                             day=as.numeric(x["minDay"]):as.numeric(x["maxDay"]),
-                             fits=NA,
-                             File=NA,
-                             State=x["State"])})
-
-#remove any states already in the phenolData file
-#then rbind them
-#or just use these estimates??yes
-
-df <- subset(df,interaction(yday,State) %in% interaction(obsPhenolData$day,obsPhenolData$State))
+obsPhenolData <- summarise(dfS,
+                           minDay = round(quantile(yday,0.1)),
+                           maxDay = round(quantile(yday,0.9)))
+df <- subset(df, yday > obsPhenolData$minDay & yday < obsPhenolData$maxDay)
 
 #####################################################################################
 
 #reduce size of the dataset
 
 #reduce data to 5%%
-
 #df <- df[sample(1:nrow(df),round(0.05*nrow(df))),]
 
 #any oversampled plots???
-
-#out <- ddply(df,.(MTB_Q,Year),summarise,nuDates = length(unique(Date)))
+out <- ddply(df,.(MTB_Q,Year),summarise,nuDates = length(unique(Date)))
 #out <- arrange(out,desc(nuDates))
-#summary(out$nuDates)
+summary(out$nuDates)
 
-#subset to at most 50 dates per year
-#nrow(df)
-#df <- ddply(df, .(Year,MTB_Q),function(x){
-#  mydates <- ifelse(length(unique(x$Date))>20,
-#                    sample(unique(x$Date),20),unique(x$Date))
-#  subset(x, Date %in% mydates)
-#})
-#nrow(df)
+#subset to at most 20 dates per year
+nrow(df)
+df <- ddply(df, .(Year,MTB_Q),function(x){
+  mydates <- ifelse(length(unique(x$Date))>30,
+                    sample(unique(x$Date),30),unique(x$Date))
+  subset(x, Date %in% mydates)
+})
+nrow(df)
 
 ######################################################################################
 
@@ -217,21 +247,14 @@ listlengthDF$MTB <- sapply(as.character(listlengthDF$MTB_Q),function(x){
 #rows of occuMatrix match visits
 all(listlengthDF$visit==row.names(occMatrix))
 
-##########################################################################################
+#######################################################################################
 
-#get nationwide boxes
-#load("mtbqsDF.RData")
-load("/data/idiv_ess/Odonata/mtbqsDF.RData")
-all(df$MTB_Q%in% mtbqsDF$MTB_Q)
-#unique(df$MTB_Q[!df$MTB_Q %in% mtbqsDF$MTB_Q])
+#add on some indices
 
 #add on box info to listlength
 listlengthDF$km50 <- mtbqsDF$km50[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
 summary(listlengthDF$km50)
 
-#######################################################################################
-
-#add on some indices
 listlengthDF$State <- mtbqsDF$Counties[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
 listlengthDF$Date <- as.Date(listlengthDF$Date)
 listlengthDF$Year <- year(listlengthDF$Date)
@@ -245,9 +268,13 @@ listlengthDF$mtbIndex <- as.numeric(factor(paste0(listlengthDF$stateIndex,
                                                   listlengthDF$MTB)))
 
 #add natur raum
-listlengthDF$Naturraum <- mtbqsDF$MTB_Natur[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
-listlengthDF$nnIndex <- as.numeric(factor(paste0(listlengthDF$stateIndex,
-                                                  listlengthDF$Naturraum)))
+listlengthDF$CoarseNaturraum <- mtbqsDF$CoarseNatur[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
+listlengthDF$cnIndex <- as.numeric(factor(listlengthDF$CoarseNaturraum))
+#subset(listlengthDF,is.na(CoarseNaturraum))
+
+listlengthDF$Naturraum <- mtbqsDF$Natur[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
+listlengthDF$nnIndex <- as.numeric(factor(listlengthDF$Naturraum))
+#subset(listlengthDF,is.na(Naturraum))
 
 #get other effort variables
 listlengthDF$singleList <- ifelse(listlengthDF$nuSpecies==1,1,0)
@@ -257,15 +284,39 @@ listlengthDF$longList <- ifelse(listlengthDF$nuSpecies>3,1,0)
 #######################################################################################
 #get summary site info data
 
-siteInfo <- unique(listlengthDF[,c("stateIndex","mtbIndex","siteIndex","boxIndex","nnIndex")])
+siteInfo <- unique(listlengthDF[,c("stateIndex","mtbIndex","siteIndex","boxIndex",
+                                   "MTB_Q","nnIndex","cnIndex")])
 head(siteInfo)
 
-########################################################################################
+#######################################################################################
 
 #order data
 listlengthDF <- arrange(listlengthDF,visit)
 all(row.names(occMatrix)==listlengthDF$visit)
 siteInfo <- arrange(siteInfo,siteIndex)
+
+raumInfo <- unique(siteInfo[,c("nnIndex","cnIndex")])
+
+########################################################################################
+
+#get matrix of site versus state
+
+siteInfo$dummy <- 1
+siteStates <- acast(siteInfo,siteIndex~stateIndex,value.var="dummy")
+siteStates[is.na(siteStates)] <- 0
+
+#get number of sites for each state
+statesSiteNu <- as.numeric(colSums(siteStates))
+
+#########################################################################################
+#get matrix of site versus raum
+
+siteInfo$dummy <- 1
+siteRaums <- acast(siteInfo,siteIndex~cnIndex,value.var="dummy")
+siteRaums[is.na(siteRaums)] <- 0
+
+#get number of sites for each state
+raumSiteNu <- as.numeric(colSums(siteRaums))
 
 #########################################################################################
 
@@ -300,19 +351,20 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   nyear = length(unique(listlengthDF$yearIndex)),
                   nstate = length(unique(siteInfo$stateIndex)),
                   nraum = length(unique(siteInfo$nnIndex)),
+                  ncraum = length(unique(siteInfo$cnIndex)),
                   nbox = length(unique(siteInfo$boxIndex)),
-                  nmtb = length(unique(siteInfo$mtbIndex)),
                   nvisit = nrow(listlengthDF),
                   site = listlengthDF$siteIndex,
-                  mtb = listlengthDF$mtbIndex,
-                  raum = listlengthDF$nnIndex,
                   state = listlengthDF$stateIndex,
+                  raum = listlengthDF$nnIndex,
+                  craum = listlengthDF$cnIndex,
                   box = listlengthDF$boxIndex,
                   year = listlengthDF$yearIndex,
-                  raumS = siteInfo$nnIndex,
                   stateS = siteInfo$stateIndex,
+                  craumS = siteInfo$cnIndex,
+                  craumR = raumInfo$cnIndex,
+                  raumS = siteInfo$nnIndex,
                   boxS = siteInfo$boxIndex,
-                  mtbS = siteInfo$mtbIndex,
                   yday = listlengthDF$yday - median(listlengthDF$yday),
                   nuSpecies = log(listlengthDF$nuSpecies) - log(median(listlengthDF$nuSpecies)),
                   singleList = listlengthDF$singleList,
@@ -321,18 +373,37 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   nuSS = log(listlengthDF$samplingSites) - log(median(listlengthDF$samplingSites)),# up to 3
                   expertise = log(listlengthDF$expertise)-median(log(listlengthDF$expertise)),
                   RpS = log(listlengthDF$RpS) - median(log(listlengthDF$RpS)),
-                  y = as.numeric(occMatrix[,myspecies]))
+                  y = as.numeric(occMatrix[,myspecies]),
+                  siteStates = siteStates,
+                  nsiteState = statesSiteNu,
+                  siteRaums = siteRaums,
+                  nsiteRaum = raumSiteNu)
 listlengthDF$Species <- bugs.data$y
 
-#another check
 all(row.names(occMatrix)==listlengthDF$visit)
+
+#set prior to zero if species never recorded in that state??
+temp <- ddply(listlengthDF,.(cnIndex),summarise,species=sum(Species))
+bugs.data$priorS <- ifelse(temp$species>0,0.99999,0.05)
+
+#the below are used the linear regression model in the model file -see below
+bugs.data$sumX <- sum(1:bugs.data$nyear)
+bugs.data$sumX2 <- sum((1:bugs.data$nyear)^2)
 
 #######################################################################################
 
 #specify initial values
 zst <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=max)
 zst [is.infinite(zst)] <- 0
-inits <- function(){list(z = zst)}
+#inits <- function(){list(z = zst)}
+
+inits <- function(){list(z = zst,
+                         #state.a = runif(bugs.data$nstate,0.0001,0.01),
+                         #lphi = runif(bugs.data$nstate,0,0.01),
+                         #lgam = runif(bugs.data$nstate,0,0.01),
+                         effort.p = runif(1,0,0.01),
+                         mu.phenol = runif(1,-0.01,0.01),
+                         mu.phenol2 = runif(1,-0.01,0.01))}
 
 ########################################################################################
 
@@ -345,26 +416,40 @@ n.cores = as.integer(Sys.getenv("NSLOTS", "1"))
 
 ###########################################################################################
 
-#modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_state.txt"
-#modelfile="R/BUGS_dynamic_nation_state.txt"
-modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_naturraum.txt"
+#choose model file
+modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_naturraum_raumFE.txt"
+#modelfile="R/BUGS_dynamic_nation_naturraum_raumFE.txt"
 
-effort = "nuSpecies"
+effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
 
 #specify parameters to monitor
-#params <- c("int","state.a.effect","state.t.effect","effort.p","single.p","psi.fs")
-#params <- c("mean.growth","mean.p","state.persist","state.colonize")
-params <- c("mean.growth","mean.p","raum.mean.growth","psi.fs","psi.raum")
+params <- c("mean.p","regres.psi","psi.fs",
+            "meanPersist","meanColonize",
+            "psi.raum","psi.state")
 
+#niterations <- 240
 
+Sys.time()
 #run model
 out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=10,
             n.chains=n.cores, n.burnin=niterations/4,
             n.iter=niterations,parallel=T)
 
+Sys.time()
+
+
+#1000 iteractions took about 80 mins
+#(100*150)/60
+#((100*150)/60)/24
+
+#5000 iteractions took 5 to 7 hours
+
 #save as output file
-saveRDS(data.frame(out$summary),file=paste0("outSummary_dynamic_nation_state_",stage,"_",myspecies,".rds"))
+saveRDS(out,file=paste0("out_dynamic_nation_naturraum_",stage,"_",myspecies,".rds"))
 
 ########################################################################################
+
+
+
 
