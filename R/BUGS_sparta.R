@@ -17,16 +17,11 @@ cat("
     Py[j]<- z[site[j],year[j]]*p[j] 
 
     #detection model:
-    logit(p[j]) <-  a.p[year[j]] + 
+    logit(p[j]) <-  year.p[year[j]] + 
                     phenol.p * yday[j] + 
                     phenol2.p * pow(yday[j], 2) + 
                     effort.p * Effort[j] +
                     single.p * singleList[j]
-
-
-    #missing covariate model
-    day ~ 1
-
 
     } 
   
