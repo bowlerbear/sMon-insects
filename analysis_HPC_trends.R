@@ -1,4 +1,6 @@
 
+#natural-raum level
+
 #read in model output
 tdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum/5914536"
 modelFiles <- list.files(tdir)
@@ -15,9 +17,9 @@ modelTrends <- ldply(modelFiles,function(x){
   
   #get bugs data for trend model
   temp <- ldply(1:7,function(i){
-  bugs.data <- list(meanOcc = outS$mean[grepl(paste0("psi.fs\\[",i),outS$Param)],
-                    sdOcc = outS$sd[grepl(paste0("psi.fs\\[",i),outS$Param)],
-                    nyear = length(outS$mean[grepl(paste0("psi.fs\\[",i),outS$Param)]))
+  bugs.data <- list(meanOcc = outS$mean[grepl(paste0("psi.raum\\[",i),outS$Param)],
+                    sdOcc = outS$sd[grepl(paste0("psi.raum\\[",i),outS$Param)],
+                    nyear = length(outS$mean[grepl(paste0("psi.raum\\[",i),outS$Param)]))
   
   #the below are used the linear regression model in the model file -see below
   bugs.data$sumX <- sum(1:bugs.data$nyear)
@@ -53,7 +55,11 @@ saveRDS(modelTrends,file="modelTrends_naturraum_trends.rds")
 
 ###national analysis
 
+#naturraum model
+tdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum/5914536"
+modelFiles <- list.files(tdir)
 
+#state model
 tdir<-"C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_adult_nation_state"
 modelFiles <- list.files(tdir)
 
@@ -92,5 +98,6 @@ modelTrends <- ldply(modelFiles,function(x){
   
 })
 
+saveRDS(modelTrends,file="model-outputs/modelTrends_trends.rds")#with naturraum models
 
 
