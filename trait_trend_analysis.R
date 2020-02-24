@@ -5,6 +5,8 @@ library(plyr)
 library(ggplot2)
 library(reshape2)
 library(cowplot)
+library(wesanderson)
+
 ###merge data###################################################################
 
 setwd("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects")
@@ -572,11 +574,21 @@ myTS <- dlply(annualDFS,.(Species),
 
 #preprocessing
 myTS <- lapply(myTS,function(x){
-  len <- length(x)
-  x[2:len]/mean(x)
+  x/mean(x)
 })
-annualDFS <- subset(annualDF,Year>1983)
-#or smoothing first???
+
+#combine and plot again
+temp <- ldply(myTS,function(x){
+  data.frame(Index=x,Year=1:length(x))
+})
+temp$Year <- temp$Year + min(annualDFS$Year)-1
+temp$Species <-temp$.id
+temp2 <- temp
+
+qplot(Year,Index,data=temp,colour=Species)+
+  theme(legend.position = "none")
+
+annualDFS <- subset(annualDF,Year>1982)
 
 #different options:
 
@@ -584,60 +596,32 @@ annualDFS <- subset(annualDF,Year>1983)
 
 library("dtwclust")
 
-#hierarchical
-hc_sbd <- tsclust(myTS, type = "h", k = 2:20L,
-                  preproc = zscore, seed = 899,
-                  distance = "sbd", centroid = shape_extraction,
-                  control = hierarchical_control(method = "average"))
-
-hc_sbd <- tsclust(myTS, type = "h", k = 7L,
-                  preproc = zscore, seed = 899,
-                  distance = "sbd", centroid = shape_extraction,
-                  control = hierarchical_control(method = "average"))
-
-
-hc_sbd <- tsclust(myTS, type = "h", k = 2:20L,
-                  preproc = NULL, seed = 899,
-                  distance = "sbd", centroid = shape_extraction,
-                  control = hierarchical_control(method = "average"))
-
-
-hc_sbd <- tsclust(myTS, type = "h", k = 5L,
-                  preproc = NULL, seed = 899,
-                  distance = "sbd", centroid = shape_extraction,
-                  control = hierarchical_control(method = "average"))
-
-#partitional
+#SBD
 hc_sbd <- tsclust(myTS, type = "partitional", k=2:20L,
                   preproc = zscore, 
-                  distance = "sbd",centroid = "shape")
-
-hc_sbd <- tsclust(myTS, type = "partitional", k=5L,
-                  preproc = zscore, 
-                  distance = "sbd",centroid = "shape")
-
-hc_sbd <- tsclust(myTS, type = "partitional", k=2:20L,
-                  preproc = NULL, 
                   distance = "sbd",centroid = "shape")
 
 hc_sbd <- tsclust(myTS, type = "partitional", k=4L,
-                  preproc = NULL, 
+                  preproc = zscore, 
                   distance = "sbd",centroid = "shape")
 
-#other
-hc_sbd <- tsclust(myTS, ype="partitional", k= 4L,
+#DTW
+hc_sbd <- tsclust(myTS, ype="partitional", k= 2:20L,
+                  preproc = zscore, 
                   distance = "dtw_basic", centroid = "dba")
 
-hc_sbd <- tsclust(myTS, ype="partitional", k= 4L,
+hc_sbd <- tsclust(myTS, ype="partitional", k= 7L,
+                  preproc = zscore, 
+                  distance = "dtw_basic", centroid = "dba")
+
+#pam
+hc_sbd <- tsclust(myTS, ype="partitional", k= 2:20L,
+                  preproc = zscore, 
                   distance = "dtw_basic", centroid = "pam")
 
-
-#By default, the dendrogram is plotted in hierarchical clustering
-plot(hc_sbd)
-plot(hc_sbd, type = "sc")
-#plot(hc_sbd, type = "series", clus = 1L)
-plot(hc_sbd, type = "series")
-plot(hc_sbd, type = "centroids")
+hc_sbd <- tsclust(myTS, ype="partitional", k= 4L,
+                  preproc = zscore, 
+                  distance = "dtw", centroid = "pam")
 
 #comparing cluster numbers
 names(hc_sbd) <- paste0("k_", 2L:20L)
@@ -649,6 +633,31 @@ library(reshape2)
 temp <- melt(temp,id="Param")
 temp$variable <- as.numeric(gsub("k_","",temp$variable))
 qplot(variable,value,data=temp) + facet_wrap(~Param,scales="free")
+
+#get inflexion point for each plot
+#inflexion point is maximum absolute second derivative
+deriv <- function(x, y) diff(y) / diff(x)
+middle_pts <- function(x) x[-1] - diff(x) / 2
+
+out <- ldply(unique(temp$Param),function(x){
+  temp2 <- subset(temp,Param==x)
+  firstderiv <- deriv(temp2$variable, temp2$value)
+  plot(firstderiv ~ temp2$variable[-1])
+  second_d <- deriv(middle_pts(temp2$variable), firstderiv)
+  plot(second_d ~ temp2$variable[-c(1:2)])
+  df <- data.frame(second_d = second_d, 
+           midpts = middle_pts(middle_pts(temp2$variable)),
+           Param=x)
+  subset(df,second_d==max(second_d))
+})
+median(out$midpts)#5
+
+#By default, the dendrogram is plotted in hierarchical clustering
+plot(hc_sbd)
+plot(hc_sbd, type = "sc")
+#plot(hc_sbd, type = "series", clus = 1L)
+plot(hc_sbd, type = "series")
+plot(hc_sbd, type = "centroids")
 
 #check
 clusterDF <- data.frame(Species=names(myTS),
@@ -717,33 +726,73 @@ ggplot(subset(annualDFS,cluster==5))+
   geom_line(aes(x=Year,y=mean))+
   facet_wrap(~Species,scales="free")
 
-ggplot(subset(annualDFS,cluster==7))+
-  geom_line(aes(x=Year,y=mean))+
-  facet_wrap(~Species,scales="free")
-
 #plot each cluster series
 myCentroids <- data.frame(Year=rep(sort(unique(annualDFS$Year)),length(hc_sbd@centroids)),
                           Cluster=rep(1:length(hc_sbd@centroids),each=length(unique(annualDFS$Year))),
                           ts=do.call(c,hc_sbd@centroids))
 myCentroids$Cluster <- factor(myCentroids$Cluster,levels=1:length(clusterOrder))
 
+#smooth underlying dynamics
+myOrder <- c(2,1,4,3)
+mylabels <- c("increasing","increasing-decreasing",
+              "decreasing-increasing","decreasing")
+
+mycols <- wes_palette("Darjeeling1", length(myOrder))
+myCentroids$Cluster <- factor(myCentroids$Cluster,levels=rev(myOrder))
+levels(myCentroids$Cluster) <- rev(mylabels)
+
+#plot as a smooth
 ggplot(data=myCentroids,aes(x=Year,y=ts))+
   geom_smooth(aes(colour=factor(Cluster),fill=factor(Cluster)))+
-  facet_wrap(~Cluster,ncol=1)+
+  facet_wrap(~Cluster,nrow=1)+
   theme_bw()+
+  scale_fill_manual(values=rev(mycols))+
+  scale_colour_manual(values=rev(mycols))+
   theme(legend.position = "none")+
-  ylab("z-score occupancy prop")
+  ylab("relative occupancy prop")+
+  theme(axis.title = element_text(size=rel(1.2)),
+        axis.text = element_text(size=rel(1.2)),
+        strip.text = element_text(size=rel(1.2)))
 
 table(clusterDF$cluster)
-#1  2  3  4 
-#23 26 14 14
+#8 35 16 18 
+
+#smooth underlying dynamics
+temp2$Cluster <- clusterDF$cluster[match(temp2$Species,clusterDF$Species)]
+myOrder <- c(1,2,3,4)
+mylabels <- c("increasing","increasing-decreasing",
+              "decreasing-increasing","decreasing")
+
+mycols <- wes_palette("Darjeeling1", length(myOrder))
+temp2$Cluster <- factor(temp2$Cluster,levels=myOrder)
+levels(temp2$Cluster) <- mylabels
+
+ggplot(data=temp2,aes(x=Year,y=Index))+
+  geom_smooth(aes(colour=Cluster,fill=Cluster))+
+  facet_wrap(~Cluster,ncol=1)+
+  theme_bw()+
+  scale_fill_manual(values=mycols)+
+  scale_colour_manual(values=mycols)+
+  theme(legend.position = "none")+
+  ylab("relative occupancy prop")
 
 
+ts <- ggplot(data=temp2,aes(x=Year,y=Index))+
+  geom_smooth(aes(colour=Cluster,fill=Cluster))+
+  facet_wrap(~Cluster,nrow=1)+
+  theme_bw()+
+  scale_fill_manual(values=mycols)+
+  scale_colour_manual(values=mycols)+
+  theme(legend.position = "none")+
+  ylab("relative occupancy prop")
+ts
 
 ###traits clusters########################################################
 
 clusterDF$Species[!clusterDF$Species %in% alltraits$Species]
 clusterDF <- merge(clusterDF,alltraits,by="Species",all.x=T)
+clusterDF$cluster <- factor(clusterDF$cluster,levels=myOrder)
+levels(clusterDF$cluster) <- mylabels
 
 #scale between 0 and 1
 stand <- function(x){
@@ -790,3 +839,61 @@ anova(glm(Habitat_Bin ~ factor(cluster),family=binomial,data=clusterDF),test="Ch
 trendEstimates$cluster <- clusterDF$cluster[match(trendEstimates$Species,clusterDF$Species)]
 summary(lm(trend~factor(cluster),data=trendEstimates,
            weights=1/sd))
+
+#plot trait groups for each cluster
+
+#plot wing length for each cluster
+g1 <- ggplot(clusterDF)+
+  geom_boxplot(aes(x=cluster,y=medHw,fill=cluster))+
+  theme_bw()+ylab("Wing length (mm)")+xlab("Cluster")+
+  scale_fill_manual(values=mycols)+
+  theme(legend.position = "none")+
+  coord_flip()
+
+#plot temperature mean
+g2 <- ggplot(clusterDF)+
+  geom_boxplot(aes(x=cluster,y=meanTemp,fill=cluster))+
+  theme_bw()+ylab("Temp pref")+xlab("")+
+  scale_fill_manual(values=mycols)+
+  theme(legend.position = "none")+
+  coord_flip()
+
+#plot habitat use
+clusterDF$Habitat_Bin <- ifelse(clusterDF$Habitat=="Standing",0,1)
+clusterDF$HabitatBreadth_Bin <- ifelse(clusterDF$HabitatBreadth=="generalist",1,0)
+habitatSummary <- ddply(clusterDF,.(cluster),summarise,
+                        RunningWater=sum(Habitat_Bin),
+                        HabitatGeneralist=sum(HabitatBreadth_Bin),
+                        nuSpecies = length(Species))
+
+g3 <- ggplot(habitatSummary)+
+  geom_bar(aes(x=cluster,y=RunningWater/nuSpecies,fill=cluster),stat="identity")+
+  theme_bw()+ylab("Running water use")+xlab("Cluster")+
+  scale_fill_manual(values=mycols)+
+  theme(legend.position = "none")+
+  coord_flip()
+
+g4 <- ggplot(habitatSummary)+
+  geom_bar(aes(x=cluster,y=HabitatGeneralist/nuSpecies,fill=cluster),stat="identity")+
+  theme_bw()+ylab("Habitat generalism")+xlab("")+
+  scale_fill_manual(values=mycols)+
+  theme(legend.position = "none")+
+  coord_flip()
+  
+plot_grid(g1,g2,g3,g4,ncol=2)
+
+###change point analysis######################################################################
+
+library(changepoint)
+
+for(i in 1)
+m1=c(annualDF$mean[annualDF$Species=="Aeshna affinis"])
+m1.amoc=cpt.mean(m1)
+cpts(m1.amoc)
+plot(m1.amoc)
+
+ddply(annualDF,.(Species),function(x){
+  m1.amoc=cpt.mean(x$mean)
+  print(cpts(m1.amoc))
+})
+#none...
