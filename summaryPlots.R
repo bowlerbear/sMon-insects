@@ -3,7 +3,7 @@ library(rgdal)
 library(ggplot2)
 library(plyr)
 library(reshape2)
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ###Species list#################################################################################################
 
@@ -359,17 +359,43 @@ library(GGally)
 timeSummary[,3:6]<-sapply(timeSummary[,3:6],log)
 ggpairs(timeSummary[,3:6])
 
+###species check##############################################################################################
+
+df <- readRDS("df_sparta.rds")
+
+#check the following
+"Crocothemis erythraea"
+"Ophiogomphus cecilia"
+"Anax ephippiger"
+"Sympetrum meridionale"
+
+ddply(subset(df,Species=="Crocothemis erythraea"),.(Year),summarise,nuRecs=length(Species))#nothing until 1986
+ddply(subset(df,Species=="Ophiogomphus cecilia"),.(Year),summarise,nuRecs=length(Species))#increasing
+ddply(subset(df,Species=="Aeshna subarctica"),.(Year),summarise,nuRecs=length(Species))#increasing...
+ddply(subset(df,Species=="Gomphus flavipes"),.(Year),summarise,nuRecs=length(Species))#increasing...
+ddply(subset(df,Species=="Gomphus vulgatissimus"),.(Year),summarise,nuRecs=length(Species))#increasing then decreasing in recent years
+ddply(subset(df,Species=="Leucorrhinia albifrons"),.(Year),summarise,nuRecs=length(Species))#increasing...
+ddply(subset(df,Species=="Leucorrhinia pectoralis"),.(Year),summarise,nuRecs=length(Species))#increasing...
+ddply(subset(df,Species=="Leucorrhinia rubicunda"),.(Year),summarise,nuRecs=length(Species))#maybe increasing...
+ddply(subset(df,Species=="Leucorrhinia pectoralis"),.(Year),summarise,nuRecs=length(Species))#maybe increase
+
+#delete Anax ephippiger and Sympetrum meridionale from the model
+ddply(subset(df,Species=="Anax ephippiger"),.(Year),summarise,nuRecs=length(Species))#consistently rare. seen in only 7 years
+ddply(subset(df,Species=="Sympetrum meridionale"),.(Year),summarise,nuRecs=length(Species))#consistently rare, few obs per year
+
+#when there are few observations, the predictions are pulled upwards...
+
 ###State models############################################################################################
 
 #get annual indices:
 
-modelFiles <- list.files("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_modelSummary_flightperiod/5098409")
+modelFiles <- list.files("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_modelSummary_flightperiod/5098409")
 modelFiles <- modelFiles[grepl("modelSummary",modelFiles)]
 
 #read in each one
 library(plyr)
 modelSummary <- ldply(modelFiles, function(x){
-  temp <- readRDS(paste("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_modelSummary_flightperiod/5098409",x,sep="/"))
+  temp <- readRDS(paste("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_modelSummary_flightperiod/5098409",x,sep="/"))
   temp$Folder <- x
   return(temp)
 })
@@ -381,7 +407,7 @@ modelFiles <- c("modelSummary_effort_tests_Odonata_adult_MV.rds",
 #read in each one
 library(plyr)
 modelSummary2 <- ldply(modelFiles, function(x){
-  temp <- readRDS(paste("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs",x,sep="/"))
+  temp <- readRDS(paste("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs",x,sep="/"))
   temp$Folder <- x
   return(temp)
 })
@@ -457,10 +483,10 @@ modelSummary <- modelSummary[grepl("psi.fs",modelSummary$Param),]
 modelSummary$ParamNu <- as.numeric(sub(".*\\[([^][]+)].*", "\\1", modelSummary$Param))
 
 #get start year for each state
-modelFiles <- list.files("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects")
+modelFiles <- list.files("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects")
 modelFiles <- modelFiles[grepl("yearDF_adult",modelFiles)]
 yearDF <- ldply(modelFiles, function(x){
-  temp <- read.delim(paste("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects",x,sep="/"))
+  temp <- read.delim(paste("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects",x,sep="/"))
   temp$Folder <- x
   return(temp)
 })
@@ -746,7 +772,7 @@ ggsave(paste0("gifs/year",i,".tiff"),width=5,height=5)
 }
 
 #https://stackoverflow.com/questions/1298100/creating-a-movie-from-a-series-of-plots-in-r
-#https://ryanpeek.github.io/2016-10-19-animated-gif_maps_in_R/
+#https://ryanpeek.Odonata_Github.io/2016-10-19-animated-gif_maps_in_R/
 
 ###GIF#########################################################################################
 #make an animated gifs
@@ -766,8 +792,8 @@ write.gif()
 
 ###Nation state model#########################################################################################
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_adult_nation_state"
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_state"
 
 #read in model summaries
 modelDF <- getModelSummaries(mdir)
@@ -807,7 +833,7 @@ summary(changeDF$change[changeDF$Species %in% trendEstimates$Species[trendEstima
 summary(changeDF$change2[changeDF$Species %in% trendEstimates$Species[trendEstimates$Trend=="significant decrease"]])
 
 #cut first few years
-annualDF <- subset(annualDF, Year >=1985)
+annualDF <- subset(annualDF, Year >=1982)
 
 #traceplots
 setwd(mdir)
@@ -895,9 +921,17 @@ subset(trends,Trend=="significant decrease")
 ####Naturraum models######################################################################
 
 #naturraum analysis
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum/5914536"
+#original models
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum/5914536"
+#50000 iteractions
+#5000 iter
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_5000iter/6057269"
+#updated models
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_upated/6071906"
+#updated 2
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_upated2/6086325"
 
 #read in model summaries
 modelDF <- getModelSummaries(mdir)
@@ -907,7 +941,7 @@ modelDF$Species <- gsub(".rds","",modelDF$Species)
 #national time series
 annualDF <- getBUGSfits(modelDF,param="psi.fs")
 annualDF$Year <- annualDF$ParamNu + 1979
-table(annualDF$Rhat<1.1)#better than before
+table(annualDF$Rhat<1.1)
 
 #annual time series
 annualDF <- getBUGSfitsII(modelDF,param="psi.raum")
@@ -944,12 +978,11 @@ ggplot(subset(annualnaturraumDF,Year>=1985))+
 ggplot(subset(annualnaturraumDF,Year>=1985))+
   geom_line(aes(x=Year,y=nuSpecies,colour=naturraum))
 
-
 #do same for small-scale naturraum
 
 ###Naturraum trends######################################################
 
-trends <- readRDS("modelTrends_naturraum_trends.rds")
+trends <- readRDS("model-outputs/modelTrends_naturraum_trends.rds")
 
 trends$Trend <- "insignificant"
 trends$Trend[trends$X2.5.>0 & trends$X97.5.>0]<-"significant increase"
@@ -1015,8 +1048,8 @@ ggplot(subset(summaryTrends,Trend!="insignificant"))+
 
 ###Naturraum percol####################################################################
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_5000iter/6057269"
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_5000iter/6057269"
 
 #read in all files
 modelDF <- getModelSummaries(mdir)
@@ -1040,8 +1073,8 @@ g2 <- ggplot(colper,aes(x=meanColonize,y=meanPersist,color=TrendSig))+
 
 ###Nation spline#######################################################################
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/model-outputs/Odonata_adult_nation_spline/5952992"
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_spline/5952992"
 
 #read in all files
 modelDF <- getModels(mdir)
@@ -1107,4 +1140,53 @@ ggplot(mtbqsDF)+
   geom_point(aes(x=x,y=y,colour=colonize))+
   scale_color_gradient2(low="blue",high='red',midpoint=median(mtbqsDF$colonize,na.rm=T))
 
+####sparta model###########################################################
 
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6076959"
+
+#read in model summaries
+modelDF <- getModelSummaries(mdir)
+
+#species code
+modelDF$Species <- gsub("out_sparta_nation_naturraum_adult_","",modelDF$File)
+modelDF$Species <- gsub(".rds","",modelDF$Species)
+modelDF$Genus <- sapply(modelDF$Species, function(x)strsplit(x," ")[[1]][1])
+modelDF$Genus <- sapply(modelDF$Genus, function(x) substr(x,1,3))
+modelDF$Spec <- sapply(modelDF$Species, function(x)strsplit(x," ")[[1]][2])
+modelDF$Spec <- sapply(modelDF$Spec, function(x) substr(x,1,3))
+modelDF$Code <- paste(modelDF$Genus,modelDF$Spec,sep="_")
+
+#annual tims series
+annualDF <- getBUGSfits(modelDF,param="psi.fs")
+annualDF$Year <- annualDF$ParamNu + 1979
+
+#plot
+plotTS(annualDF)
+table(annualDF$Rhat<1.1)
+#FALSE  TRUE 
+#1350  1351
+
+#maybe include random walk priors to help converge...?
+ggplot(annualDF)+
+  geom_line(aes(x=Year,y=mean*100))+
+  geom_ribbon(aes(x=Year,ymin=X2.5.*100,ymax=X97.5.*100),alpha=0.5)+
+  facet_wrap(~Code)+
+  theme_bw()+
+  ylab("% occupancy")
+
+###problematic species check#####################################################
+
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
+
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_problemSpecies/Odonata_adult_nation_naturraum/6205596"
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_problemSpecies/Odonata_adult_nation_naturraum/6232459"
+
+#read in model summaries
+modelDF <- getModelSummaries(mdir)
+modelDF <- getCodeFromFile(modelDF,myfile="out_dynamic_nation_naturraum_adult_")
+annualDF <- getBUGSfits(modelDF,param="psi.fs")
+annualDF$Year <- annualDF$ParamNu + 1979
+plotTS(annualDF)
+
+#still problematic
