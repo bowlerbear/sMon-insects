@@ -141,7 +141,8 @@ species$Species [!species$Species %in% bodysize$Species]
 #add to my data
 alltraits$medAb <- bodysize$medAb[match(alltraits$Species,bodysize$Species)] 
 alltraits$medHw <- bodysize$medHw[match(alltraits$Species,bodysize$Species)] 
-alltraits$HabitatBreadth <- bodysize$HabitatSpecialist[match(alltraits$Species,bodysize$Species)] 
+alltraits$HabitatBreadth <- bodysize$HabitatSpecialist[match(alltraits$Species,bodysize$Species)]
+alltraits$Flow <- bodysize$Flow[match(alltraits$Species,bodysize$Species)]
 
 ######################################################################################
 
@@ -168,13 +169,13 @@ ftraits$Overwintering[ftraits$Adult>5|ftraits$Not>5] <- "Other"
 ftraits$Overwintering[ftraits$Egg>5] <- "Egg"
 table(ftraits$Overwintering)
 
-alltraits <- merge(alltraits,ftraits[,c("Species","VoltinismProp","Overwintering")],by="Species",all.x=T)
+alltraits <- merge(alltraits,ftraits[,c("Species","VoltinismProp","Overwintering","Uni")],by="Species",all.x=T)
 
 #######################################################################################
 
 #from Domnik
-setwd("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Insects/traits/from_Dominik_Jab")
-zeigerwerte <- read.xls("Zeigerwerte_final.xls")
+#setwd("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Insects/traits/from_Dominik_Jab")
+#zeigerwerte <- read.xls("Zeigerwerte_final.xls")
 
 ######################################################################################
 
@@ -224,6 +225,7 @@ names(alltraits)[which(names(alltraits)=="development.time..mean.")] <- "devTime
 ######################################################################################
 
 save(alltraits, file="alltraits.RData")
+write.csv(alltraits,file="alltraits.csv")
 
 ######################################################################################
 
