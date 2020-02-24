@@ -295,6 +295,17 @@ formatObservers <- function(obs){
   trim(obs)
 }
 
+getCodeFromFile <- function(modelDF,myfile="out_sparta_nation_naturraum_adult_"){
+  modelDF$Species <- gsub(myfile,"",modelDF$File)
+  modelDF$Species <- gsub(".rds","",modelDF$Species)
+  modelDF$Genus <- sapply(modelDF$Species, function(x)strsplit(x," ")[[1]][1])
+  modelDF$Genus <- sapply(modelDF$Genus, function(x) substr(x,1,3))
+  modelDF$Spec <- sapply(modelDF$Species, function(x)strsplit(x," ")[[1]][2])
+  modelDF$Spec <- sapply(modelDF$Spec, function(x) substr(x,1,3))
+  modelDF$Code <- paste(modelDF$Genus,modelDF$Spec,sep="_")
+  return(modelDF)
+}
+
 getSurnames <- function(x){
   surName <- strsplit(x," ")
   surNames <- as.character(sapply(surName[[1]],function(x)trim(x)))
