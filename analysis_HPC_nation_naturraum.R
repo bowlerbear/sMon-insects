@@ -9,7 +9,7 @@ suppressMessages(library(plyr))
 
 
 #load the relational table of task ids and species
-speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult.txt"),as.is=T)
+speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult2.txt"),as.is=T)
 #get task id
 task.id = as.integer(Sys.getenv("SGE_TASK_ID", "1")) 
 #get species for this task
@@ -22,7 +22,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 5000
+niterations = 50000
 
 Sys.time()
 
@@ -382,9 +382,9 @@ listlengthDF$Species <- bugs.data$y
 
 all(row.names(occMatrix)==listlengthDF$visit)
 
-#set prior to zero if species never recorded in that state??
+#set prior close to zero if species never recorded in that state??
 temp <- ddply(listlengthDF,.(cnIndex),summarise,species=sum(Species))
-bugs.data$priorS <- ifelse(temp$species>0,0.99999,0.05)
+bugs.data$priorS <- ifelse(temp$species>0,0.99999,0.005)
 
 #the below are used the linear regression model in the model file -see below
 bugs.data$sumX <- sum(1:bugs.data$nyear)
@@ -417,8 +417,8 @@ n.cores = as.integer(Sys.getenv("NSLOTS", "1"))
 ###########################################################################################
 
 #choose model file
-modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_naturraum_raumFE.txt"
-#modelfile="R/BUGS_dynamic_nation_naturraum_raumFE.txt"
+modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_naturraum_raumFE_strongPrior.txt"
+#modelfile="R/BUGS_sparta_nation_naturraum.txt"
 
 effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
@@ -428,22 +428,15 @@ params <- c("mean.p","regres.psi","psi.fs",
             "meanPersist","meanColonize",
             "psi.raum","psi.state")
 
-#niterations <- 240
 
 Sys.time()
 #run model
-out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=10,
+out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=5,
             n.chains=n.cores, n.burnin=niterations/4,
             n.iter=niterations,parallel=T)
 
 Sys.time()
 
-
-#1000 iteractions took about 80 mins
-#(100*150)/60
-#((100*150)/60)/24
-
-#5000 iteractions took 5 to 7 hours
 
 #save as output file
 saveRDS(out,file=paste0("out_dynamic_nation_naturraum_",stage,"_",myspecies,".rds"))
