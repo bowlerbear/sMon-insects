@@ -39,7 +39,7 @@ n.cores = as.integer(Sys.getenv("NSLOTS", "1"))
 ###########################################################################################
 
 #choose model file
-myfolder <- "/work/bowler/Odonata_adult_nation_naturraum_5000iter/6057269"
+myfolder <- "/work/bowler/Odonata_adult_nation_naturraum_upated/6071906"
 myfiles <- list.files(myfolder)
 myfile <- myfiles[grepl(myspecies,myfiles)]
 out <- readRDS(paste(myfolder,myfile,sep="/"))
