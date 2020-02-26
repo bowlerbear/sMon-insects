@@ -1,2 +1,0 @@
-"startMonth"	"endMonth"	"State"
-5	9	"SH"
