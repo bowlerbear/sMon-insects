@@ -1,9 +1,0 @@
-TaskID	Folder
-1	Odonata_adult_Sa
-2	Odonata_adult_Sax
-3	Odonata_adult_SH
-4	Odonata_adult_NRW
-5	Odonata_adult_Bav
-6	Odonata_adult_RLP
-7	Odonata_adult_Thu
-8	Odonata_adult_SAnhalt
