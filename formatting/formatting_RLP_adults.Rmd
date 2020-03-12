@@ -1,0 +1,238 @@
+---
+title: "formatting_Saarland"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+Read in data frame
+
+```{r}
+
+library(rgdal)
+datafile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/raw-data/RLP/direct_download/export_artdatenpool",
+                     layer="export_artdatenpool")
+#+proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs
+
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+
+```
+
+Convert shapefile into data frame
+
+```{r}
+
+datafile <- data.frame(datafile@data,coordinates(datafile))
+
+```
+
+
+Format data info
+
+```{r}
+
+library(lubridate)
+datafile$Date <- as.Date(datafile$k_datum_a,format="%Y/%m/%d")
+datafile$Month <- month(datafile$Date)
+datafile$Year <- year(datafile$Date)
+datafile$yday <- yday(datafile$Date)
+datafile$Species <- as.character(datafile$art_wiss)
+datafile$Beobachter <- datafile$auftragneh
+datafile$Fundort <- interaction(datafile$X1,datafile$X2)
+datafile$MTB_Q <- datafile$tk_qu
+datafile <- subset(datafile, !is.na(yday))
+datafile <- subset(datafile, yday!=1)
+```
+
+
+Check species names against the standard list
+
+```{r}
+specieslist <- read.delim("specieslist_odonata.txt")
+
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+
+#fix names
+datafile$Species[which(datafile$Species=="Lestes viridis")]<-"Chalcolestes viridis"
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+
+```
+
+Its only presence data - add the NAs for abundance
+
+```{r}
+
+datafile$Anzahl_min <- NA
+
+```
+
+Add lon/lat info
+
+```{r}
+
+library(sp)
+library(rgdal)
+mycoords<- datafile[,c("X1","X2")]
+coordinates(mycoords)<-c("X1","X2")
+proj4string(mycoords)<-CRS("+proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs")
+mycoords <- spTransform(mycoords,CRS("+proj=longlat +datum=WGS84"))
+datafile$lon <- mycoords@coords[,1]
+datafile$lat <- mycoords@coords[,2]
+
+
+```
+
+
+
+Get survey information
+
+```{r}
+
+library(plyr)
+
+surveys <- ddply(datafile,.(MTB_Q,Date,Year,Month,yday),summarise,
+                 nuLocations = log(length(unique(Fundort))),
+                 nuObservers = log(length(unique(Beobachter))),
+                 nuSpecies = log(length(unique(Species))),
+                 nuRecords = log(length(Species)))
+
+
+library(GGally)
+ggpairs(surveys[,5:9])
+
+
+```
+
+Characterize the total richness found in each grid:
+
+```{r}
+gridRichness <- ddply(datafile,.(MTB_Q),summarise,
+                    nuSpecies=length(unique(Species)),
+                    nuRecs=length(Species),
+                    nuYears = length(unique(Year)),
+                    nuDates = length(unique(Date)))
+
+summary(gridRichness$nuSpecies)
+#1 to 47!!!
+
+qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
+#the more records, the more species
+
+#add to data frame
+datafile$Richness <- gridRichness$nuSpecies[match(datafile$MTB_Q,gridRichness$MTB_Q)]
+
+summary(datafile$Richness)
+
+
+```
+
+
+Get information on number of sampling locations on a given date
+
+```{r}
+
+samplingSites <- ddply(datafile,. (Date,MTB_Q),summarise,
+nuLocations=length(unique(interaction(lon,lat))))
+
+summary(samplingSites$nuLocations)
+#only ever 1 location
+
+```
+
+Sort out the observer data:
+
+```{r}
+
+sort(unique(datafile$Beobachter))
+#49
+
+#fix mistakes
+datafile$Beobachter[which(datafile$Beobachter=="Brown, Gary (Denz, Olaf)")]<-"Brown, Gary"
+datafile$Beobachter[which(datafile$Beobachter=="Brown, Gary (Knoblauch, Josef)")]<-"Brown, Gary"
+datafile$Beobachter[which(datafile$Beobachter=="Brown, Gary (Steger, Thomas)")]<-"Brown, Gary"
+datafile$Beobachter[which(datafile$Beobachter=="L.U.P.O. GmbH - Ott, JÃ¼rgen")]<-"L.U.P.O.GmbH - Dr. Ott, JÃ¼rgen"
+datafile$Beobachter[which(datafile$Beobachter=="Weber, Torsten (Denz, Olaf)")]<-"Weber, Torsten"
+
+table(datafile$Beobachter)
+#most collected by KoNat
+
+```
+
+Characterize the total ability of each observer each year
+
+```{r}
+
+obsRichness <- ddply(datafile,.(Beobachter),summarise,
+                    nuSpecies=length(unique(Species)),
+                    nuRecs=length(Species))
+
+summary(obsRichness$nuSpecies)
+
+qplot(log(nuRecs),log(nuSpecies),data=obsRichness)
+
+arrange(obsRichness,desc(nuRecs))
+
+```
+
+Characterise average expertise level
+
+```{r}
+
+allObservers <- as.character(sort(unique(datafile$Beobachter)))
+
+allObservers <- removeGerman(allObservers)
+allObservers <- formatObservers(allObservers)
+
+#for each observer, calculate how many records they were involved in collecting
+library(plyr)
+expertise<-ldply(allObservers,function(x){
+  Beobachter <- as.character(datafile$Beobachter)
+  Beobachter <- removeGerman(Beobachter)
+  Level = sum(grepl(x,Beobachter))
+  data.frame(Beobachter=x,Level)
+})
+
+hist(log(expertise$Level))  
+
+arrange(expertise,desc(Level))
+
+
+```
+
+Add information on expertise to the datafile
+
+```{r}
+
+datafile$Expertise <-
+  sapply(as.character(datafile$Beobachter),function(x){
+    myobs <- removeGerman(x)
+    myobs <- formatObservers(myobs)
+    max(expertise$Level[expertise$Beobachter %in% myobs])#take maximum level when there is a group of observers
+    })
+
+datafile$Expertise[is.infinite(datafile$Expertise)]<-1
+
+summary(datafile$Expertise)
+
+
+```
+
+
+Save data
+
+```{r}
+
+adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
+                           "Richness","lon","lat","Beobachter","Anzahl_min")]
+
+save(adult_datafile,file="derived-data/adult_datafile_RLP.RData")
+saveRDS(adult_datafile,file="derived-data/adult_datafile_RLP.rds")
+
+```
+
+
+

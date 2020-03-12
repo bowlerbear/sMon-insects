@@ -1,0 +1,283 @@
+---
+title: "formatting_Bavaria"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+Read in data frame
+
+```{r}
+
+datafile <- read.csv("raw-data/NRW/rohdaten_aklnrw_an_idiv_181116/data-1542363531429.csv",as.is=T)
+nrow(datafile)#177205
+
+```
+
+Add species names
+
+```{r}
+speciesDF <- read.csv("raw-data/NRW/rohdaten_aklnrw_an_idiv_181116/reflibellenarten.csv",as.is=T)
+datafile$Species <- speciesDF$wiss_name[match(datafile$art,speciesDF$art_id)]
+
+```
+
+Check species names against the standard list
+
+```{r}
+specieslist <- read.delim("specieslist_odonata.txt")
+
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+datafile$Species[which(datafile$Species=="Lestes viridis")]<-"Chalcolestes viridis"
+
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+```
+
+
+Check out geographic coords
+
+```{r}
+geoDF <- read.csv("raw-data/NRW/rohdaten_aklnrw_an_idiv_181116/reffundortart.csv",as.is=T)
+
+datafile$fundortart <- geoDF$erlaeuterung[match(datafile$fundortart,geoDF$fundortartid)]
+table(datafile$fundortart)
+
+#remove those without exact coords
+datafile <- subset(datafile,fundortart!="Fundort ohne (genaue) Koordinatenangaben")
+
+```
+
+Add MTB_Q info
+
+```{r}
+library(rgdal)
+
+#get MTB Q
+MTBshapefile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",layer="MTBQ_25833")
+#crs specified as +proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs
+MTBshapefile@data$Q <- NA
+MTBshapefile@data$Q[which(MTBshapefile@data$Quadrant=="NW")]<-1
+MTBshapefile@data$Q[which(MTBshapefile@data$Quadrant=="NO")]<-2
+MTBshapefile@data$Q[which(MTBshapefile@data$Quadrant=="SW")]<-3
+MTBshapefile@data$Q[which(MTBshapefile@data$Quadrant=="SO")]<-4
+MTBshapefile@data$MTBQ <- paste0(as.character(MTBshapefile@data$Value),
+                                 as.character(MTBshapefile@data$Q))
+
+#overlap coordinates with the grid reference system
+mycoords <- datafile[,c("r_wert","h_wert")]
+coordinates(mycoords) <- c("r_wert","h_wert")
+proj4string(mycoords)<-CRS("+proj=tmerc +lat_0=0 +lon_0=6 +k=1 +x_0=2500000 +y_0=0 +ellps=bessel +datum=potsdam +units=m +no_defs")
+mycoords <- spTransform(mycoords,CRS(proj4string(MTBshapefile)))
+#proj4string(mycoords)<-CRS("+proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs")
+head(mycoords@coords)
+
+#overlay
+plot(MTBshapefile)
+plot(mycoords,add=T,colour="red")
+
+#looks good!
+datafile$MTB <- as.numeric(over(mycoords,MTBshapefile)[,5])
+mycoords <- spTransform(mycoords,CRS("+proj=longlat +datum=WGS84"))
+datafile$lon <- mycoords@coords[,1]
+datafile$lat <- mycoords@coords[,2]
+datafile <- subset(datafile, !is.na(MTB))
+
+```
+
+Sort out the dates
+
+```{r}
+library(lubridate)
+datafile$Date <- as.Date(datafile$datum) 
+datafile$Month <- month(datafile$Date)
+datafile$Year <- year(datafile$Date)
+datafile$yday <- yday(datafile$Date)
+summary(datafile$yday)
+
+nrow(subset(datafile,is.na(yday)))
+nrow(subset(datafile,!is.na(yday)))
+
+datafile <- subset(datafile, !is.na(yday))
+
+```
+
+Standardize other headings
+
+```{r}
+
+datafile$MTB_Q <- datafile$MTB
+datafile$Fundort <-paste(datafile$r_wert,datafile$h_wert)
+datafile$Beobachter <- datafile$quelleid
+
+```
+
+
+Sort stage info and restrict to adult
+
+```{r}
+
+datafile <- subset(datafile,larv_kl>0)
+
+```
+
+
+Sort data columns
+
+```{r}
+
+hist(datafile$larv_kl)
+summary(datafile$larv_kl)
+
+```
+
+Get survey information
+
+```{r}
+
+library(plyr)
+
+surveys <- ddply(datafile,.(MTB_Q,Date,Year,Month,yday),summarise,
+                 nuLocations = log(length(unique(Fundort))),
+                 nuObservers = log(length(unique(Beobachter))),
+                 nuSpecies = log(length(unique(Species))),
+                 nuRecords = log(length(Species)))
+
+
+library(GGally)
+ggpairs(surveys[,5:9])
+
+
+```
+
+Characterize the total richness found in each grid:
+
+```{r}
+
+
+gridRichness <- ddply(datafile,.(MTB_Q,Month),summarise,
+                    nuSpecies=length(unique(Species)),
+                    nuRecs=length(Species),
+                    nuYears = length(unique(Year)),
+                    nuDates = length(unique(Date)))
+
+
+qplot(Month, nuSpecies,data=gridRichness)
+
+gridRichness <- ddply(datafile,.(MTB_Q),summarise,
+                    nuSpecies=length(unique(Species)),
+                    nuRecs=length(Species),
+                    nuYears = length(unique(Year)),
+                    nuDates = length(unique(Date)))
+
+summary(gridRichness$nuSpecies)
+#1 to 26
+
+qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
+#the more records, the more species
+
+datafile$Richness <- gridRichness$nuSpecies[match(datafile$MTB_Q,gridRichness$MTB_Q)]
+
+```
+
+
+Get information on number of sampling locations on a given date
+
+```{r}
+
+samplingSites <- ddply(datafile,. (Date,MTB_Q),summarise,
+nuLocations=length(unique(interaction(lon,lat))))
+
+summary(samplingSites$nuLocations)
+#between 1 and 11
+
+#add to the data frame
+datafile$samplingSites <- samplingSites$nuLocations[match(interaction(datafile$Date,datafile$MTB_Q),
+                                interaction(samplingSites$Date,samplingSites$MTB_Q))]
+
+```
+
+Sort out the observer data:
+
+```{r}
+
+sort(unique(datafile$Beobachter))
+
+```
+
+Characterize the total ability of each observer each year
+
+```{r}
+
+obsRichness <- ddply(datafile,.(Beobachter),summarise,
+                    nuSpecies=length(unique(Species)),
+                    nuRecs=length(Species))
+
+summary(obsRichness$nuSpecies)
+#1 to 70
+
+qplot(log(nuRecs),log(nuSpecies),data=obsRichness)
+
+arrange(obsRichness,desc(nuRecs))
+
+```
+
+Characterise average expertise level
+
+```{r}
+
+source('R/sparta_wrapper_functions.R')
+
+#extract duplicates
+library(gdata)
+
+allObservers <- as.character(sort(unique(datafile$Beobachter)))
+allObservers <- removeGerman(allObservers)
+
+#for each observer, calculate how many records they were involved in collecting
+library(plyr)
+expertise<-ldply(allObservers,function(x){
+  Beobachter <- as.character(datafile$Beobachter)
+  Beobachter <- removeGerman(Beobachter)
+  Level = sum(Beobachter==x)
+  data.frame(Beobachter=x,Level)
+})
+
+hist(log(expertise$Level))  
+
+arrange(expertise,desc(Level))
+
+```
+
+Add information on expertise to the datafile
+
+```{r}
+
+datafile$Expertise <-
+  sapply(as.character(datafile$Beobachter),function(x){
+    myobs <- removeGerman(x)
+    max(expertise$Level[expertise$Beobachter %in% myobs])#take maximum level when there is a group of observers
+    })
+
+datafile$Expertise[is.infinite(datafile$Expertise)]<-1
+
+summary(datafile$Expertise)
+
+```
+
+
+Save data
+
+```{r}
+
+juv_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
+                           "Richness","lon","lat","Beobachter","larv_kl")]
+names(juv_datafile)[which(names(juv_datafile)=="larv_kl")] <- "Anzahl_min"
+save(juv_datafile,file="derived-data/juv_datafile_NRW.RData")
+saveRDS(juv_datafile,file="derived-data/juv_datafile_NRW.rds")
+
+```
+

@@ -1,0 +1,256 @@
+---
+title: "formatting_Saarland"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+Read in data frame
+
+```{r}
+
+library(rgdal)
+datafile <- read.csv("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/raw-data/MV/qry_ArtData.csv",sep=";",dec=",",as.is=T)
+
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+
+```
+
+
+Format data info
+
+```{r}
+
+library(lubridate)
+datafile$Date <- sapply(datafile$Datum,function(x)strsplit(x," ")[[1]][1])
+datafile$Date <- as.Date(datafile$Date,format="%d-%m-%Y")
+datafile$Month <- month(datafile$Date)
+datafile$Year <- year(datafile$Date)
+datafile$yday <- yday(datafile$Date)
+
+#and other columns
+datafile$Species <- as.character(datafile$Art_Wissenschaftlich)
+datafile$Beobachter <- datafile$GUID_Beobachter
+datafile$Fundort <- datafile$Ortsbezeichnung
+datafile <- subset(datafile, !is.na(yday))
+datafile <- subset(datafile, yday!=1)
+```
+
+Sort MTBQ
+```{r}
+
+datafile <- subset(datafile,!is.na(MTB))
+datafile <- subset(datafile,!is.na(MTBQ))
+datafile$MTB_Q <- paste0(datafile$MTB,datafile$MTBQ)
+
+```
+
+
+Subset to just dragonflies
+
+```{r}
+#exclude: molch, kröte,schrecke,hüpfer (amphibians and grasshoppers)
+notSpecies1 <- unique(datafile$Art_Deutsch[grepl("molch",datafile$Art_Deutsch)])
+notSpecies2 <- unique(datafile$Art_Deutsch[grepl("kröte",datafile$Art_Deutsch)])
+notSpecies3 <- unique(datafile$Art_Deutsch[grepl("schrecke",datafile$Art_Deutsch)])
+notSpecies4 <- unique(datafile$Art_Deutsch[grepl("hüpfer",datafile$Art_Deutsch)])
+notSpecies5 <- unique(datafile$Art_Deutsch[grepl("frosch",datafile$Art_Deutsch)])
+notSpecies <- c(notSpecies1,notSpecies2,notSpecies3,notSpecies4,notSpecies5)
+
+datafile <- subset(datafile, !Art_Deutsch %in% notSpecies)
+
+```
+
+Check species names against the standard list
+
+```{r}
+specieslist <- read.delim("specieslist_odonata.txt")
+
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+
+#all good!
+datafile <- subset(datafile, !Species %in% c("- Dummy-Art -","- Negativnachweis -"))
+
+```
+
+Subset to just adults
+```{r}
+einheitDF <- read.csv("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/raw-data/MV/dbo_tblEinheiten.csv",sep=",",dec=",",as.is=T)
+datafile$Einheit <- einheitDF$Einheit[match(datafile$ID_Einheit,einheitDF$ID_Einheit)]
+table(datafile$Einheit)
+unique(datafile$Einheit)
+nrow(subset(datafile,!is.na(Einheit)))
+
+datafile <- subset(datafile,!Einheit %in% c("Jungtier","Larve"))
+
+```
+
+
+Sort the anzahl column
+
+```{r}
+
+datafile$Anzahl_min <- datafile$Anzahl_Min
+summary(datafile$Anzahl_min)
+hist(datafile$Anzahl_min)
+sum(datafile$Anzahl_min==0)
+datafile <- subset(datafile,Anzahl_min!=0)#presence data
+
+#bound extreme values
+upperQ <- quantile(datafile$Anzahl_min,0.975,na.rm=T)
+datafile$Anzahl_min[datafile$Anzahl_min>upperQ] <- upperQ 
+summary(datafile$Anzahl_min)
+
+```
+
+Add lon/lat info
+
+```{r}
+
+datafile$lon <- datafile$xWGS84
+datafile$lat <- datafile$yWGS84
+
+```
+
+
+
+Get survey information
+
+```{r}
+
+library(plyr)
+
+surveys <- ddply(datafile,.(MTB_Q,Date,Year,Month,yday),summarise,
+                 nuLocations = log(length(unique(Fundort))),
+                 nuObservers = log(length(unique(Beobachter))),
+                 nuSpecies = log(length(unique(Species))),
+                 nuRecords = log(length(Species)))
+
+
+library(GGally)
+ggpairs(surveys[,5:9])
+
+
+```
+
+Characterize the total richness found in each grid:
+
+```{r}
+gridRichness <- ddply(datafile,.(MTB_Q),summarise,
+                    nuSpecies=length(unique(Species)),
+                    nuRecs=length(Species),
+                    nuYears = length(unique(Year)),
+                    nuDates = length(unique(Date)))
+
+summary(gridRichness$nuSpecies)
+#1 to 45
+
+qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
+#the more records, the more species
+
+#add to data frame
+datafile$Richness <- gridRichness$nuSpecies[match(datafile$MTB_Q,gridRichness$MTB_Q)]
+
+summary(datafile$Richness)
+
+
+```
+
+
+Get information on number of sampling locations on a given date
+
+```{r}
+
+samplingSites <- ddply(datafile,. (Date,MTB_Q),summarise,
+nuLocations=length(unique(interaction(lon,lat))))
+
+summary(samplingSites$nuLocations)
+#1 to 22
+
+```
+
+Sort out the observer data:
+
+```{r}
+
+beobachterDF <- read.csv("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/raw-data/MV/dbo_vwBeobachter.csv",sep=",",as.is=T)
+
+datafile$Beobachter <- beobachterDF$ID_Beobachter[match(datafile$GUID_Beobachter,beobachterDF$GUID_Beobachter)]
+#211 is unknown
+datafile$Beobachter[is.na(datafile$Beobachter)] <- 211
+
+```
+
+Characterize the total ability of each observer each year
+
+```{r}
+
+obsRichness <- ddply(datafile,.(Beobachter),summarise,
+                    nuSpecies=length(unique(Species)),
+                    nuRecs=length(Species))
+
+summary(obsRichness$nuSpecies)
+
+qplot(log(nuRecs),log(nuSpecies),data=obsRichness)
+
+arrange(obsRichness,desc(nuRecs))
+
+```
+
+Characterise average expertise level
+
+```{r}
+
+allObservers <- as.character(sort(unique(datafile$Beobachter)))
+
+
+#for each observer, calculate how many records they were involved in collecting
+library(plyr)
+expertise<-ldply(allObservers,function(x){
+  Beobachter <- as.character(datafile$Beobachter)
+  Beobachter <- removeGerman(Beobachter)
+  Level = sum(x==Beobachter)
+  data.frame(Beobachter=x,Level)
+})
+
+hist(log(expertise$Level))  
+
+arrange(expertise,desc(Level))
+
+#give 1 to the unknown observers
+expertise$Beobachter <- as.character(expertise$Beobachter)
+expertise$Beobachter[expertise$Beobachter==211]<-1
+
+```
+
+Add information on expertise to the datafile
+
+```{r}
+
+datafile$Expertise <- expertise$Level[match(datafile$Beobachter,expertise$Beobachter)]
+datafile$Expertise[is.na(datafile$Expertise)]<-1
+datafile$Expertise[is.infinite(datafile$Expertise)]<-1
+
+summary(datafile$Expertise)
+
+
+```
+
+
+Save data
+
+```{r}
+
+adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
+                           "Richness","lon","lat","Beobachter","Anzahl_min")]
+save(adult_datafile,file="derived-data/adult_datafile_MV.RData")
+saveRDS(adult_datafile,file="derived-data/adult_datafile_MV.rds")
+
+```
+
+
+

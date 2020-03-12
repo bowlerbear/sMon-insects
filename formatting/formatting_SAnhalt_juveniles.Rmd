@@ -1,0 +1,257 @@
+---
+title: "formatting_Bavaria"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+Read in data frame
+
+```{r}
+library(rgdal)
+datafile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/raw-data/Saschen-Anhalt/Libellen_DatenbankLAU_Gesamt_20190208",
+                    layer="Libellen_DatenbankLAU_Gesamt_20190208")
+
+#"+proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs"
+```
+
+Convert it into a normal dataframe
+
+```{r}
+datafile <- data.frame(datafile@data,datafile@coords)
+
+```
+
+
+Check species names against the standard list
+
+```{r}
+specieslist <- read.delim("specieslist_odonata.txt")
+datafile$Species <- datafile$Art_wiss
+unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+datafile <- subset(datafile, !Species%in% c("- Negativnachweis -",
+                                            "Gomphus spec.",
+                                            "Sympetrum"))
+```
+Fix MTBQ data
+
+```{r}
+
+datafile$MTB_Q <- paste0(as.character(datafile$MTB),as.character(datafile$MTBQ))
+
+```
+
+Format data info
+
+```{r}
+library(lubridate)
+datafile$Month <- datafile$Monat
+datafile$Year <- datafile$Jahr
+datafile$Date <-sapply(datafile$Datum,function(x)strsplit(as.character(x)," ")[[1]][1])
+datafile$Date <- as.Date(datafile$Date,format="%d.%m.%Y")
+datafile$yday <- yday(datafile$Date)
+
+```
+
+Standardize other headings
+
+```{r}
+
+datafile$Fundort <-paste(datafile$coords.x1,datafile$coords.x2)
+datafile$Beobachter <- as.character(datafile$ID.Observ) 
+
+#change coordinates to long lat
+#EPSG:31468
+library(sp)
+library(rgdal)
+mycoords<- datafile[,c("coords.x1","coords.x1")]
+coordinates(mycoords)<-c("coords.x1","coords.x1")
+proj4string(mycoords)<-CRS("+proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs")
+mycoords <- spTransform(mycoords,CRS("+proj=longlat +datum=WGS84"))
+datafile$lon <- mycoords@coords[,1]
+datafile$lat <- mycoords@coords[,2]
+
+```
+
+
+Sort stage info
+```{r}
+
+#stage info here
+unique(datafile$Einheit)
+# [1] Alttier/Imago                      Exuvien                           
+# [3] <NA>                               Individuum (unbest. Altersklassen)
+# [5] Emergenz                           Larve                             
+# [7] Jungtier                           Eiablage                          
+# [9] Kopula                             Kokon                             
+#[11] keine Angaben 
+
+table(datafile$Einheit)
+
+#restrict to adults
+datafile <- subset(datafile, Einheit %in% c("Larve","Jungtier",
+                                            "Kokon","Eiablage","Exuvien",
+                                            "Emergenz"))
+
+```
+
+
+Sort data columns
+
+```{r}
+#there is no abundance data
+
+datafile$Anzahl_min<-NA
+
+```
+
+Get survey information
+
+```{r}
+
+library(plyr)
+
+surveys <- ddply(datafile,.(MTB_Q,Date,Year,Month,yday),summarise,
+                 nuLocations = log(length(unique(Fundort))),
+                 nuObservers = log(length(unique(Beobachter))),
+                 nuSpecies = log(length(unique(Species))),
+                 nuRecords = log(length(Species)))
+
+
+library(GGally)
+ggpairs(surveys[,5:9])
+
+
+```
+
+Characterize the total richness found in each grid:
+
+```{r}
+
+
+gridRichness <- ddply(datafile,.(MTB_Q,Month),summarise,
+                    nuSpecies=length(unique(Species)),
+                    nuRecs=length(Species),
+                    nuYears = length(unique(Year)),
+                    nuDates = length(unique(Date)))
+
+
+qplot(Month, nuSpecies,data=gridRichness)
+
+gridRichness <- ddply(datafile,.(MTB_Q),summarise,
+                    nuSpecies=length(unique(Species)),
+                    nuRecs=length(Species),
+                    nuYears = length(unique(Year)),
+                    nuDates = length(unique(Date)))
+
+summary(gridRichness$nuSpecies)
+#1 to 22
+
+qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
+#the more records, the more species
+
+datafile$Richness <- gridRichness$nuSpecies[match(datafile$MTB_Q,gridRichness$MTB_Q)]
+
+```
+
+
+Get information on number of sampling locations on a given date
+
+```{r}
+
+samplingSites <- ddply(datafile,. (Date,MTB_Q),summarise,
+nuLocations=length(unique(interaction(lon,lat))))
+
+summary(samplingSites$nuLocations)
+#between 1 and 2, usually 1
+
+#add to the data frame
+datafile$samplingSites <- samplingSites$nuLocations[match(interaction(datafile$Date,datafile$MTB_Q),
+                                interaction(samplingSites$Date,samplingSites$MTB_Q))]
+
+```
+
+Sort out the observer data:
+
+```{r}
+
+sort(unique(datafile$Beobachter))
+
+```
+
+Characterize the total ability of each observer each year
+
+```{r}
+
+obsRichness <- ddply(datafile,.(Beobachter),summarise,
+                    nuSpecies=length(unique(Species)),
+                    nuRecs=length(Species))
+
+summary(obsRichness$nuSpecies)
+#1 to 30
+
+qplot(log(nuRecs),log(nuSpecies),data=obsRichness)
+
+arrange(obsRichness,desc(nuRecs))
+
+```
+
+Characterise average expertise level
+
+```{r}
+
+source('R/sparta_wrapper_functions.R')
+
+#extract duplicates
+library(gdata)
+
+allObservers <- as.character(sort(unique(datafile$Beobachter)))
+allObservers <- removeGerman(allObservers)
+
+#for each observer, calculate how many records they were involved in collecting
+library(plyr)
+expertise<-ldply(allObservers,function(x){
+  Beobachter <- as.character(datafile$Beobachter)
+  Beobachter <- removeGerman(Beobachter)
+  Level = sum(Beobachter==x)
+  data.frame(Beobachter=x,Level)
+})
+
+hist(log(expertise$Level))  
+
+arrange(expertise,desc(Level))
+
+```
+
+Add information on expertise to the datafile
+
+```{r}
+
+datafile$Expertise <-
+  sapply(as.character(datafile$Beobachter),function(x){
+    myobs <- removeGerman(x)
+    max(expertise$Level[expertise$Beobachter %in% myobs])#take maximum level when there is a group of observers
+    })
+
+datafile$Expertise[is.infinite(datafile$Expertise)]<-1
+
+summary(datafile$Expertise)
+
+```
+
+
+Save data
+
+```{r}
+
+adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
+                           "Richness","lon","lat","Beobachter","Anzahl_min")]
+save(adult_datafile,file="derived-data/juv_datafile_SAnhalt.RData")
+saveRDS(adult_datafile,file="derived-data/juv_datafile_SAnhalt.rds")
+
+```
+
