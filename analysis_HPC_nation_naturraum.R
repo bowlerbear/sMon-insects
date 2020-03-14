@@ -22,7 +22,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 50000
+niterations = 100000
 
 Sys.time()
 
@@ -384,7 +384,11 @@ all(row.names(occMatrix)==listlengthDF$visit)
 
 #set prior close to zero if species never recorded in that state??
 temp <- ddply(listlengthDF,.(cnIndex),summarise,species=sum(Species))
-bugs.data$priorS <- ifelse(temp$species>0,0.99999,0.005)
+bugs.data$priorS <- ifelse(temp$species>0,0.99999,0.01)
+
+#set prior close to zero if species never recorded in that state in the first 5 years
+temp<- ddply(subset(listlengthDF,Year<1985),.(cnIndex),summarise,species=sum(Species))
+bugs.data$priorS1 <- ifelse(temp$species>0,0.99999,0.01)
 
 #the below are used the linear regression model in the model file -see below
 bugs.data$sumX <- sum(1:bugs.data$nyear)
@@ -417,7 +421,7 @@ n.cores = as.integer(Sys.getenv("NSLOTS", "1"))
 ###########################################################################################
 
 #choose model file
-modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_naturraum_raumFE_strongPrior.txt"
+modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_naturraum_raumFEyear1_rw.txt"
 #modelfile="R/BUGS_sparta_nation_naturraum.txt"
 
 effort = "shortList"
@@ -426,7 +430,7 @@ bugs.data$Effort <- bugs.data[[effort]]
 #specify parameters to monitor
 params <- c("mean.p","regres.psi","psi.fs",
             "meanPersist","meanColonize",
-            "psi.raum","psi.state")
+            "colonize","persist")
 
 
 Sys.time()

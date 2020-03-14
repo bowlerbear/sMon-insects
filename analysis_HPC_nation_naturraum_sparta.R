@@ -9,7 +9,7 @@ suppressMessages(library(plyr))
 
 
 #load the relational table of task ids and species
-speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult_sparta.txt"),as.is=T)
+speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult.txt"),as.is=T)
 #get task id
 task.id = as.integer(Sys.getenv("SGE_TASK_ID", "1")) 
 #get species for this task
@@ -202,8 +202,8 @@ summary(out$nuDates)
 #subset to at most 100 dates per year
 nrow(df)
 df <- ddply(df, .(Year,MTB_Q),function(x){
-  mydates <- ifelse(length(unique(x$Date))>100,
-                    sample(unique(x$Date),100),unique(x$Date))
+  mydates <- ifelse(length(unique(x$Date))>50,
+                    sample(unique(x$Date),50),unique(x$Date))
   subset(x, Date %in% mydates)
 })
 nrow(df)
@@ -395,16 +395,29 @@ bugs.data$sumX2 <- sum((1:bugs.data$nyear)^2)
 
 #specify initial values
 zst <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=max)
-zst [is.infinite(zst)] <- 0
-#inits <- function(){list(z = zst)}
+zst [is.infinite(zst)] <- NA
 
-inits <- function(){list(z = zst,
+#fill in the blanks more cleverly
+replace_na_with_last<-function(x,a=!is.na(x)){
+  x[which(a)[c(1,1:sum(a))][cumsum(a)+1]]
+}
+
+#inits <- function(){list(z = zst)}
+for(i in 1:nrow(zst)){
+  zst[i,] <- replace_na_with_last(zst[i,])
+}
+
+
+inits <- function(){list(z = zst)}
+
+#inits <- function(){list(z = zst,
                          #state.a = runif(bugs.data$nstate,0.0001,0.01),
                          #lphi = runif(bugs.data$nstate,0,0.01),
                          #lgam = runif(bugs.data$nstate,0,0.01),
-                         effort.p = runif(1,0,0.01),
-                         mu.phenol = runif(1,-0.01,0.01),
-                         mu.phenol2 = runif(1,-0.01,0.01))}
+                         #single.p = runif(1,-0.01,0.01), 
+                         #effort.p = runif(1,0,0.01),
+                         #mu.phenol = runif(1,-0.01,0.01),
+                         #mu.phenol2 = runif(1,-0.01,0.01))}
 
 ########################################################################################
 
@@ -425,9 +438,7 @@ effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
 
 #specify parameters to monitor
-params <- c("mean.p","regres.psi","psi.fs",
-            "meanPersist","meanColonize",
-            "psi.raum","psi.state")
+params <- c("psi.fs")
 
 
 Sys.time()
@@ -437,16 +448,6 @@ out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=5,
             n.iter=niterations,parallel=T)
 
 Sys.time()
-
-
-#dynamic model
-#1000 iteractions took about 80 mins
-#(100*150)/60
-#((100*150)/60)/24
-#5000 iteractions took 5 to 7 hours
-
-#sparta model
-#2 hrs for 5000 iterations 
 
 #save as output file
 saveRDS(out,file=paste0("out_sparta_nation_naturraum_",stage,"_",myspecies,".rds"))

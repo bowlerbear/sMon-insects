@@ -197,15 +197,15 @@ summary(out$nuDates)
 #subset to at most 20 dates per year
 nrow(df)
 df <- ddply(df, .(Year,MTB_Q),function(x){
-  mydates <- ifelse(length(unique(x$Date))>30,
-                    sample(unique(x$Date),30),unique(x$Date))
+  mydates <- ifelse(length(unique(x$Date))>50,
+                    sample(unique(x$Date),50),unique(x$Date))
   subset(x, Date %in% mydates)
 })
 nrow(df)
 
 #reduce data to 5%%
-df <- df[sample(1:nrow(df),round(0.1*nrow(df))),]
-table(df$Year[df$Species==myspecies])
+#df <- df[sample(1:nrow(df),round(0.1*nrow(df))),]
+#table(df$Year[df$Species==myspecies])
 
 ######################################################################################
 
@@ -381,9 +381,13 @@ listlengthDF$Species <- bugs.data$y
 
 all(row.names(occMatrix)==listlengthDF$visit)
 
-#set prior close to zero if species never recorded in that state??
-temp <- ddply(listlengthDF,.(cnIndex),summarise,species=sum(Species))
-bugs.data$priorS <- ifelse(temp$species>0,0.99999,0.001)
+#set prior close to zero if species never recorded in that state in the first 5 years
+temp<- ddply(subset(listlengthDF,Year<1985),.(cnIndex),summarise,species=sum(Species))
+bugs.data$priorS1 <- ifelse(temp$species>0,0.99999,0.01)
+
+#set prior close to zero if species never recorded in that state 
+temp<- ddply(listlengthDF,.(cnIndex),summarise,species=sum(Species))
+bugs.data$priorS <- ifelse(temp$species>0,0.99999,0.01)
 
 #the below are used the linear regression model in the model file -see below
 bugs.data$sumX <- sum(1:bugs.data$nyear)
@@ -393,14 +397,22 @@ bugs.data$sumX2 <- sum((1:bugs.data$nyear)^2)
 
 #specify initial values
 zst <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=max)
-zst [is.infinite(zst)] <- 0
+zst [is.infinite(zst)] <- NA
+
+#fill in the blanks more cleverly
+replace_na_with_last<-function(x,a=!is.na(x)){
+  x[which(a)[c(1,1:sum(a))][cumsum(a)+1]]
+}
+
 #inits <- function(){list(z = zst)}
+for(i in 1:nrow(zst)){
+  zst[i,] <- replace_na_with_last(zst[i,])
+}
 
 inits <- function(){list(z = zst,
                          #state.a = runif(bugs.data$nstate,0.0001,0.01),
                          #lphi = runif(bugs.data$nstate,0,0.01),
                          #lgam = runif(bugs.data$nstate,0,0.01),
-                         psi = rep(0,bugs.data$nsite),
                          effort.p = runif(1,0,0.01),
                          mu.phenol = runif(1,-0.01,0.01),
                          mu.phenol2 = runif(1,-0.01,0.01))}
@@ -408,7 +420,7 @@ inits <- function(){list(z = zst,
 ########################################################################################
 
 #JAGS setting b/c otherwise JAGS cannot build a sampler, rec. by M. Plummer
-set.factory("bugs::Conjugate", FALSE, type="sampler")
+#set.factory("bugs::Conjugate", FALSE, type="sampler")
 
 #get core info
 n.cores = 3
@@ -418,7 +430,8 @@ n.cores = 3
 
 #choose model file
 #modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_naturraum_raumFE_strongPrior.txt"
-modelfile="R/BUGS_dynamic_nation_naturraum_raumFE_strongPrior.txt"
+modelfile="R/BUGS_dynamic_nation_naturraum_raumFEyear1_backwards.txt"
+#test it with the kery dataset
 
 effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
@@ -426,10 +439,10 @@ bugs.data$Effort <- bugs.data[[effort]]
 #specify parameters to monitor
 params <- c("mean.p","regres.psi","psi.fs",
             "meanPersist","meanColonize",
-            "psi.raum","psi.state")
+            "colonize","persist")
 
 #number of MCMC samples
-niterations = 20000
+niterations = 1000
 
 Sys.time()
 #run model
@@ -438,7 +451,6 @@ out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=5,
             n.iter=niterations,parallel=T)
 
 Sys.time()
-
 
 #save as output file
 saveRDS(out,file=paste0("out_dynamic_nation_naturraum_",stage,"_",myspecies,".rds"))
