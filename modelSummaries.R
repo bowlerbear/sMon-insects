@@ -382,7 +382,7 @@ ggplot(mtbqsDF)+
 
 source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_problemSpecies/Odonata_adult_nation_naturraum/6269819"
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_problemSpecies/Odonata_adult_nation_naturraum/6280560"
 
 #read in model summaries
 modelDF <- getModelSummaries(mdir)
@@ -422,7 +422,7 @@ table(annualDF$Rhat<1.1)
 #sparta models - run on HPC using own sparta jags file with naturraum as fixedeffect
 
 source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6076959"
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6288453"
 
 #read in model summaries
 modelDF <- getModelSummaries(mdir)
