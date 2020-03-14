@@ -9,17 +9,15 @@ library(wesanderson)
 
 ###merge data###################################################################
 
-setwd("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects")
+setwd("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects")
 
 #get traits data
 load("alltraits.RData")
 #limit to those with complete cases?
 
 #get trends data
-#load("model-outputs/trendEstimatesNational.RData")
-#load("model-outputs/trendEstimates.RData")
-trendEstimates <- readRDS("model-outputs/modelTrends_nation_state_trends.rds")
-trendEstimates$Species <- gsub("out_dynamic_nation_state_adult_","",trendEstimates$file)
+trendEstimates <- readRDS("model-outputs/modelTrends_trends.rds")
+trendEstimates$Species <- gsub("out_dynamic_nation_naturraum_adult_","",trendEstimates$file)
 trendEstimates$Species <- gsub(".rds","",trendEstimates$Species)
 names(trendEstimates)[which(names(trendEstimates)=="mean")]<-"trend"
 
@@ -37,10 +35,10 @@ trendEstimates$Trend[trendEstimates$X2.5.<0 & trendEstimates$X97.5.<0]<-"signifi
 table(trendEstimates$Trend)
 
 summary(trendEstimates$trend[trendEstimates$Trend=="significant increase"])
-1.0034478^35 
+#1.0034478^35 
 
 summary(trendEstimates$trend[trendEstimates$Trend=="significant decrease"])
-1-(1-0.003953)^35
+#1-(1-0.003953)^35
 
 ###taxonomy###################################################################################
 
@@ -418,163 +416,19 @@ plot_grid(g1,g3,g2,nrow=1)
 
 ####clustering############################################################################################
 
-#cluster them into groups of species with similar dyanamics
-
-# modelSummary2 <- nationTrends
-# library(reshape2)
-
-# #cluster on occurences#
-# 
-# mydata <- ddply(modelSummary2,.(Species),function(x){
-#   require(zoo)
-#   roll.mean <- rollmean(x$mean,5,align="center")
-#   len <- length(roll.mean)
-#   data.frame(Species=rep(unique(x$Species),len),roll.mean,Year=1:len)
-# })
-# 
-# mydata <- acast(mydata,Species~Year,value.var="roll.mean")
-# mydata[is.na(mydata)]<-0
-# #apply cluster analysis
-# d <- dist(mydata, method = "euclidean") 
-# fit <- hclust(d, method="ward.D2")
-# plot(fit) # display dendogram
-# 
-# wss <- (nrow(mydata)-1)*sum(apply(mydata,2,var))
-# for (i in 2:15) wss[i] <- sum(kmeans(mydata,
-#                                      centers=i)$withinss)
-# plot(1:15, wss, type="b", xlab="Number of Clusters",
-#      ylab="Within groups sum of squares") 
-# 
-# #pam
-# library(cluster)
-# fit <- kmeans(mydata, 6) 
-# 
-# # get cluster means
-# aggregate(mydata,by=list(fit$cluster),FUN=mean)
-# # append cluster assignment
-# mydata <- data.frame(mydata, fit$cluster) 
-# mydata$Species <- row.names(mydata)
-# 
-# #add to dataframe 
-# modelSummary2$cluster <- mydata$fit.cluster[match(modelSummary2$Species,mydata$Species)]
-# 
-# 
-# #order
-# modelSummary2$cluster <- as.factor(modelSummary2$cluster)
-# 
-# modelSummary2$cluster <- factor(modelSummary2$cluster, levels=c("2","4","5","1","6","3"))
-# levels(modelSummary2$cluster) <- c("1","2","3","4","5","6")
-# ddply(modelSummary2,.(cluster),summarise,nuS = length(unique(Species)))
-# levels(modelSummary2$cluster) <- c("18 sp","15 sp","12 sp","6 sp","11 sp","13 sp")
-# 
-# unique(subset(modelSummary2,cluster==6)$Species)
-# #"Aeshna juncea"          "Coenagrion hastulatum"  "Gomphus pulchellus"     "Ischnura pumilio"      
-# #"Lestes dryas"           "Leucorrhinia rubicunda"
-# 
-# #plot
-# ggplot(modelSummary2,aes(x=Year,y=mean))+
-#   geom_line(aes(colour=Species))+
-#   facet_wrap(~cluster,scales="free")+
-#   #geom_smooth(aes(colour=Species),se=F)+
-#   theme_bw()+ ylab("Occupancy")+
-#   theme(legend.position="none")
-# 
-# 
-# 
-# #cluster on growth rates##
-# 
-# library(zoo)
-# gee<- c(1:10)
-# rollmean(gee,5,align="right")
-# 
-# mydata <- ddply(modelSummary2,.(Species),function(x){
-#   len = length(x$Year)
-#   #roll.mean <- rollmean(x$mean,5,align="right")
-#   #len = length(roll.mean)
-#   growth = x$mean[2:len]/x$mean[1]
-#   data.frame(Species=rep(unique(x$Species),(len-1)),growth,Year=2:len)
-# })
-# mydata <- acast(mydata,Species~Year,value.var="growth")
-# mydata[is.na(mydata)]<-0
-# 
-# #apply cluster analysis
-# d <- dist(mydata, method = "euclidean") 
-# fit <- hclust(d, method="ward.D2")
-# plot(fit) # display dendogram
-# 
-# wss <- (nrow(mydata)-1)*sum(apply(mydata,2,var))
-# for (i in 2:15) wss[i] <- sum(kmeans(mydata,
-#                                      centers=i)$withinss)
-# plot(1:15, wss, type="b", xlab="Number of Clusters",
-#      ylab="Within groups sum of squares") 
-# 
-# #choose cluster
-# fit <- kmeans(mydata, 6) 
-# table(fit$cluster)
-# 
-# # get cluster means
-# aggregate(mydata,by=list(fit$cluster),FUN=mean)
-# # append cluster assignment
-# mydata <- data.frame(mydata, fit$cluster) 
-# mydata$Species <- row.names(mydata)
-# 
-# #add to dataframe 
-# modelSummary2$cluster <- mydata$fit.cluster[match(modelSummary2$Species,mydata$Species)]
-# table(modelSummary2$cluster)
-# 
-# #plot
-# ggplot(modelSummary2)+
-#   geom_line(aes(x=Year,y=mean,colour=Species))+
-#   facet_wrap(~cluster)+
-#   theme_bw()+ ylab("Occupancy")+
-#   theme(legend.position="none")
-# 
-# #plot change in occupancy
-# mydataM <- melt(mydata,id=c("fit.cluster","Species"))
-# 
-# mydataM$Year <- as.numeric(gsub("X","",mydataM$variable))+1979
-# mydataM$Year <- as.numeric(gsub("X","",mydataM$variable))
-# 
-# ggplot(mydataM)+
-#   geom_line(aes(x=Year,y=value,colour=Species))+
-#   facet_wrap(~fit.cluster,nrow=2)+
-#   theme_bw()+ ylab("Occupancy")+
-#   theme(legend.position="none")
-# 
-# #with order
-# mydataM$fit.cluster <- as.factor(mydataM$fit.cluster)
-# mydataM$fit.cluster <- factor(mydataM$fit.cluster, levels=c("5","1","6","2","4","3"))
-# levels(mydataM$fit.cluster) <- c("1","2","3","4","5","6")
-# ddply(mydataM,.(fit.cluster),summarise,nuS = length(unique(Species)))
-# levels(mydataM$fit.cluster) <- c("18 sp","15 sp","12 sp","6 sp","11 sp","13 sp")
-# 
-# unique(subset(mydataM,cluster==6)$Species)
-# 
-# #two plots
-# ggplot(subset(mydataM,fit.cluster %in% c("18 sp","15 sp","12 sp")))+
-#   geom_line(aes(x=Year,y=value,colour=Species))+
-#   facet_wrap(~fit.cluster,nrow=1)+
-#   theme_bw()+ ylab("Occupancy")+
-#   geom_smooth(aes(x=Year,y=value),se=F,colour="black")+
-#   theme(legend.position="none")
-# 
-# ggplot(subset(mydataM, fit.cluster %in% c("6 sp","11 sp","13 sp")))+
-#   geom_line(aes(x=Year,y=value,colour=Species))+
-#   facet_wrap(~fit.cluster,nrow=1)+
-#   geom_smooth(aes(x=Year,y=value),se=F,colour="black")+
-#   theme_bw()+ ylab("Occupancy")+
-#   theme(legend.position="none")
-
-#using proper time series clustering
-
 #convert time series into a list
-annualDFS <- subset(annualDF,Year>1982)
+annualDFS <- subset(annualDF,Year>1979)
 myTS <- dlply(annualDFS,.(Species),
               function(x){x[,"mean"]})
 
-#preprocessing
+#preprocessing - mean
 myTS <- lapply(myTS,function(x){
   x/mean(x)
+})
+
+#preprocessing - year 1
+myTS <- lapply(myTS,function(x){
+  x/x[1]
 })
 
 #combine and plot again
@@ -584,13 +438,10 @@ temp <- ldply(myTS,function(x){
 temp$Year <- temp$Year + min(annualDFS$Year)-1
 temp$Species <-temp$.id
 temp2 <- temp
-
 qplot(Year,Index,data=temp,colour=Species)+
   theme(legend.position = "none")
 
-annualDFS <- subset(annualDF,Year>1982)
-
-#different options:
+annualDFS <- subset(annualDF,Year>1979)
 
 ###dwtclust#######################################################
 
@@ -600,28 +451,14 @@ library("dtwclust")
 hc_sbd <- tsclust(myTS, type = "partitional", k=2:20L,
                   preproc = zscore, 
                   distance = "sbd",centroid = "shape")
-
-hc_sbd <- tsclust(myTS, type = "partitional", k=4L,
-                  preproc = zscore, 
-                  distance = "sbd",centroid = "shape")
-
 #DTW
 hc_sbd <- tsclust(myTS, ype="partitional", k= 2:20L,
                   preproc = zscore, 
                   distance = "dtw_basic", centroid = "dba")
-
-hc_sbd <- tsclust(myTS, ype="partitional", k= 7L,
-                  preproc = zscore, 
-                  distance = "dtw_basic", centroid = "dba")
-
 #pam
 hc_sbd <- tsclust(myTS, ype="partitional", k= 2:20L,
                   preproc = zscore, 
                   distance = "dtw_basic", centroid = "pam")
-
-hc_sbd <- tsclust(myTS, ype="partitional", k= 4L,
-                  preproc = zscore, 
-                  distance = "dtw", centroid = "pam")
 
 #comparing cluster numbers
 names(hc_sbd) <- paste0("k_", 2L:20L)
@@ -638,7 +475,6 @@ qplot(variable,value,data=temp) + facet_wrap(~Param,scales="free")
 #inflexion point is maximum absolute second derivative
 deriv <- function(x, y) diff(y) / diff(x)
 middle_pts <- function(x) x[-1] - diff(x) / 2
-
 out <- ldply(unique(temp$Param),function(x){
   temp2 <- subset(temp,Param==x)
   firstderiv <- deriv(temp2$variable, temp2$value)
@@ -652,7 +488,23 @@ out <- ldply(unique(temp$Param),function(x){
 })
 median(out$midpts)#5
 
-#By default, the dendrogram is plotted in hierarchical clustering
+###pick K#####################################################################
+
+#SBD
+hc_sbd <- tsclust(myTS, type = "partitional", k=4L,
+                  preproc = zscore, 
+                  distance = "sbd",centroid = "shape")
+
+#DTW
+hc_sbd <- tsclust(myTS, ype="partitional", k= 3L,
+                  preproc = zscore, 
+                  distance = "dtw_basic", centroid = "dba")
+
+#pam
+hc_sbd <- tsclust(myTS, ype="partitional", k= 9L,
+                  preproc = zscore, 
+                  distance = "dtw", centroid = "pam")
+
 plot(hc_sbd)
 plot(hc_sbd, type = "sc")
 #plot(hc_sbd, type = "series", clus = 1L)
@@ -666,40 +518,7 @@ clusterDF <- data.frame(Species=names(myTS),
 annualDFS$cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
 plotCluster(annualDFS)
 
-###TSclust##############################################################
-
-library("TSclust")
-
-#scale each time series
-mysTS <- lapply(myTS,function(x)as.numeric(scale(x)))
-
-#dissimilarity possibilities
-?diss
-
-IP.dis <-diss(mysTS, "ACF", p = 0.05)
-IP.dis <-diss(mysTS, "COR")
-IP.dis <-diss(mysTS, "DTWARP")
-IP.dis <-diss(mysTS, "FRECHET")
-IP.dis <-diss(mysTS, "PDC")
-IP.dis <- diss(mysTS, "INT.PER")
-
-
-#hierarchical
-IP <- hclust(IP.dis)
-plot(IP)
-IP <- cutree(IP, k = 6)
-
-#pam
-IP <- pam(IP.dis, k = 6)$clustering
-
-#make data frame - from hclust
-clusterDF <- data.frame(Species=names(myTS),
-                        cluster=as.numeric(IP))
-
-annualDF$cluster <- clusterDF$cluster[match(annualDF$Species,clusterDF$Species)]
-plotCluster(annualDF)
-
-###plot clusters#######################################################
+###plot each cluster#######################################################
 
 #order cluster by numbers of species
 clusts <- table(clusterDF$cluster)
@@ -726,13 +545,40 @@ ggplot(subset(annualDFS,cluster==5))+
   geom_line(aes(x=Year,y=mean))+
   facet_wrap(~Species,scales="free")
 
-#plot each cluster series
+###plot clusters##############################################################
+
 myCentroids <- data.frame(Year=rep(sort(unique(annualDFS$Year)),length(hc_sbd@centroids)),
                           Cluster=rep(1:length(hc_sbd@centroids),each=length(unique(annualDFS$Year))),
                           ts=do.call(c,hc_sbd@centroids))
 myCentroids$Cluster <- factor(myCentroids$Cluster,levels=1:length(clusterOrder))
 
+#smooth predicted series
+ggplot(data=myCentroids,aes(x=Year,y=ts))+
+  geom_smooth(aes(colour=factor(Cluster),fill=factor(Cluster)))+
+  facet_wrap(~Cluster,nrow=1)+
+  theme_bw()+
+  theme(legend.position = "none")
+
 #smooth underlying dynamics
+temp2$Cluster <- clusterDF$cluster[match(temp2$Species,clusterDF$Species)]
+ggplot(data=temp2)+
+  geom_smooth(aes(x=Year,y=Index),size=rel(2))+
+  facet_wrap(~Cluster,ncol=1)+
+  theme_bw()+
+  theme(legend.position = "none")
+
+####bootstrap#############################################################
+
+#bootstrap original values within each cluster at each step
+
+#get year 1 mean value
+
+#randomly pick value for each species
+
+#then scale subsequent values by this
+
+###final plots##################################################################
+
 myOrder <- c(2,1,4,3)
 mylabels <- c("increasing","increasing-decreasing",
               "decreasing-increasing","decreasing")
@@ -775,17 +621,6 @@ ggplot(data=temp2,aes(x=Year,y=Index))+
   scale_colour_manual(values=mycols)+
   theme(legend.position = "none")+
   ylab("relative occupancy prop")
-
-
-ts <- ggplot(data=temp2,aes(x=Year,y=Index))+
-  geom_smooth(aes(colour=Cluster,fill=Cluster))+
-  facet_wrap(~Cluster,nrow=1)+
-  theme_bw()+
-  scale_fill_manual(values=mycols)+
-  scale_colour_manual(values=mycols)+
-  theme(legend.position = "none")+
-  ylab("relative occupancy prop")
-ts
 
 ###traits clusters########################################################
 
