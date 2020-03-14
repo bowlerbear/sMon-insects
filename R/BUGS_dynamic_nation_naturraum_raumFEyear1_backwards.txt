@@ -5,20 +5,20 @@
     
     for (i in 1:nsite){ 
     
-    #first year/initial occupancy, model
+    #final year occupancy, model
     
     #data distribution
-    z[i,1] ~ dbern(psi1[i])
+    z[i,nyear] ~ dbern(psi1[i])
     
-    logit(psi1[i]) <- r.a[raumS[i]] + cr.a[craumS[i]] + random.site[i]
+    logit(psi1[i]) <- random.site[i]
+    #r.a[raumS[i]] + cr.a[craumS[i]] + 
 
-    for (t in 2:nyear){
+    for (t in 1:(nyear-1)){
     
     #data distribution
       z[i,t] ~ dbern(muZ[i,t]) 
-    
     #overall model
-      muZ[i,t] <- persist[t-1]*z[i,t-1] + colonize[t-1]*(1-z[i,t-1])
+      muZ[i,t] <- (z[i,t+1] - colonize[t] +0.001)/(persist[t] - colonize[t] + 0.001)
 
       }
     }   
@@ -30,10 +30,8 @@
     
     #detection model:
     logit(p[j]) <-  mup[year[j]] + 
-                    lp[craum[j]] +
-                    lp.r[raum[j]] +
-                    phenol.s[craum[j]] * yday[j] + 
-                    phenol2.s[craum[j]] * pow(yday[j],2)+
+                    mu.phenol * yday[j] + 
+                    mu.phenol2 * pow(yday[j],2)+
                     effort.p * Effort[j] +
                     single.p * singleList[j]
     } 
@@ -53,7 +51,6 @@
     sumXY <- sum(sumxy[1:nyear])
     regres.psi <- (sumXY - ((sumX*sumY)/nyear))/(sumX2 - ((sumX*sumX)/nyear))#linear regression trend
 
-
     meanPersist <- mean(persist)
     meanColonize <- mean(colonize)
     
@@ -69,8 +66,7 @@
     
     #cr.a fixed effects for couarse naturraum
     for (s in 1:ncraum) {
-      cr.a.prop[s] ~ dunif(0.000001,priorS1[s])
-      cr.a[s] <- logit(cr.a.prop[s])     
+      cr.a[s] ~ dnorm(0,0.001)     
     } 
 
     #r.a random effects for naturraum
@@ -92,50 +88,31 @@
     #change priors for persistence and colonization
     
     for(t in 1:(nyear-1)){
-      persist[t] ~ dunif(0,1)
-      colonize[t] ~ dunif(0,1)
+      persist[t] ~ dunif(0.01,0.99)
+      colonize[t] ~ dunif(0.01,0.99)
     }
     
     ################################
     #Observation model priors
     
-    #intercept
-    int.dp ~ dnorm(0,0.01)
+    #year1
+    p.mup[1] ~ dunif(0.05,0.95)
+    mup[1] <- logit(p.mup[1])
     
-    #random year effects
-    for(t in 1:nyear){
-      mup[t]  ~ dnorm(0,tautp)
+    #other years
+    for(t in 2:nyear){
+      mup[t] ~ dnorm(mup[t-1], tau.ap)
     }
-    tautp <- 1/(sdtp * sdtp)
-    sdtp ~ dt(0, 1, 1)T(0,)
-    
-    #naturraum-level variaion - fixed effects
-    for(s in 1:ncraum){
-      lp[s]  ~ dnorm(0,0.01)
-    }
-
-    #random site effects
-    for(i in 1:nraum){
-      lp.r[i]  ~ dnorm(0,tau.rp)
-    }
-    tau.rp <- 1/(sd.rp * sd.rp)
-    sd.rp ~ dt(0, 1, 1)T(0,)
+    tau.ap <- 1/(sd.ap * sd.ap)
+    sd.ap ~ dt(0, 1, 1)T(0,) 
     
     #effort effects
     effort.p ~ dnorm(0, 0.01)
     single.p ~ dnorm(0, 0.01)
     
-    #random slopes for phenology
-    for(s in 1:ncraum){
-      phenol.s[s] ~ dnorm(mu.phenol, tau.phenol)
-      phenol2.s[s] ~ dnorm(mu.phenol2, tau.phenol2)
-    }
+    #phenology
     mu.phenol ~ dnorm(0,0.01)
     mu.phenol2 ~ dnorm(0,0.01)
-    tau.phenol <- 1/(sd.phenol * sd.phenol)
-    tau.phenol2 <- 1/(sd.phenol2 * sd.phenol2)
-    sd.phenol ~ dt(0, 1, 1)T(0,)
-    sd.phenol2 ~ dt(0, 1, 1)T(0,) 
     
   }
     

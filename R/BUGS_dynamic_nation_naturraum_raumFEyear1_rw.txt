@@ -90,11 +90,25 @@
     ################################
     
     #change priors for persistence and colonization
+    #random walk model
     
-    for(t in 1:(nyear-1)){
-      persist[t] ~ dunif(0,1)
-      colonize[t] ~ dunif(0,1)
+    persist[1] ~ dunif(0,1)
+    colonize[1] ~ dunif(0,1)
+    logit.persist[1] <- logit(persist[1])
+    logit.colonize[1] <- logit(colonize[1])
+    
+    for(t in 2:(nyear-1)){
+      logit.persist[t] ~ dnorm(logit.persist[t-1],tau.rwp)
+      logit.colonize[t] ~ dnorm(logit.colonize[t-1],tau.rwc)
+      persist[t] <- ilogit(logit.persist[t])
+      colonize[t] <- ilogit(logit.colonize[t])
     }
+    
+    tau.rwp <- 1/(sd.rwp * sd.rwp)
+    sd.rwp ~ dt(0, 1, 1)T(0,) 
+    
+    tau.rwc <- 1/(sd.rwc * sd.rwc)
+    sd.rwc ~ dt(0, 1, 1)T(0,) 
     
     ################################
     #Observation model priors
