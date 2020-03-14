@@ -1,23 +1,37 @@
 #given the directory in which the sparta model outputs are found, put all the models in a list
 #@param dir = directory of sparta model outputs
 
+# getSpartaModels<-function(dir){
+#   
+#   if(!dir%in%list.files()) stop('no such directory found')  
+#   
+#   sp_mods <- list.files(dir)[grepl(".rdata",list.files(dir))] 
+#   
+#   models <- lapply(sp_mods, function(sp) {
+#     load(file=paste0(paste0(dir,"/"),sp))
+#     return(out)
+#   }
+#   )
+#   
+#   names(models) <- gsub(sp_mods, pa="\\.rdata", repl="")
+#   
+#   return(models)
+# }
+
 getSpartaModels<-function(dir){
   
-  if(!dir%in%list.files()) stop('no such directory found')  
-  
-  sp_mods <- list.files(dir)[grepl(".rdata",list.files(dir))] 
-  
-  models <- lapply(sp_mods, function(sp) {
-    load(file=paste0(paste0(dir,"/"),sp))
-    return(out)
+  sp_mods <- list.files(dir)[grepl(".rdata",list.files(dir))]
+  require(plyr)
+  ldply(sp_mods,function(file){
+  load(file)#object is called out
+  modelSummary <- data.frame(out$BUGSoutput$summary)
+  modelSummary$Param <- row.names(modelSummary)
+  modelSummary$File <- file
+  return(modelSummary)
   }
   )
   
-  names(models) <- gsub(sp_mods, pa="\\.rdata", repl="")
-  
-  return(models)
 }
-
 
 #for other models
 getModelSummaries <- function(dir){
