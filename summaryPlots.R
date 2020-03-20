@@ -666,26 +666,21 @@ ggplot(sortTrends,aes(x=adult,y=juv))+
 #community samples
 
 #drawn 1000 possible communities for each year
-#get matrix of possible communities for each year and species and lander
+
 myMatrix <- matrix(data=NA,nrow=nrow(annualDF),ncol=1000) 
 for(j in 1:ncol(myMatrix)){
   for(i in 1:nrow(myMatrix)){
   myp <- rnorm(n=1,mean=annualDF$mean[i],sd=annualDF$sd[i]) 
-  myp[myp>1]<-1
-  myp[myp<0]<-0
+  myp[myp>1]<-1#to avoid boundary effects
+  myp[myp<0]<-0#to avoid boundary effects
   #myMatrix[i,j] <- rbinom(1,1,myp)
   myMatrix[i,j] <- myp
   }
 }
-
 randomMatrix<-cbind(annualDF[,c("Year","Species")],myMatrix)
 
 save(randomMatrix,file="randomMatrix.RData")
                                             
-randomMatrix<-cbind(annualDF[,c("Year","Species","State")],myMatrix)
-
-save(randomMatrix,file="randomMatrixState.RData")#state is ecoregions
-
 ###Euro trends#########################################################################################
 
 #plot european trends
