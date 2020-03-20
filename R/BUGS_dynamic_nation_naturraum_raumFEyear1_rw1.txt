@@ -10,7 +10,7 @@
     #data distribution
     z[i,1] ~ dbern(psi1[i])
     
-    logit(psi1[i]) <- cr.a[craumS[i]] + random.site[i]
+    logit(psi1[i]) <- cr.a[craumS[i]] + r.a[raumS[i]]
 
     for (t in 2:nyear){
     
@@ -62,29 +62,21 @@
     #Priors 
     
     # State model priors
-    
     ##########################################
     #year 1 spatial effects
     
     #cr.a fixed effects for couarse naturraum
     for (s in 1:ncraum) {
-      cr.a.prop[s] ~ dunif(0.0001,priorS1[s])
+      cr.a.prop[s] ~ dunif(0.0001,0.9999)
       cr.a[s] <- logit(cr.a.prop[s])     
     } 
 
     #r.a random effects for naturraum
-    #for (s in 1:nraum) {
-    #  r.a[s] ~ dnorm(0, tau.r.a)       
-    #} 
-    #tau.r.a <- 1/(sd.r.a * sd.r.a)
-    #sd.r.a ~ dt(0, 1, 1)T(0,)
-
-    #site random effects
-    for (s in 1:nsite) {
-      random.site[s] ~ dnorm(0, tau.site.a)       
+    for (s in 1:nraum) {
+      r.a[s] ~ dnorm(0, tau.r.a)       
     } 
-    tau.site.a <- 1/(sd.site.a * sd.site.a)
-    sd.site.a ~ dt(0, 1, 1)T(0,)
+    tau.r.a <- 1/(sd.r.a * sd.r.a)
+    sd.r.a ~ dt(0, 1, 1)T(0,)
     
     ################################
     
@@ -110,48 +102,33 @@
     tau.rwc <- 1/(sd.rwc * sd.rwc)
     sd.rwc ~ dt(0, 1, 1)T(0,) 
     
-    ################################
+    
     #Observation model priors
+    ################################
   
-    #random walk
-    
-    #double random year effects
-    #prob.mup1 ~ dunif(0.0001,0.9999)
-    #mup[1] <- logit(prob.mup1)
-    
-    #for(t in 2:nyear){
-    #  mup[t]  ~ dnorm(mup[t-1],tautp)
-    #}
-    #tautp <- 1/(sdtp * sdtp)
-    #sdtp ~ dt(0, 1, 1)T(0,)
-    
-    #naturraum-level variaion - random effects
-    for(s in 1:ncraum){
-      lp[s]  ~ dnorm(0,0.001)
+    #random year variation
+    for (t in 1:nyear) {
+      mup[t] ~ dnorm(a.mu.p, a.tau.p)            
     }
-
-    #random site effects
-    #for(i in 1:nraum){
-    #  lp.r[i]  ~ dnorm(0,tau.rp)
-    #}
-    #tau.rp <- 1/(sd.rp * sd.rp)
-    #sd.rp ~ dt(0, 1, 1)T(0,)
+    mu.prop ~ dunif(0.0001,0.9999)
+    a.mu.p <- logit(mu.prop)
+    a.tau.p <- 1 / (a.sd.p * a.sd.p)                 
+    a.sd.p ~ dt(0, 1, 1)T(0,) 
+    
+    #naturraum-level variaion - just random effects
+    for(s in 1:ncraum){
+      lp[s]  ~ dnorm(0,tau.lp)
+    }
+    tau.lp <- 1 / (sd.lp * sd.lp)                 
+    sd.lp ~ dt(0, 1, 1)T(0,)
     
     #effort effects
-    effort.p ~ dnorm(0, 0.001)
-    single.p ~ dnorm(0, 0.001)
+    effort.p ~ dnorm(0, 0.01)
+    single.p ~ dnorm(0, 0.01)
     
     #phenology
-    #for(s in 1:ncraum){
-    #  phenol.s[s] ~ dnorm(mu.phenol, tau.phenol)
-    #  phenol2.s[s] ~ dnorm(mu.phenol2, tau.phenol2)
-    #}
-    mu.phenol ~ dnorm(0,0.001)
-    mu.phenol2 ~ dnorm(0,0.001)
-    #tau.phenol <- 1/(sd.phenol * sd.phenol)
-    #tau.phenol2 <- 1/(sd.phenol2 * sd.phenol2)
-    #sd.phenol ~ dt(0, 1, 1)T(0,)
-    #sd.phenol2 ~ dt(0, 1, 1)T(0,) 
+    mu.phenol ~ dnorm(0,0.01)
+    mu.phenol2 ~ dnorm(0,0.01)
     
   }
     
