@@ -1,5 +1,3 @@
-#linking traits to trends
-
 source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
 library(plyr)
 library(ggplot2)
@@ -26,25 +24,38 @@ trendEstimates$Species[!trendEstimates$Species %in% alltraits$Species]
 trendEstimates <- merge(trendEstimates,alltraits,by="Species")
 nrow(trendEstimates)
 
+#trends calculated as per:
+#https://github.com/BiologicalRecordsCentre/RangeChangeSims
+#https://github.com/BiologicalRecordsCentre/RangeChangeSims/blob/master/Occupancy/Occupancy_model.r
 ###trend summary##############################################################
 
-#add trend
+#null
 trendEstimates$Trend <- "insignificant"
+
+#mean 5% change over the 25 years
+#0.05/35 = 0.0014 per year
+#trend is annual change in proportion of sites
+
+#stable
+trendEstimates$Trend[trendEstimates$X2.5.<0 & trendEstimates$X97.5.>0
+                     & abs(trendEstimates$trend) < 0.0014]<-"stable"
+
+#increasing
 trendEstimates$Trend[trendEstimates$X2.5.>0 & trendEstimates$X97.5.>0]<-"significant increase"
+
+#decreasing
 trendEstimates$Trend[trendEstimates$X2.5.<0 & trendEstimates$X97.5.<0]<-"significant decrease"
+
+#summary
 table(trendEstimates$Trend)
-
-summary(trendEstimates$trend[trendEstimates$Trend=="significant increase"])
-#1.0034478^35 
-
-summary(trendEstimates$trend[trendEstimates$Trend=="significant decrease"])
-#1-(1-0.003953)^35
 
 ###taxonomy###################################################################################
 
 trendEstimates$Suborder[trendEstimates$Species=="Oxygastra curtisii"] <- "Anisoptera"
 
 table(trendEstimates$Suborder)
+#Anisoptera  Zygoptera 
+#50         27
 
 table(trendEstimates$Suborder,trendEstimates$Trend)
 
@@ -323,10 +334,6 @@ plot_grid(g4,g1,g7,g5,nrow=1)
 
 load("randomMatrix.RData")
 
-#library(reshape2)
-#randomMatrixM<-melt(randomMatrix,id=c("Year","Species"))
-#randomMatrixM<-arrange(randomMatrixM,Species,Year)
-
 out <- ddply(randomMatrix,.(Year),function(x){
   numcolwise(sum)(x)})
 
@@ -340,7 +347,6 @@ g3 <- ggplot(subset(out,Year>1980))+
   geom_ribbon(aes(x=Year,ymin=lowerRichness,ymax=upperRichness),alpha=0.3)+
   theme_bw()+
   ylab("Average species richness")
-
 
 library(cowplot)
 plot_grid(g1,g2,g3,nrow=1)
@@ -373,7 +379,7 @@ out <- ddply(out,.(year),summarise,
              upperCI = quantile(diss,0.975))
 
 out$Year <-as.numeric(as.character(out$year))
-g2 <- ggplot(out)+
+ggplot(out)+
   geom_line(aes(x=Year,y=meanD))+
   geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI),alpha=0.3)+
   theme_bw()+
@@ -406,13 +412,13 @@ out <- ddply(out,.(year),summarise,
 
 out$Year <-as.numeric(as.character(out$year))
 
-g3 <- ggplot(out)+
+ggplot(out)+
   geom_line(aes(x=Year,y=meanD))+
   geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI),alpha=0.3)+
   theme_bw()+
   ylab("Average diversity")
 
-plot_grid(g1,g3,g2,nrow=1)
+#plot_grid(g1,g3,g2,nrow=1)
 
 ####clustering############################################################################################
 
@@ -478,20 +484,22 @@ middle_pts <- function(x) x[-1] - diff(x) / 2
 out <- ldply(unique(temp$Param),function(x){
   temp2 <- subset(temp,Param==x)
   firstderiv <- deriv(temp2$variable, temp2$value)
-  plot(firstderiv ~ temp2$variable[-1])
+  #plot(firstderiv ~ temp2$variable[-1])
   second_d <- deriv(middle_pts(temp2$variable), firstderiv)
-  plot(second_d ~ temp2$variable[-c(1:2)])
+  #plot(second_d ~ temp2$variable[-c(1:2)])
   df <- data.frame(second_d = second_d, 
            midpts = middle_pts(middle_pts(temp2$variable)),
            Param=x)
   subset(df,second_d==max(second_d))
 })
-median(out$midpts)#5
+median(out$midpts)
 
 ###pick K#####################################################################
 
+library("dtwclust")
+
 #SBD
-hc_sbd <- tsclust(myTS, type = "partitional", k=4L,
+hc_sbd <- tsclust(myTS, type = "partitional", k=9L,
                   preproc = zscore, 
                   distance = "sbd",centroid = "shape")
 
@@ -501,7 +509,7 @@ hc_sbd <- tsclust(myTS, ype="partitional", k= 3L,
                   distance = "dtw_basic", centroid = "dba")
 
 #pam
-hc_sbd <- tsclust(myTS, ype="partitional", k= 9L,
+hc_sbd <- tsclust(myTS, ype="partitional", k= 7L,
                   preproc = zscore, 
                   distance = "dtw", centroid = "pam")
 
@@ -569,15 +577,202 @@ ggplot(data=temp2)+
 
 ####bootstrap#############################################################
 
+#add cluster to original data frame
+annualDFS$Cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
+
+#rescale indicies to 1
+annualDFS <- ddply(annualDFS,.(Species,Code),function(x){
+  rescaleFactor = 1/x$mean[x$Year==1980]
+  x$sMean = x$mean * rescaleFactor
+  x$sSD = x$sd * rescaleFactor
+  x$rescale <- rescaleFactor
+  x$meanMean <- mean(x$mean)
+  
+  return(x)
+})
+
+gm_mean = function(x, na.rm=TRUE){
+  exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+}
+
 #bootstrap original values within each cluster at each step
+library(boot)
 
-#get year 1 mean value
+myMean <- function(data, indices) {
+  
+  #randomply pick number
+  data$rMean <- apply(data,1,function(x)rnorm(1,
+                                              as.numeric(x["mean"]),
+                                              as.numeric(x["sd"])))
+  
+  #rescale number 
+  data$srMean <- data$rMean * data$rescale
+  
+  #pick bootstrp selection
+  d <- data[indices,] 
+  temp <-  gm_mean(d$srMean)
+  
+  return(temp)
+}
 
-#randomly pick value for each species
+# bootstrapping with 1000 replications
+applyBoot <- function(mydata){
+  results <- boot(data=mydata, statistic=myMean,
+                R=5000)
+  out <- boot.ci(results, type="bca")
+  data.frame(lowerQ = out$bca[1,4],
+           upperQ = out$bca[1,5])
+}
 
-#then scale subsequent values by this
+applyBoot(annualDFS)
 
-###final plots##################################################################
+mybootCI <- ddply(annualDFS,.(Year,Cluster),function(x)applyBoot(x))
+
+
+#plot
+ggplot(mybootCI)+
+  geom_ribbon(aes(x=Year,ymin=lowerQ,ymax=upperQ))+
+  facet_wrap(~Cluster,scales="free")
+
+###random#####################################################################
+
+#add cluster to original data frame
+annualDFS$Cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
+
+
+myMean <- function(mydata) {
+
+  rMean <- apply(mydata,1,function(x)rnorm(1,
+                                              as.numeric(x["mean"]),
+                                              as.numeric(x["sd"])))
+  return(gm_mean(rMean))
+  
+}
+
+
+# draw random number 1000 times and calculate the geometric mean
+applyRandomCI <- function(mydata,n.sim=1000){
+
+  myMeans <- NA
+  
+  for(i in 1:n.sim){
+    myMeans[i] <- myMean(mydata)
+  }
+  
+ data.frame(lowerQ=quantile(myMeans,c(0.025)),upperQ=quantile(myMeans,c(0.975)))
+   
+}
+
+#
+myrandomCI <- ddply(annualDFS,.(Year,Cluster),function(x)applyRandomCI(x))
+
+
+#plot
+ggplot(myrandomCI)+
+  geom_ribbon(aes(x=Year,ymin=lowerQ,ymax=upperQ))+
+  facet_wrap(~Cluster,scales="free")
+
+
+###random scale####################################################################
+
+#add cluster to original data frame
+annualDFS$Cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
+
+myMean <- function(mydata) {
+  
+  rMean <- apply(mydata,1,function(x)rnorm(1,
+                                           as.numeric(x["mean"]),
+                                           as.numeric(x["sd"])))
+  
+  rMean <- rMean * mydata$rescale
+    
+  return(gm_mean(rMean))
+  
+}
+
+
+# draw random number 1000 times and calculate the geometric mean
+applyRandomCI <- function(mydata,n.sim=1000){
+  
+  myMeans <- NA
+  
+  for(i in 1:n.sim){
+    myMeans[i] <- myMean(mydata)
+  }
+  
+  data.frame(lowerQ=quantile(myMeans,c(0.025)),upperQ=quantile(myMeans,c(0.975)))
+  
+}
+
+#
+myrandomCI <- ddply(annualDFS,.(Year,Cluster),function(x)applyRandomCI(x))
+
+
+#plot
+ggplot(myrandomCI)+
+  geom_ribbon(aes(x=Year,ymin=lowerQ,ymax=upperQ))+
+  facet_wrap(~Cluster,scales="free")
+
+###random smooter########################################################
+
+#add cluster to original data frame
+annualDFS$Cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
+
+
+myGAMS <- function(mydata) {
+
+  mydata$rMean <- apply(mydata,1,function(x)rnorm(1,
+                                           as.numeric(x["mean"]),
+                                           as.numeric(x["sd"])))
+  
+  mydata$srMean <- mydata$rMean 
+  #mydata$srMean <- mydata$rMean * mydata$rescale
+  
+  #fit gam
+  require(mgcv)
+  gam1 <- loess(srMean ~ Year, data=mydata)
+  mydata$fits <- gam1$fitted
+  
+  return(mydata)
+   
+}
+
+#apply to each species
+
+
+# draw random number 1000 times and calculate the geometric mean
+applyRandomSmoothCI <- function(mydata,n.sim=1000){
+
+    Years <- min(mydata$Year):max(mydata$Year)
+    
+    #get means of the fits per year
+    myMeans <- matrix(data=NA,
+                      nrow=length(Years),
+                      ncol=n.sim)
+    
+    for(i in 1:n.sim){
+      mydata <- myGAMS(mydata)
+      myMeans[,i] <- as.numeric(tapply(mydata$fits,mydata$Year,gm_mean))
+    }
+    
+    lowerQ <- apply(myMeans,1,function(x)quantile(x,0.025))
+    medianQ <- apply(myMeans,1,function(x)quantile(x,0.5))
+    upperQ <- apply(myMeans,1,function(x)quantile(x,0.975))
+    
+    data.frame(Year=Years,lowerQ,medianQ,upperQ)
+    
+}
+  
+  
+myrandomSmoothCI <- ddply(annualDFS,.(Cluster),function(x)applyRandomSmoothCI(x))
+  
+#plot
+ggplot(myrandomSmoothCI)+
+  geom_line(aes(x=Year,y=medianQ))+
+  geom_ribbon(aes(x=Year,ymin=lowerQ,ymax=upperQ))+
+  facet_wrap(~Cluster,scales="free")
+
+###other plots##################################################################
 
 myOrder <- c(2,1,4,3)
 mylabels <- c("increasing","increasing-decreasing",
