@@ -9,6 +9,15 @@ source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/spa
 
 mySpecies <- read.delim("model-auxfiles/speciesTaskID_adult.txt",as.is=T)$Species
 
+###Model summaries############################################################################################
+
+#model summaries:
+#modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_naturraum_raumFEyear1_rw1.txt"
+#single random walk
+
+#modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_naturraum_raumFEyear1_rw.txt"
+#double random walk
+
 ###Nation state model#########################################################################################
 
 source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
@@ -395,6 +404,7 @@ table(annualDF$Rhat<1.1)
 #trend estimates
 trendDF <- getBUGSfits(modelDF,param="regres.psi")
 trendDF[,c("Species","mean","X2.5.","X97.5.")]
+table(trendDF$Rhat<1.1)
 
 #colonize/persist
 persistDF <- getBUGSfits(modelDF,param="meanPersist")
@@ -407,22 +417,26 @@ table(colonizeDF$Rhat<1.1)
 ###Sparta models##########################################################
 
 #run on R server -  original sparta package function
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/sparta-outputs"
-
-modelDF <- getSpartaModels(mdir)
-modelDF$Species <- gsub(".rdata","",modelDF$File)
-annualDF <- getBUGSfits(modelDF,param="psi.fs")
-annualDF$Year <- annualDF$ParamNu + 1979
-plotTS(annualDF)
-#look very nice!!!
-table(annualDF$Rhat<1.1)
-
-#seems to be fewer problems
+# mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/sparta-outputs"
+# 
+# modelDF <- getSpartaModels(mdir)
+# modelDF$Species <- gsub(".rdata","",modelDF$File)
+# annualDF <- getBUGSfits(modelDF,param="psi.fs")
+# annualDF$Year <- annualDF$ParamNu + 1979
+# plotTS(annualDF)
+# #look very nice!!!
+# table(annualDF$Rhat<1.1)
+# #seems to be fewer problems
 
 #sparta models - run on HPC using own sparta jags file with naturraum as fixedeffect
 
 source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6288453"
+
+#do we have the models for all species?
+speciesFiles <- list.files(mdir)
+mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
+#"Sympecma paedisca" is missing
 
 #read in model summaries
 modelDF <- getModelSummaries(mdir)
@@ -434,8 +448,6 @@ annualDF$Year <- annualDF$ParamNu + 1979
 plotTS(annualDF)
 table(annualDF$Rhat<1.1)
 #FALSE  TRUE 
-#707  1365
-
-#solutions to the dynamic model
-#add random walk to persist and colonize probs - underway
-#model backwards rather than forwards
+#319  2493
+#run again for a bit longer this time
+#and include trend term in model
