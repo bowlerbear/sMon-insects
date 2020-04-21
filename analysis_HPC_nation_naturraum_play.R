@@ -15,7 +15,8 @@ suppressMessages(library(plyr))
 #get species for this task
 #myspecies <- speciesTaskID$Species[which(speciesTaskID$TaskID==task.id)] 
 myspecies="Ophiogomphus cecilia"
-  
+myspecies="Aeshna affinis"
+
 #set stage
 stage="adult"
 
@@ -190,18 +191,20 @@ df <- subset(df, yday > obsPhenolData$minDay & yday < obsPhenolData$maxDay)
 #reduce size of the dataset
 
 #any oversampled plots???
-out <- ddply(df,.(MTB_Q,Year),summarise,nuDates = length(unique(Date)))
+out <- ddply(df,.(MTB_Q,Year),summarise,nuDates = length(unique(yday)))
 #out <- arrange(out,desc(nuDates))
 summary(out$nuDates)
 
-#subset to at most 20 dates per year
-nrow(df)
-df <- ddply(df, .(Year,MTB_Q),function(x){
-  mydates <- ifelse(length(unique(x$Date))>50,
-                    sample(unique(x$Date),50),unique(x$Date))
-  subset(x, Date %in% mydates)
-})
-nrow(df)
+#subset to at most X dates per year
+# nrow(df)
+# df <- ddply(df, .(Year,MTB_Q),function(x){
+#   alldates <- unique(x$yday)
+#   allen <- length(alldates)
+#   mylen <- ifelse(allen>50,50,allen)
+#   mydates <- sample(alldates,mylen)
+#   subset(x, yday %in% mydates)
+# })
+# nrow(df)
 
 #reduce data to 5%%
 #df <- df[sample(1:nrow(df),round(0.1*nrow(df))),]
@@ -220,6 +223,10 @@ getOccurrenceMatrix<-function(df){
   out[out>0]<-1
   return(out)
 }
+#are zeros valid
+#Hessen       Niedersachsen Nordrhein-Westfalen     Rheinland-Pfalz 
+#5                 239                1682                  83
+
 occMatrix <- getOccurrenceMatrix(df)
 
 #get list length
@@ -365,6 +372,7 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   raumS = siteInfo$nnIndex,
                   boxS = siteInfo$boxIndex,
                   yday = listlengthDF$yday - median(listlengthDF$yday),
+                  yday2 = listlengthDF$yday^2 - median(listlengthDF$yday^2),
                   nuSpecies = log(listlengthDF$nuSpecies) - log(median(listlengthDF$nuSpecies)),
                   singleList = listlengthDF$singleList,
                   shortList = listlengthDF$shortList,
@@ -383,11 +391,11 @@ all(row.names(occMatrix)==listlengthDF$visit)
 
 #set prior close to zero if species never recorded in that state in the first 5 years
 temp<- ddply(subset(listlengthDF,Year<1985),.(cnIndex),summarise,species=sum(Species))
-bugs.data$priorS1 <- ifelse(temp$species>0,0.99999,0.01)
+bugs.data$priorS1 <- ifelse(temp$species>0,0.99999,0.05)
 
 #set prior close to zero if species never recorded in that state 
 temp<- ddply(listlengthDF,.(cnIndex),summarise,species=sum(Species))
-bugs.data$priorS <- ifelse(temp$species>0,0.99999,0.01)
+bugs.data$priorS <- ifelse(temp$species>0,0.99999,0.05)
 
 #the below are used the linear regression model in the model file -see below
 bugs.data$sumX <- sum(1:bugs.data$nyear)
