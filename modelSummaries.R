@@ -9,6 +9,8 @@ source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/spa
 
 mySpecies <- read.delim("model-auxfiles/speciesTaskID_adult.txt",as.is=T)$Species
 
+allSpecies <- read.delim("specieslist_odonata.txt",as.is=T)$Species
+
 ###Model summaries############################################################################################
 
 #model summaries:
@@ -172,7 +174,9 @@ source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/spa
 
 #original models
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum/5914536"
+
 #50000 iteractions
+
 #5000 iter
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_5000iter/6057269"
 #updated models
@@ -431,12 +435,19 @@ table(colonizeDF$Rhat<1.1)
 #sparta models - run on HPC using own sparta jags file with naturraum as fixedeffect
 
 source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
+
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6288453"
+#mistake in data processing
+
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6323394"
+#didnt run for all species
+
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta_wo_eta/6329258"
+#without eta
 
 #do we have the models for all species?
 speciesFiles <- list.files(mdir)
 mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
-#"Sympecma paedisca" is missing
 
 #read in model summaries
 modelDF <- getModelSummaries(mdir)
@@ -448,6 +459,117 @@ annualDF$Year <- annualDF$ParamNu + 1979
 plotTS(annualDF)
 table(annualDF$Rhat<1.1)
 #FALSE  TRUE 
-#319  2493
-#run again for a bit longer this time
-#and include trend term in model
+#46  2803
+
+#trends
+trendsDF <- getBUGSfits(modelDF,param="regres.psi")
+table(trendsDF$Rhat<1.1)
+trendsDF$Rhat[trendsDF$Rhat>1.1]
+
+###Double random walk####################################################
+
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
+
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_rw/6288917"
+#mistake in data processing
+
+#do we have the models for all species?
+speciesFiles <- list.files(mdir)
+mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
+#none missing
+
+allSpecies[!sapply(allSpecies,function(x)any(grepl(x,speciesFiles)))]
+#none missing
+
+#read in model summaries
+modelDF <- getModelSummaries(mdir)
+modelDF <- getCodeFromFile(modelDF,myfile="out_dynamic_nation_naturraum_adult_")
+
+#annual tims series
+annualDF <- getBUGSfits(modelDF,param="psi.fs")
+annualDF$Year <- annualDF$ParamNu + 1979
+plotTS(annualDF)
+table(annualDF$Rhat<1.1)
+#FALSE  TRUE 
+#832  2017
+
+table(annualDF$Rhat<1.1,annualDF$Species)
+
+#example a few
+list.files(mdir)
+mod <- readRDS(paste(mdir,speciesFiles[1],sep="/"))
+
+###Posterior draws############################################
+
+library(rjags)
+mymodel <- readRDS(paste(mdir,"out_sparta_nation_naturraum_adult_Sympetrum vulgatum.rds",sep="/")) 
+#mysamples <- jags.samples(mymodel, "psi.fs", n.iter=1000)
+
+#https://mjskay.github.io/tidybayes/
+#library(tidybayes)
+#mymodel$sims.list
+#mymodel$samples - mcmc.list
+
+#each year is in a different column
+#mymodel$sims.lis[,1]
+hist(mymodel$sims.list$psi.fs[,1])
+summary(mymodel$sims.list$psi.fs[,1])
+
+#growth
+growth <- mymodel$sims.list$psi.fs[,37]/mymodel$sims.list$psi.fs[,1]
+hist(growth)
+summary(growth)
+quantile(growth,c(0.025,0.5,0.975))
+
+mymodel <- readRDS(paste(mdir,myfile,sep="/")) 
+getGrowth <- function(mymodel){
+  mymodel$sims.list$psi.fs[,37]/mymodel$sims.list$psi.fs[,1]
+  quantile(growth,c(0.025,0.5,0.975))
+}
+
+#read in each model and apply function
+#year, species and 1000 draw in subsequent columns
+
+#sample psi.fs
+
+myfiles <- list.files(mdir)
+
+randomMatrix <- ldply(myfiles,function(myfile){
+  
+mymodel <- readRDS(paste(mdir,myfile,sep="/"))
+  
+out <- ldply(1:37,function(i){
+  sims <- mymodel$sims.list$psi.fs[sample(1:56250,1000),i]
+  cbind(Year=i,sims,Run=1:1000)
+})  
+
+out$Species <- myfile
+
+return(out)
+
+})  
+
+randomMatrix$Species <- gsub("out_sparta_nation_naturraum_adult_",
+                             "",randomMatrix$Species) 
+randomMatrix$Species <- gsub(".rds",
+                             "",randomMatrix$Species)
+randomMatrix <- dcast(randomMatrix,Species+Year~Run,value.var="sims")
+save(randomMatrix,file="randomMatrix.RData")
+
+###get z########################################################
+
+#HPC_update file
+#Calculate parameters for each site??? take too long
+#see what richness looks like
+
+plotTS <- function(x){
+  require(ggplot2)
+  g1 <- ggplot(x)+
+    geom_line(aes(x=Year,y=mean))+
+    geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
+    facet_wrap(~Code,ncol=6,scales="free_y")+
+    ylab("Predicted occupancy")
+  print(g1)
+}
+ggsave("plots/ts_scaled.png",height=10,width=7)
+
