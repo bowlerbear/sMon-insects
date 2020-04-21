@@ -22,7 +22,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 50000
+niterations = 75000
 
 Sys.time()
 
@@ -183,8 +183,8 @@ sum(is.na(df$CoarseNatur))
 
 dfS <- subset(df, Species==myspecies)
 obsPhenolData <- summarise(dfS,
-                           minDay = round(quantile(yday,0.1)),
-                           maxDay = round(quantile(yday,0.9)))
+                           minDay = round(quantile(yday,0.05)),
+                           maxDay = round(quantile(yday,0.95)))
 df <- subset(df, yday > obsPhenolData$minDay & yday < obsPhenolData$maxDay)
 
 #####################################################################################
@@ -194,19 +194,19 @@ df <- subset(df, yday > obsPhenolData$minDay & yday < obsPhenolData$maxDay)
 #reduce data to 5%%
 #df <- df[sample(1:nrow(df),round(0.05*nrow(df))),]
 
-#any oversampled plots???
-out <- ddply(df,.(MTB_Q,Year),summarise,nuDates = length(unique(Date)))
-#out <- arrange(out,desc(nuDates))
-summary(out$nuDates)
-
-#subset to at most 100 dates per year
-nrow(df)
-df <- ddply(df, .(Year,MTB_Q),function(x){
-  mydates <- ifelse(length(unique(x$Date))>50,
-                    sample(unique(x$Date),50),unique(x$Date))
-  subset(x, Date %in% mydates)
-})
-nrow(df)
+# #any oversampled plots???
+# out <- ddply(df,.(MTB_Q,Year),summarise,nuDates = length(unique(Date)))
+# #out <- arrange(out,desc(nuDates))
+# summary(out$nuDates)
+# 
+# #subset to at most 100 dates per year
+# nrow(df)
+# df <- ddply(df, .(Year,MTB_Q),function(x){
+#   mydates <- ifelse(length(unique(x$Date))>50,
+#                     sample(unique(x$Date),50),unique(x$Date))
+#   subset(x, Date %in% mydates)
+# })
+# nrow(df)
 
 ######################################################################################
 
@@ -414,7 +414,6 @@ inits <- function(){list(z = zst)}
                          #state.a = runif(bugs.data$nstate,0.0001,0.01),
                          #lphi = runif(bugs.data$nstate,0,0.01),
                          #lgam = runif(bugs.data$nstate,0,0.01),
-                         #single.p = runif(1,-0.01,0.01), 
                          #effort.p = runif(1,0,0.01),
                          #mu.phenol = runif(1,-0.01,0.01),
                          #mu.phenol2 = runif(1,-0.01,0.01))}
@@ -431,19 +430,19 @@ n.cores = as.integer(Sys.getenv("NSLOTS", "1"))
 ###########################################################################################
 
 #choose model file
-modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum.txt"
+modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum_wo_eta_wo_rw.txt"
 #modelfile="R/BUGS_sparta_nation_naturraum.txt"
 
 effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
 
 #specify parameters to monitor
-params <- c("psi.fs")
+params <- c("psi.fs","regres.psi","mean.p")
 
 
 Sys.time()
 #run model
-out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=5,
+out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=3,
             n.chains=n.cores, n.burnin=niterations/4,
             n.iter=niterations,parallel=T)
 
