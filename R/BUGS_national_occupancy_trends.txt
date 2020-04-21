@@ -20,7 +20,10 @@
     sumXY <- sum(sumxy[1:nyear])
     regres.psi <- (sumXY - ((sumX*sumY)/nyear))/(sumX2 - ((sumX*sumX)/nyear))#linear regression trend
     
-    totalChange <- (1-pow(psi.fs[nyear]/psi.fs[1],1/nyear))*100 #check against what Charloie had!!
+    e <- 0.1 
+    totalChange <- (psi.fs[nyear]+e)/(psi.fs[1]+e)
+    
+    totalChangeGr<- 1-(pow(max(psi.fs[nyear],0.001)/max(psi.fs[1],0.001),1/nyear))*100
 
     #coefficient of variation
     CoV <- sd(psi.fs)/mean(psi.fs)
