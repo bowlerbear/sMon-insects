@@ -10,7 +10,7 @@
       z[i,t] ~ dbern(muZ[i,t]) 
 
     # model
-      logit(muZ[i,t]) <- mu[t] + eta[i]
+      logit(muZ[i,t]) <- mu[t] + cr.a[craumS[i]] + r.a[raumS[i]] + eta[i]
       
       }
     }   
@@ -36,8 +36,23 @@
       psi.fs[t] <- sum(z[1:nsite,t])/nsite  
     } 
 
+    # overall trend in occpuancy
+    sumY <- sum(psi.fs[1:nyear])
+    for (t in 1:nyear) {
+      sumxy[t] <- psi.fs[t]*t
+    }
+    sumXY <- sum(sumxy[1:nyear])
+    regres.psi <- (sumXY - ((sumX*sumY)/nyear))/(sumX2 - ((sumX*sumX)/nyear))#trend
+
     
     #detection probability
+    mean.p <- mean(p)
+    
+    #change statistics
+    #occChange <- psi.fs[nyear]/psi.fs[1]
+    #e <- 0.0001
+    #logitChange <- logit(psi.fs[nyear]+e)-logit(psi.fs[1]+e)
+    
 
     #Priors 
     
@@ -55,6 +70,20 @@
     tau.a <- 1/(sd.a * sd.a)
     sd.a ~ dt(0, 1, 1)T(0,) 
 
+    #cr.a random effects for coarse naturraum
+    for (s in 1:ncraum) {
+      cr.a[s] ~ dnorm(0, tau.cr.a)       
+    } 
+    tau.cr.a <- 1/(sd.cr.a * sd.cr.a)
+    sd.cr.a ~ dt(0, 1, 1)T(0,)
+    
+    #r.a random effects for naturraum
+    for (s in 1:nraum) {
+      r.a[s] ~ dnorm(0, tau.r.a)       
+    } 
+    tau.r.a <- 1/(sd.r.a * sd.r.a)
+    sd.r.a ~ dt(0, 1, 1)T(0,)
+    
     #site effects
     for (i in 1:nsite) {
       eta[i] ~ dnorm(0, tau.eta)       
@@ -66,13 +95,11 @@
     
     #Observation model priors
 
-    #year 1
-    mup[1] ~ dnorm(0, 0.001)
-    
-    #other years
-    for(t in 2:nyear){
-      mup[t] ~ dnorm(mup[t-1], tau.ap)
+    #year
+    for(t in 1:nyear){
+      mup[t] ~ dnorm(mu.p, tau.ap)
     }
+    mu.p ~ dnorm(0, 0.001)
     tau.ap <- 1/(sd.ap * sd.ap)
     sd.ap ~ dt(0, 1, 1)T(0,)  
     
