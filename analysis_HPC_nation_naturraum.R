@@ -9,7 +9,7 @@ suppressMessages(library(plyr))
 
 
 #load the relational table of task ids and species
-speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult2.txt"),as.is=T)
+speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult.txt"),as.is=T)
 #get task id
 task.id = as.integer(Sys.getenv("SGE_TASK_ID", "1")) 
 #get species for this task
@@ -22,7 +22,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 100000
+niterations = 150000
 
 Sys.time()
 
@@ -183,8 +183,8 @@ sum(is.na(df$CoarseNatur))
 
 dfS <- subset(df, Species==myspecies)
 obsPhenolData <- summarise(dfS,
-                           minDay = round(quantile(yday,0.1)),
-                           maxDay = round(quantile(yday,0.9)))
+                           minDay = round(quantile(yday,0.05)),
+                           maxDay = round(quantile(yday,0.95)))
 df <- subset(df, yday > obsPhenolData$minDay & yday < obsPhenolData$maxDay)
 
 #####################################################################################
@@ -194,19 +194,19 @@ df <- subset(df, yday > obsPhenolData$minDay & yday < obsPhenolData$maxDay)
 #reduce data to 5%%
 #df <- df[sample(1:nrow(df),round(0.05*nrow(df))),]
 
-#any oversampled plots???
-out <- ddply(df,.(MTB_Q,Year),summarise,nuDates = length(unique(Date)))
-#out <- arrange(out,desc(nuDates))
-summary(out$nuDates)
-
-#subset to at most 20 dates per year
-nrow(df)
-df <- ddply(df, .(Year,MTB_Q),function(x){
-  mydates <- ifelse(length(unique(x$Date))>30,
-                    sample(unique(x$Date),30),unique(x$Date))
-  subset(x, Date %in% mydates)
-})
-nrow(df)
+# #any oversampled plots???
+# out <- ddply(df,.(MTB_Q,Year),summarise,nuDates = length(unique(Date)))
+# #out <- arrange(out,desc(nuDates))
+# summary(out$nuDates)
+# 
+# #subset to at most 20 dates per year
+# nrow(df)
+# df <- ddply(df, .(Year,MTB_Q),function(x){
+#   mydates <- ifelse(length(unique(x$Date))>30,
+#                     sample(unique(x$Date),30),unique(x$Date))
+#   subset(x, Date %in% mydates)
+# })
+# nrow(df)
 
 ######################################################################################
 
@@ -382,13 +382,13 @@ listlengthDF$Species <- bugs.data$y
 
 all(row.names(occMatrix)==listlengthDF$visit)
 
-#set prior close to zero if species never recorded in that state??
-temp <- ddply(listlengthDF,.(cnIndex),summarise,species=sum(Species))
-bugs.data$priorS <- ifelse(temp$species>0,0.99999,0.01)
-
-#set prior close to zero if species never recorded in that state in the first 5 years
-temp<- ddply(subset(listlengthDF,Year<1985),.(cnIndex),summarise,species=sum(Species))
-bugs.data$priorS1 <- ifelse(temp$species>0,0.99999,0.01)
+# #set prior close to zero if species never recorded in that state
+# temp <- ddply(listlengthDF,.(cnIndex),summarise,species=sum(Species))
+# bugs.data$priorS <- ifelse(temp$species>0,0.99999,0.05)
+# 
+# #set prior close to zero if species never recorded in that state in the first 5 years
+# temp<- ddply(subset(listlengthDF,Year<1985),.(cnIndex),summarise,species=sum(Species))
+# bugs.data$priorS1 <- ifelse(temp$species>0,0.99999,0.05)
 
 #the below are used the linear regression model in the model file -see below
 bugs.data$sumX <- sum(1:bugs.data$nyear)
@@ -397,17 +397,32 @@ bugs.data$sumX2 <- sum((1:bugs.data$nyear)^2)
 #######################################################################################
 
 #specify initial values
-zst <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=max)
-zst [is.infinite(zst)] <- 0
+
+#for Z
+zst <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=max,na.rm=T)
+zst [is.infinite(zst)] <- NA
+
+#fill in the blanks more cleverly
+replace_na_with_last<-function(x,a=!is.na(x)){
+  x[which(a)[c(1,1:sum(a))][cumsum(a)+1]]
+}
+
 #inits <- function(){list(z = zst)}
+for(i in 1:nrow(zst)){
+  zst[i,] <- replace_na_with_last(zst[i,])
+}  
+
+#mu.prop - mean probability to see it on a visit given its there
+dets <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=mean,na.rm=T)
+meanDets <- mean(dets[dets>0],na.rm=T)
+expectedP <- ifelse(meanDets<=0.1|is.na(meanDets)|is.null(meanDets),0.1,meanDets)
 
 inits <- function(){list(z = zst,
-                         #state.a = runif(bugs.data$nstate,0.0001,0.01),
-                         #lphi = runif(bugs.data$nstate,0,0.01),
-                         #lgam = runif(bugs.data$nstate,0,0.01),
-                         effort.p = runif(1,0,0.01),
-                         mu.phenol = runif(1,-0.01,0.01),
-                         mu.phenol2 = runif(1,-0.01,0.01))}
+                         mu.prop = expectedP,
+                         effort.p = runif(1,-0.1,0.1),
+                         single.p = runif(1,-0.1,0.1),
+                         mu.phenol = runif(1,-0.1,0.1),
+                         mu.phenol2 = runif(1,-0.1,0.1))}
 
 ########################################################################################
 
@@ -421,8 +436,7 @@ n.cores = as.integer(Sys.getenv("NSLOTS", "1"))
 ###########################################################################################
 
 #choose model file
-modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_naturraum_raumFEyear1_rw.txt"
-#modelfile="R/BUGS_sparta_nation_naturraum.txt"
+modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_naturraum_raumFEyear1_rw1.txt"
 
 effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
@@ -430,12 +444,11 @@ bugs.data$Effort <- bugs.data[[effort]]
 #specify parameters to monitor
 params <- c("mean.p","regres.psi","psi.fs",
             "meanPersist","meanColonize",
-            "colonize","persist")
-
+            "colonize","persist","mup")
 
 Sys.time()
 #run model
-out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=5,
+out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=3,
             n.chains=n.cores, n.burnin=niterations/4,
             n.iter=niterations,parallel=T)
 
