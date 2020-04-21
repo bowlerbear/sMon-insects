@@ -18,6 +18,8 @@
 #   return(models)
 # }
 
+library(jagsUI)
+
 getSpartaModels<-function(dir){
   
   sp_mods <- list.files(dir)[grepl(".rdata",list.files(dir))]
@@ -70,18 +72,6 @@ plotTS <- function(x){
     facet_wrap(~Species)
   print(g1)
 }
-
-plotCluster <- function(x){
-  require(ggplot2)
-  g1 <- ggplot(x)+
-    geom_line(aes(x=Year,y=mean,colour=Species))+
-    facet_wrap(~cluster)+
-    theme_bw()+
-    ylab("predicted occupancy")+
-    theme(legend.position="none")
-  print(g1)
-}
-
 
 #get annual predictions of occupancy for each species
 #@param models = output of getSpartaModels()
@@ -251,6 +241,7 @@ getListLength<-function(df){
 
 getBUGSfits <- function(out,param="trend.year"){
   out <- as.data.frame(out)
+  if(all(!grepl("Param",names(out)))){out$Param <- row.names(out)}
   out <- out[grepl(param,out$Param),]
   out$ParamNu <- as.numeric(sub(".*\\[([^][]+)].*", "\\1", out$Param))
   return(out)
@@ -259,10 +250,11 @@ getBUGSfits <- function(out,param="trend.year"){
 
 getBUGSfitsII <- function(out,param="psi.state"){
   out <- as.data.frame(out)
+  if(all(!grepl("Param",names(out)))){out$Param <- row.names(out)}
   out <- out[grepl(param,out$Param),]
   out$ParamNu <- sub(".*\\[([^][]+)].*", "\\1", out$Param)
   out$Year <- as.numeric(sapply(out$ParamNu,function(x)strsplit(x,",")[[1]][2]))
-  out$State <- as.numeric(sapply(out$ParamNu,function(x)strsplit(x,",")[[1]][1]))
+  out$Site <- as.numeric(sapply(out$ParamNu,function(x)strsplit(x,",")[[1]][1]))
   return(out)
 }
 
@@ -487,3 +479,77 @@ fitTrendsBeta <- function(df){
   
 }
 
+
+addBest <- function(lm1,myresponse="trend"){
+  
+  #get missing covariates
+  tested <- names(lm1$model)[-1]
+  notTested <- mytraits[!mytraits %in% tested]
+  
+  new <- ldply(notTested,function(x){
+    myformula <- paste(as.character(formula(lm1))[3],x,sep="+")
+    myformula <- paste0(myresponse,"~",myformula)
+    lm2 <- update(lm1,formula=as.formula(myformula))
+    getGLMSummary(lm2)[(length(tested)+2),]
+  })
+  
+  old <- getGLMSummary(lm1)
+  
+  #return full
+  rbind(old,new)
+  
+}
+
+getGLMSummary <- function(glm1){
+  coefDF <- data.frame(summary(glm1)$coef)
+  coefDF$lowerQ <- confint(glm1)[,1]
+  coefDF$upperQ <- confint(glm1)[,2]
+  coefDF$param <- row.names(coefDF)
+  return(coefDF)
+}
+
+plotCluster <- function(x){
+  require(ggplot2)
+  g1 <- ggplot(x)+
+    geom_line(aes(x=Year,y=mean,colour=Species))+
+    facet_wrap(~cluster)+
+    theme_bw()+
+    ylab("predicted occupancy")+
+    theme(legend.position="none")
+  print(g1)
+}
+
+deriv <- function(x, y) diff(y) / diff(x)
+middle_pts <- function(x) x[-1] - diff(x) / 2
+
+getBestCluster <- function(temp,x){
+  temp2 <- subset(temp,Param==x)
+  firstderiv <- deriv(temp2$variable, temp2$value)
+  #plot(firstderiv ~ temp2$variable[-1])
+  second_d <- deriv(middle_pts(temp2$variable), firstderiv)
+  #plot(second_d ~ temp2$variable[-c(1:2)])
+  df <- data.frame(second_d = second_d, 
+                   midpts = middle_pts(middle_pts(temp2$variable)),
+                   Param=x)
+  subset(df,second_d==max(second_d))
+}
+
+getClusterStats <- function(mydiss,myclustering){
+  require(fpc)
+  clustDF <- cluster.stats(mydiss, 
+                           clustering=myclustering)
+  data.frame(minCluster=clustDF$min.cluster.size,
+             avBetween=clustDF$average.between,
+             avWithin=clustDF$average.within,
+             silWidth=clustDF$avg.silwidth,
+             dunn=clustDF$dunn,
+             sepIndex=clustDF$sindex)
+}
+
+plotTSclust <- function(mylist){
+  require(ggplot2)
+  require(reshape2)
+  mylistMelt <- melt(mylist,id="Cluster")
+  qplot(x=Cluster,y=value,data=mylistMelt)+
+    facet_wrap(~variable,scales="free")
+}
