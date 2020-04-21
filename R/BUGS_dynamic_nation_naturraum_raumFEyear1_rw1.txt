@@ -10,7 +10,7 @@
     #data distribution
     z[i,1] ~ dbern(psi1[i])
     
-    logit(psi1[i]) <- cr.a[craumS[i]] + r.a[raumS[i]]
+    logit(psi1[i]) <- cr.a[craumS[i]] + r.a[raumS[i]] + eta[i]
 
     for (t in 2:nyear){
     
@@ -30,7 +30,6 @@
     
     #detection model:
     logit(p[j]) <-  mup[year[j]] + 
-                    lp[craum[j]] +
                     mu.phenol * yday[j] + 
                     mu.phenol2 * pow(yday[j],2)+
                     effort.p * Effort[j] +
@@ -78,6 +77,13 @@
     tau.r.a <- 1/(sd.r.a * sd.r.a)
     sd.r.a ~ dt(0, 1, 1)T(0,)
     
+    #site effects
+    for (i in 1:nsite) {
+      eta[i] ~ dnorm(0, tau.eta)       
+    } 
+    tau.eta <- 1/(sd.eta * sd.eta) 
+    sd.eta ~ dt(0, 1, 1)T(0,)
+    
     ################################
     
     #priors for persistence and colonization
@@ -114,13 +120,6 @@
     a.mu.p <- logit(mu.prop)
     a.tau.p <- 1 / (a.sd.p * a.sd.p)                 
     a.sd.p ~ dt(0, 1, 1)T(0,) 
-    
-    #naturraum-level variaion - just random effects
-    for(s in 1:ncraum){
-      lp[s]  ~ dnorm(0,tau.lp)
-    }
-    tau.lp <- 1 / (sd.lp * sd.lp)                 
-    sd.lp ~ dt(0, 1, 1)T(0,)
     
     #effort effects
     effort.p ~ dnorm(0, 0.01)
