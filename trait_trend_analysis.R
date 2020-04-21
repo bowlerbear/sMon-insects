@@ -1,44 +1,79 @@
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 library(plyr)
 library(ggplot2)
 library(reshape2)
 library(cowplot)
 library(wesanderson)
+library(MuMIn)
 
-###merge data###################################################################
+###get data###################################################################
 
 setwd("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects")
 
 #get traits data
 load("alltraits.RData")
-#limit to those with complete cases?
 
-#get trends data
-trendEstimates <- readRDS("model-outputs/modelTrends_trends.rds")
-trendEstimates$Species <- gsub("out_dynamic_nation_naturraum_adult_","",trendEstimates$file)
-trendEstimates$Species <- gsub(".rds","",trendEstimates$Species)
+#get original trends data
+# trendEstimates <- readRDS("model-outputs/modelTrends_nation_state_trends.rds")#more significant trait effects -  trends from draft 1
+# trendEstimates <- readRDS("model-outputs/modelTrends_trends.rds")
+# #trendEstimates <- subset(trendEstimates,Param=="regres.psi")
+# trendEstimates$Species <- gsub("out_dynamic_nation_state_adult_","",trendEstimates$file)
+# trendEstimates$Species <- gsub(".rds","",trendEstimates$Species)
+
+#from models directly
+trendEstimates <- trendsDF
+#compare the two - highly correlated with trends from last time....
+
+###missing data##############################################
+
+#few missing flight start and end dates
+alltraits$Species[is.na(alltraits$Flight_start)]
+#"Aeshna viridis", "Boyeria irene", "Epitheca bimaculata"
+
+#available for other countries
+#Aeshna viridis  - 7.3/8.3
+#Boyeria irene - 7.1/8.1
+#Epitheca bimaculata - 5.1/6.2
+alltraits$Flight_start[alltraits$Species=="Aeshna viridis"] <- 7.3
+alltraits$Flight_end[alltraits$Species=="Aeshna viridis"] <- 8.3
+alltraits$Flight_start[alltraits$Species=="Boyeria irene"] <- 7.1
+alltraits$Flight_end[alltraits$Species=="Boyeria irene"] <- 8.1
+alltraits$Flight_start[alltraits$Species=="Epitheca bimaculata"] <- 5.1
+alltraits$Flight_end[alltraits$Species=="Epitheca bimaculata"] <- 6.2
+
+#missing data for develop time - not included anyhow
+alltraits$Suborder[alltraits$Species=="Oxygastra curtisii"] <- "Anisoptera"
+###merge###########################################################
+
 names(trendEstimates)[which(names(trendEstimates)=="mean")]<-"trend"
-
-#merge in one data frame
 trendEstimates$Species[!trendEstimates$Species %in% alltraits$Species]
 trendEstimates <- merge(trendEstimates,alltraits,by="Species")
-nrow(trendEstimates)
+nrow(trendEstimates)#77
+trendEstimates$Genus <- sapply(trendEstimates$Species,function(x){
+  strsplit(x," ")[[1]][1]})
 
 #trends calculated as per:
 #https://github.com/BiologicalRecordsCentre/RangeChangeSims
 #https://github.com/BiologicalRecordsCentre/RangeChangeSims/blob/master/Occupancy/Occupancy_model.r
+
 ###trend summary##############################################################
+
+summary(trendEstimates$trend)
+hist(trendEstimates$trend)#pretty normal
 
 #null
 trendEstimates$Trend <- "insignificant"
 
-#mean 5% change over the 25 years
-#0.05/35 = 0.0014 per year
-#trend is annual change in proportion of sites
+#trend is annual proportional change in number of sites
+#mean 1% change over the 35 year - less than total change 5%
+0.05/36
+#[1] 0.001388889
+
+#standard deviation to large to detect a 5% change
 
 #stable
 trendEstimates$Trend[trendEstimates$X2.5.<0 & trendEstimates$X97.5.>0
-                     & abs(trendEstimates$trend) < 0.0014]<-"stable"
+                     & abs(trendEstimates$trend) < 0.001388889]<-"stable"
 
 #increasing
 trendEstimates$Trend[trendEstimates$X2.5.>0 & trendEstimates$X97.5.>0]<-"significant increase"
@@ -49,10 +84,324 @@ trendEstimates$Trend[trendEstimates$X2.5.<0 & trendEstimates$X97.5.<0]<-"signifi
 #summary
 table(trendEstimates$Trend)
 
+###red list################################################################
+
+table(trendEstimates$RedList)
+
+#order the factor
+
+trendEstimates$RedList <- factor(trendEstimates$RedList,
+                                 levels=c("not listed","least concern","near threatened",
+                                          "vulnerable","endangered","critically endangered"))
+
+g1 <- ggplot(trendEstimates)+
+  geom_boxplot(aes(x=RedList,y=trend))+
+  geom_hline(yintercept=0,linetype="dashed")+
+  coord_flip()+
+  theme_classic()+
+  ylab("Long-term trend")+xlab("Red list category")
+
+summary(lm(trend~RedList,data=subset(trendEstimates,RedList!="not listed")))
+
+summary(lm(trend~RedList-1,data=subset(trendEstimates,RedList!="not listed")))
+
+#no difference between near threatened and least concern
+#but all threatened groups have significantly lower trends
+
+###winner, losers####################################################################
+trendEstimates$Species <- factor(trendEstimates$Species,levels=c(trendEstimates$Species[order(trendEstimates$trend)]))
+trendEstimates$Trend[trendEstimates$Trend=="stable"] <- "insignificant"
+trendEstimates$Trend <- factor(trendEstimates$Trend,levels=c("significant decrease","insignificant","significant increase")) 
+
+g2 <- ggplot(trendEstimates)+
+  geom_bar(aes(x=Species,y=trend,fill=Trend),
+           stat="identity",width=rel(1))+
+  theme_classic()+  
+  theme(axis.text.x = element_blank())+
+  scale_fill_viridis_d()+
+  theme(legend.position = "top")+
+  ylab("Long-term trend")+xlab("Species")
+
+
+library(cowplot)
+plot_grid(g2,g1,nrow=1)
+ggsave("plots/Trend_summary.png",width=8,height=3)
+
+###prop change############################################################
+
+totalChange <- ddply(annualDF,.(Species),summarise,
+                     change=mean[Year==2016]/mean[Year==1980],
+                     growth=((mean[Year==2016]/mean[Year==1980])-1)*100)
+
+summary(totalChange$change)
+#Crocothemis erythraea has the largest amount of change
+
+totalChange <- arrange(totalChange,change)
+
+trendEstimates$change <- totalChange$change[match(trendEstimates$Species,
+                                                  totalChange$Species)]
+
+trendEstimates$Species <- factor(trendEstimates$Species,levels=c(totalChange$Species[order(totalChange$change)]))
+
+
+g3 <- ggplot(trendEstimates)+
+  geom_bar(aes(x=Species,y=change),
+           stat="identity",width=rel(1))+
+  theme_classic()+  
+  scale_y_log10(breaks=c(0,0.01,0.1,1,10,100),
+                labels=c(0,0.01,0.1,1,10,100))+
+  theme(axis.text.x = element_blank())+
+  ylab("Total occupancy change")+xlab("Species")
+
+
+plot_grid(g2,g3,g1,ncol=1,labels=c("A","B","C"))
+ggsave("plots/Trend_summary.png",width=6,height=8)
+
+#relationship between total change and trend
+ggplot(trendEstimates)+
+  geom_point(aes(x=trend,y=change))+
+  theme_bw()+
+  scale_y_log10()+
+  ylab("Total occupancy change")+
+  xlab("Long-term trend")
+
+cor.test(trendEstimates$trend,log10(trendEstimates$change))
+#0.6818346
+
+#change of increasing species
+incr <- subset(trendEstimates,Trend=="significant increase")
+summary(incr$change)
+
+#change of decreasing species
+decr <- subset(trendEstimates,Trend=="significant decrease")
+summary(decr$change)
+
+
+
+###choose traits####################################################################
+
+#Flight_start
+hist(trendEstimates$Flight_start)
+#VoltinismProp
+hist(trendEstimates$VoltinismProp)
+#nuEuroGrids
+hist(trendEstimates$nuEuroGrids)
+#meanTemp
+hist(trendEstimates$meanTemp)
+#medHw/medAb
+hist(trendEstimates$medHw/trendEstimates$medAb)
+trendEstimates$DispPot <- trendEstimates$medHw/trendEstimates$medAb
+#Overwintering
+table(trendEstimates$Overwintering)
+#Generalism
+table(trendEstimates$Generalism)
+#Flow
+table(trendEstimates$Flow)
+trendEstimates$Flow[which(trendEstimates$Flow=="standing (slow-flowing)")] <- "standing"
+trendEstimates$Flow[which(trendEstimates$Flow=="standing, slow-flowing")] <- "standing, running"
+table(trendEstimates$Flow)
+
+#reorganise flight start
+trendEstimates$cFlight_start <- as.character(trendEstimates$Flight_start)
+trendEstimates$cFlight_start <- gsub("1","0",trendEstimates$cFlight_start)
+trendEstimates$cFlight_start <- gsub("3","66",trendEstimates$cFlight_start)
+trendEstimates$cFlight_start <- gsub("2","33",trendEstimates$cFlight_start)
+trendEstimates$Flight_start <- as.numeric(trendEstimates$cFlight_start) 
+
+table(trendEstimates$Generalism)
+trendEstimates$Generalism <- ifelse(trendEstimates$Generalism=="generalist",1,0)
+
+#Egg or not
+trendEstimates$winterEgg <- ifelse(trendEstimates$Overwintering=="Egg",1,0)
+table(trendEstimates$winterEgg)
+table(trendEstimates$Overwintering)
+
+#turn habitat variables into binary variables
+myhabitats <- names(trendEstimates)[52:65]
+trendEstimates[,myhabitats] <- apply(trendEstimates[,myhabitats],
+                                     2,function(x)ifelse(x>1,1,0))
+
+#add on running column
+trendEstimates$running <- rowSums(trendEstimates[,c("river","stream")])
+trendEstimates$running <- ifelse(trendEstimates$running>=1,1,0)
+
+#define traits of interest
+mytraits <- c("Flight_start","VoltinismProp","meanTemp",
+              "DispPot","medHw")
+
+allTraits <- c(mytraits,myhabitats,"running")
+
+###save file#############################################
+
+write.csv(trendEstimates,file="traits_trends_Odonata.csv",
+          row.names=FALSE)
+
+###scale traits##############################################
+
+library(arm)
+scaledVars <- trendEstimates[,allTraits]
+scaledVars <- data.frame(lapply(scaledVars,arm::rescale))
+names(scaledVars) <- sapply(names(scaledVars),function(x)
+  paste0("s",x))
+trendEstimates <- cbind(trendEstimates,scaledVars)
+
+mytraits <- c("sFlight_start","sVoltinismProp","smeanTemp","smedHw")
+
+###trait corr################################################
+
+cor.test(trendEstimates$meanTemp,trendEstimates$bog)
+#significant
+
+library(corrplot)
+
+traitNums <- Filter(is.numeric, trendEstimates[,allTraits])
+overwinterDummy <- model.matrix(~Overwintering-1,data=trendEstimates)
+traitsCor <- cor(cbind(traitNums,overwinterDummy))
+corrplot(traitsCor)
+traitsCorMelt <- melt(traitsCor)
+temp <- subset(traitsCorMelt,abs(value)>0.4 & value!=1)
+subset(temp,!duplicated(value))
+
+###Species-level############################################
+###habitat effects###########################################
+
+#relationship between habitat and river/stream categories
+unique(trendEstimates$Flow)
+subset(trendEstimates,Flow=="running")#not all use rivers
+myhabitats <- c(myhabitats,"running")
+
+#single trend models
+temp <- ldply(myhabitats,function(x)
+  summary(lm(as.formula(paste0("trend~",x)),data=trendEstimates))$coef[2,])
+temp$habitat <- myhabitats
+temp
+#river, bog, then running
+
+summary(lm(trend ~ river + bog,data=trendEstimates))
+summary(lm(trend ~ running + bog,data=trendEstimates))
+#river is more important than running water
+
+#single change model
+temp <- ldply(myhabitats,function(x)
+  summary(lm(as.formula(paste0("change~",x)),data=trendEstimates))$coef[2,])
+temp$habitat <- myhabitats
+temp
+
+summary(lm(change ~ river + bog,data=trendEstimates))
+#more marginal        
+
+###trend models######################################################################
+
+#use weights or not?
+summary(trendEstimates$sd)
+qplot(nuEuroGrids,trend,data=trendEstimates,size=sd)
+#dont weight the analysis
+
+#use dev time or voltinim
+summary(lm(trend~VoltinismProp,data=trendEstimates))#use this one
+summary(lm(trend~devTime,data=trendEstimates))
+
+#german of europe range size
+summary(lm(trend~germanRange,data=trendEstimates))
+summary(lm(trend~nuEuroGrids,data=trendEstimates,))#use thie one
+
+#flow categorisation
+summary(lm(trend~Flow,data=trendEstimates))#negative effect of standing
+summary(lm(trend~Flow-1,data=trendEstimates))#running are increasing
+
+#build multiple regression model
+lm1 <- lm(trend ~ VoltinismProp + nuEuroGrids + 
+                  Flight_start + meanTemp + 
+                  DispPot + river + bog + Generalism, data=trendEstimates)
+summary(lm1)
+
+#final
+mytraits <- c(mytraits,"sbog")
+lm1 <- lm(trend ~ smeanTemp + sriver + smedHw + sFlight_start, data=trendEstimates)
+summary(lm1)
+
+#extract and plot coefficients
+coefDF <- addBest(lm1)
+coefDF <- subset(coefDF,param!="(Intercept)")
+coefDF$Param <- c("temp pref","river use", "wing length",
+                  "flight start","voltinism","bog use")
+
+coefDF$Param <- factor(coefDF$Param,
+                       levels=rev(c("temp pref","flight start",
+                                "voltinism","wing length",
+                                "river use","bog use")))
+
+ggplot(coefDF)+
+  geom_crossbar(aes(x=Param,y=Estimate,ymin=lowerQ,ymax=upperQ),width=0.3)+
+  coord_flip()+
+  theme_classic()+
+  geom_hline(yintercept=0,color="red",linetype="dashed")+
+  ylab("Effect on trend")+xlab("")
+
+ggsave("plots/Trait_effect_sizes.png",width=5,height=4)
+
+#as mixed models including genus
+library(lme4)
+library(lmerTest)
+lme1 <- lmer(trend~ VoltinismProp + nuEuroGrids + 
+               Flight_start + meanTemp + 
+               DispPot + Habitat + 
+               Generalism + (1|Genus), data=trendEstimates)
+#tmean is the best trait
+
+r.squaredGLMM(lme1)
+#genus explains a lot!!
+
+lme1 <- lmer(trend~  meanTemp + river + (1|Genus), data=trendEstimates)
+#river not significant after accounting for phylogeny
+
+###change models#########################################################
+
+hist(log(trendEstimates$change))
+
+lm1 <- lm(log10(change) ~ VoltinismProp + 
+            Flight_start + meanTemp + 
+            DispPot + river + 
+            Generalism,
+          data=trendEstimates)
+summary(lm1)
+#only mean temp
+
+#final
+lm1 <- lm(change ~ meanTemp, data=trendEstimates)
+summary(lm1)
+
+#extract and plot coefficients
+coefDF <- addBest(lm1,myresponse="change")
+coefDF <- subset(coefDF,param!="(Intercept)")
+#coefDF$Param <- c("int","voltinism","range size","flight start",
+#                  "temp pref","disp potential","habitat","habitat #breadth")
+
+ggplot(coefDF)+
+  geom_crossbar(aes(x=param,y=Estimate,ymin=lowerQ,ymax=upperQ),width=0.3)+
+  coord_flip()+
+  theme_bw()+
+  geom_hline(yintercept=0,color="red",linetype="dashed")+
+  ylab("Effect on total occupancy change")+xlab("Trait")
+
+#as mixed models including genus
+library(lme4)
+library(lmerTest)
+lme1 <- lmer(change ~ VoltinismProp + 
+               Flight_start + meanTemp + 
+               DispPot + Habitat + 
+               Generalism + (1|Genus), data=trendEstimates)
+#tmean is the best trait
+
+r.squaredGLMM(lme1)
+#genus explains a lot!!
+
+lme1 <- lmer(trend~  meanTemp + (1|Genus), data=trendEstimates)
+summary(lme1)
+
 ###taxonomy###################################################################################
 
-trendEstimates$Suborder[trendEstimates$Species=="Oxygastra curtisii"] <- "Anisoptera"
-
+#suborder
 table(trendEstimates$Suborder)
 #Anisoptera  Zygoptera 
 #50         27
@@ -62,208 +411,204 @@ table(trendEstimates$Suborder,trendEstimates$Trend)
 chisq.test(table(trendEstimates$Suborder,trendEstimates$Trend))
 #ns
 
-###linear models######################################################################
+#family
+sum(is.na(trendEstimates$Family))
+table(trendEstimates$Family)
+#most from Libellulidae, Coenagrionidae, and Aeshnidae (69%)
 
-#use dev time or voltinim
-summary(lm(trend~VoltinismProp,data=trendEstimates,
-           weights=1/sd))#use this one
-summary(lm(trend~devTime,data=trendEstimates,
-           weights=1/sd))
+chisq.test(table(trendEstimates$Family,trendEstimates$Trend))
+#ns
 
-#german of europe range size
-summary(lm(trend~germanRange,data=trendEstimates,
-           weights=1/sd))
-summary(lm(trend~nuEuroGrids,data=trendEstimates,
-           weights=1/sd))#use thie one
-  
+#genus?
+table(trendEstimates$Genus)
 
-#build multiple regression model
-library(arm)
-lm1 <- lm(trend ~ rescale(VoltinismProp) + rescale(nuEuroGrids) + 
-                     rescale(Flight_start) + rescale(meanTemp) + 
-                    rescale(medHw) + 
-                     Habitat + HabitatBreadth,data=trendEstimates,
-                                   weights=1/sd)
-summary(lm1)
-
-#extract and plot coefficients
-coefDF <- data.frame(cbind(summary(lm1)$coefficients,confint(lm1)))
-coefDF$Param <- c("int","voltinism","range size","flight start",
-                  "temp pref","wing length","habitat","habitat breadth")
-
-g1 <- ggplot(subset(coefDF,Param!="int"))+
-  geom_crossbar(aes(x=Param,y=Estimate,ymin=X2.5..,ymax=X97.5..),width=0.3)+
+ggplot(trendEstimates)+
+  geom_boxplot(aes(x=Genus,y=trend),alpha=0.5)+
+  geom_point(aes(x=Genus,y=trend),colour="blue")+
   coord_flip()+
   theme_bw()+
-  geom_hline(yintercept=0,color="red",linetype="dashed")+
-  ylab("Effect on trend")+xlab("Trait")
+  geom_hline(yintercept=0,linetype="dotted")
 
-lm1 <- lm(trend ~ rescale(nuEuroGrids) + 
-            rescale(meanTemp) + 
-            rescale(Flight_start) + 
-            rescale(medHw),data=trendEstimates,
-          weights=1/sd)
+ggplot(trendEstimates)+
+  geom_boxplot(aes(x=Genus,y=change),alpha=0.5)+
+  geom_point(aes(x=Genus,y=change),colour="blue")+
+  coord_flip()+
+  scale_y_log10()+
+  theme_bw()+
+  geom_hline(yintercept=1,linetype="dotted")
 
-###plots#################################################################
+
+#as random effects in models
+library(lme4)
+lme1 <- lmer(trend ~ 1 + (1|Genus) + (1|Family), data=trendEstimates)
+lme1 <- lmer(trend ~ 1 + (1|Genus), data=trendEstimates)
+lme1 <- lmer(trend ~ 1 + (1|Family), data=trendEstimates)
+
+r.squaredGLMM(lme1)
+
+#genus explains some variation
+lme1 <- lmer(change ~ 1 + (1|Genus) + (1|Family), data=trendEstimates)
+lme1 <- lmer(change ~ 1 + (1|Genus), data=trendEstimates)
+lme1 <- lmer(change ~ 1 + (1|Family), data=trendEstimates)
+
+r.squaredGLMM(lme1)
+
+###phylogeny##############################################################
+
+library(ape)
+library(picante)
+
+trendEstimates$Suborder <- factor(trendEstimates$Suborder)
+trendEstimates$Family   <- factor(trendEstimates$Family)
+trendEstimates$Genus    <- factor(trendEstimates$Genus)
+trendEstimates$Species  <- factor(trendEstimates$Species)
+
+frm <- ~Suborder/Family/Genus/Species
+tr <- as.phylo(frm, data = trendEstimates)
+plot(tr)
+
+library(nlme)
+row.names(trendEstimates) <- trendEstimates$Species
+trendEstimates <- trendEstimates[order(match(trendEstimates$Species,tr$tip.label)),]
+all(row.names(trendEstimates)==tr$tip.label)
+out2 <- compute.brlen(tr,1)
+gls1 <- gls(trend ~ smeanTemp + sriver + smedHw + sFlight_start,
+            correlation=corPagel(1,out2,fixed=FALSE),data=trendEstimates)
+summary(gls1)
+
+
+gls1 <- gls(trend ~ smeanTemp + sriver + smedHw + sFlight_start,
+            correlation=corPagel(1,out2,fixed=FALSE),data=trendEstimates)
+gls2 <- gls(trend ~ smeanTemp + sriver + smedHw + sFlight_start,data=trendEstimates)
+anova(gls1,gls2)
+#no difference
+
+###trait plots#################################################################
 
 #plot trait vs trends
 
-q1<-ggplot(subset(trendEstimates,Stage=="adult"),aes(x=TMean,y=trend,colour=State))+
+q1<-ggplot(trendEstimates,aes(x=meanTemp,y=trend))+
   geom_point()+
-  theme_bw()+
-  ylab("Population trend")+xlab("Temperature preference")+
-  facet_grid(~State)+stat_smooth(method="lm")+
-  theme(legend.position="none")
-q2<-ggplot(subset(trendEstimates,Stage=="adult"),aes(x=Habitat.y,y=trend,fill=State))+
-  geom_boxplot(outlier.shape = NA)+
-  theme_bw()+
-  ylab("Population trend")+xlab("Habitat preference")+
-  facet_grid(~State)+
-  theme(legend.position="none")
-q3<-ggplot(subset(trendEstimates,Stage=="adult"),aes(x=total,y=trend,colour=State))+
-  geom_point()+
-  theme_bw()+
-  ylab("Population trend")+xlab("Range size (Germany)")+
-  facet_grid(~State)+stat_smooth(method="lm")+
-  theme(legend.position="none")
-q4<-ggplot(subset(trendEstimates,Stage=="adult"),aes(x=nuEuroGrids,y=trend,colour=State))+
-  geom_point()+
-  theme_bw()+
-  ylab("Population trend")+xlab("Range size (Europe)")+
-  facet_grid(~State)+stat_smooth(method="lm")+
-  theme(legend.position="none")
-q5<-ggplot(subset(trendEstimates,Stage=="adult"),aes(x=development.time..mean.,y=trend,colour=State))+
-  geom_point()+
-  theme_bw()+
-  ylab("Population trend")+xlab("Development time")+
-  facet_grid(~State)+stat_smooth(method="lm")+
-  theme(legend.position="none")
-q6<-ggplot(subset(trendEstimates,Stage=="adult"),aes(x=wing_size,y=trend,colour=State))+
-  geom_point()+
-  theme_bw()+
-  ylab("Population trend")+xlab("Wing length")+
-  facet_grid(~State)+stat_smooth(method="lm")+
+  theme_classic()+
+  ylab("Long-term trend")+
+  geom_hline(yintercept=0,color="black",linetype="dashed")+
+  xlab(expression("Temperature preference "*~degree*C))+
+  stat_smooth(fill="blue",colour="blue",method="lm",alpha=0.2)+
   theme(legend.position="none")
 
-ggplot(trendEstimates,aes(x=SZP^2,y=trend))+
+q2<-ggplot(trendEstimates,aes(x=Flight_start,y=trend))+
   geom_point()+
-  theme_bw()+
-  ylab("Population trend")+xlab("SZP")+
+  theme_classic()+
+  geom_hline(yintercept=0,color="black",linetype="dashed")+
+  ylab("Long-term trend")+xlab("Start of flight period (month)")+
+  stat_smooth(fill="blue",colour="blue",method="lm",alpha=0.2)+
+  theme(legend.position="none")
+
+q3<-ggplot(trendEstimates,aes(x=medHw,y=trend))+
+  geom_point()+
+  theme_classic()+
+  geom_hline(yintercept=0,color="black",linetype="dashed")+
+  ylab("Long-term trend")+xlab("Wing length (mm)")+
+  stat_smooth(fill="blue",colour="blue",method="lm",alpha=0.2)+
+  theme(legend.position="none")
+
+q4<-ggplot(trendEstimates,aes(x=VoltinismProp,y=trend))+
+  geom_point()+
+  theme_classic()+
+  geom_hline(yintercept=0,color="black",linetype="dashed")+
+  ylab("Long-term trend")+xlab("Votinism scale")+
+  stat_smooth(fill="blue",colour="blue",method="lm",alpha=0.2)+
+  theme(legend.position="none")
+
+trendEstimates$River <- ifelse(trendEstimates$river==1,"Yes","No")
+q5<-ggplot(trendEstimates,aes(x=River,y=trend))+
+  geom_boxplot(outlier.shape = NA)+
+  theme_classic()+
+  geom_hline(yintercept=0,color="black",linetype="dashed")+
+  ylab("Long-term trend")+xlab("River use")+
+  theme(legend.position="none")
+
+trendEstimates$Bog <- ifelse(trendEstimates$bog==1,"Yes","No")
+q6<-ggplot(trendEstimates,aes(x=Bog,y=trend))+
+  geom_boxplot()+
+  theme_classic()+
+  geom_hline(yintercept=0,color="black",linetype="dashed")+
+  ylab("Long-term trend")+xlab("Bog use")+
   stat_smooth(method="lm")+
   theme(legend.position="none")
 
-library(cowplot)
-plot_grid(q1,q2,q3,q4,q5,q6,align="v",ncol=1)
 
+plot_grid(q1,q2,q3,q4,q5,q6,align="v",ncol=2)
+ggsave("plots/Trait_plots.png",width=5,height=6)
 
-#temp and habitat preference
-q1<-ggplot(trendEstimates,aes(x=meanTemp,y=trend))+
+#plot trait vs change
+
+q1<-ggplot(trendEstimates,aes(x=meanTemp,y=log10(change)))+
   geom_point()+
   theme_bw()+
-  geom_hline(yintercept=0,colour="red",linetype="dashed")+
-  ylab("Population trend")+xlab("Temperature preference")+
-  stat_smooth(method="lm",se=F)+
+  ylab("Total occupancy change")+xlab("Temperature preference")+
+  stat_smooth(method="lm")+
   theme(legend.position="none")
 
-q2<-ggplot(trendEstimates,aes(x=medHw,y=trend))+
+q2<-ggplot(trendEstimates,aes(x=Flight_start,y=log10(change)))+
   geom_point()+
   theme_bw()+
-  stat_smooth(method="lm",se=F)+
-  geom_hline(yintercept=0,colour="red",linetype="dashed")+
-  ylab("Population trend")+xlab("Wing length")+
+  ylab("Total occupancy change")+xlab("Start of flight period")+
+  stat_smooth(method="lm")+
   theme(legend.position="none")
 
-q3<-ggplot(trendEstimates,aes(x=Flight_start,y=trend))+
+q3<-ggplot(trendEstimates,aes(x=DispPot,y=log10(change)))+
   geom_point()+
   theme_bw()+
-  stat_smooth(method="lm",se=F)+
-  geom_hline(yintercept=0,colour="red",linetype="dashed")+
-  ylab("Population trend")+xlab("Start of flight period")+
+  ylab("Total occupancy change")+xlab("Dispersal potential")+
+  stat_smooth(method="lm")+
   theme(legend.position="none")
 
-q4 <- ggplot(trendEstimates,aes(x=nuEuroGrids,y=trend))+
+q4<-ggplot(trendEstimates,aes(x=factor(Generalism),y=log10(change)))+
+  geom_boxplot()+
+  theme_bw()+
+  ylab("Total occupancy change")+xlab("Habitat breadth")+
+  stat_smooth(method="lm")+
+  theme(legend.position="none")
+
+q5<-ggplot(trendEstimates,aes(x=factor(river),y=log10(change)))+
+  geom_boxplot(outlier.shape = NA)+
+  theme_bw()+
+  ylab("Total occupancy change")+xlab("River use")+
+  theme(legend.position="none")
+
+q6<-ggplot(trendEstimates,aes(x=factor(bog),y=log10(change)))+
+  geom_boxplot()+
+  theme_bw()+
+  ylab("Total occupancy change")+xlab("Bog")+
+  stat_smooth(method="lm")+
+  theme(legend.position="none")
+
+q7<-ggplot(trendEstimates,aes(x=VoltinismProp,y=log10(change)))+
   geom_point()+
   theme_bw()+
-  stat_smooth(method="lm",se=F)+
-  geom_hline(yintercept=0,colour="red",linetype="dashed")+
-  ylab("Population trend")+xlab("European range size")+
+  ylab("Total occupancy change")+xlab("Votinism")+
+  stat_smooth(method="lm")+
   theme(legend.position="none")
 
-library(cowplot)
-plot_grid(q1,q2,q3,q4,align="h",nrow=1)
+q8<-ggplot(trendEstimates,aes(x=Overwintering,y=log10(change)))+
+  geom_boxplot()+
+  theme_bw()+
+  ylab("Total occupancy change")+xlab("Overwintering stage")+
+  stat_smooth(method="lm")+
+  theme(legend.position="none")
 
-####CWM#################################################################
+plot_grid(q1,q2,q3,q4,q5,q6,q7,q8,align="v",ncol=2)
 
-#total average
+###Community-level################################################
+####cwm#################################################################
 
 load("randomMatrix.RData")
-library(reshape2)
+
 randomMatrixM<-melt(randomMatrix,id=c("Year","Species"))
 randomMatrixM<-arrange(randomMatrixM,Species,Year)
 randomMatrixM$Species[!randomMatrixM$Species %in% alltraits$Species]
 randomTrends <- merge(randomMatrixM,alltraits,by="Species")
-
-#wing length
-tmeansMeans <- ddply(randomTrends,.(Year,variable),summarise,
-                     tmean = weighted.mean(medHw,value,na.rm=T))
-tmeansMeans <- ddply(tmeansMeans,.(Year),summarise,
-                     my.mean = mean(tmean),
-                     lowerCI = quantile(tmean,0.025),
-                     upperCI=quantile(tmean,0.975))
-
-g1<-ggplot(tmeansMeans)+
-  geom_line(aes(x=Year,y=my.mean))+
-  geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI),alpha=0.3)+
-  theme_bw()+
-  ylab("Wing length")+
-  theme(legend.position="none")
-
-#voltinism
-tmeansMeans <- ddply(randomTrends,.(Year,variable),summarise,
-                     tmean = weighted.mean(VoltinismProp,value,na.rm=T))
-tmeansMeans <- ddply(tmeansMeans,.(Year),summarise,
-                     my.mean = mean(tmean),
-                     lowerCI = quantile(tmean,0.025),
-                     upperCI=quantile(tmean,0.975))
-
-g2<-ggplot(tmeansMeans)+
-  geom_line(aes(x=Year,y=my.mean))+
-  geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI),alpha=0.3)+
-  theme_bw()+
-  ylab("Voltinism")+
-  theme(legend.position="none")
-
-
-#temp sd
-tmeansMeans <- ddply(randomTrends,.(Year,variable),summarise,
-                     tmean = weighted.mean(sdTemp,value,na.rm=T))
-tmeansMeans <- ddply(tmeansMeans,.(Year),summarise,
-                     my.mean = mean(tmean),
-                     lowerCI = quantile(tmean,0.025),
-                     upperCI=quantile(tmean,0.975))
-
-g3<-ggplot(tmeansMeans)+
-  geom_line(aes(x=Year,y=my.mean))+
-  geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI),alpha=0.3)+
-  theme_bw()+
-  ylab("Temp range")+
-  theme(legend.position="none")
-
-#tmean
-tmeansMeans <- ddply(randomTrends,.(Year,variable),summarise,
-                     tmean = weighted.mean(meanTemp,value))
-tmeansMeans <- ddply(tmeansMeans,.(Year),summarise,
-                     my.mean = mean(tmean),
-                     lowerCI = quantile(tmean,0.025),
-                     upperCI=quantile(tmean,0.975))
-
-g4<-ggplot(tmeansMeans)+
-  geom_line(aes(x=Year,y=my.mean))+
-  geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI),alpha=0.3)+
-  theme_bw()+
-  ylab("Temp pref")+
-  theme(legend.position="none")
-
 
 #european distribution
 tmeansMeans <- ddply(randomTrends,.(Year,variable),summarise,
@@ -273,62 +618,13 @@ tmeansMeans <- ddply(tmeansMeans,.(Year),summarise,
                      lowerCI = quantile(tmean,0.025),
                      upperCI=quantile(tmean,0.975))
 
-g5<-ggplot(subset(tmeansMeans,Year>1980))+
+tmeansMeans$Year <- tmeansMeans$Year+1979
+g1 <- ggplot(tmeansMeans)+
   geom_line(aes(x=Year,y=my.mean))+
   geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI),alpha=0.3)+
-  theme_bw()+
-  ylab("Range size")+
+  theme_classic()+
+  ylab("Mean range size")+
   theme(legend.position="none")
-
-#habitat preference
-randomTrends$Habitat.y <- ifelse(randomTrends$Habitat=="Standing",0,1)
-tmeansMeans <- ddply(randomTrends,.(Year,variable),summarise,
-                     tmean = weighted.mean(Habitat.y,value))
-tmeansMeans <- ddply(tmeansMeans,.(Year),summarise,
-                     my.mean = mean(tmean),
-                     lowerCI = quantile(tmean,0.025),
-                     upperCI=quantile(tmean,0.975))
-
-g6<-ggplot(tmeansMeans)+
-  geom_line(aes(x=Year,y=my.mean))+
-  geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI),alpha=0.3)+
-  theme_bw()+
-  ylab("Running water")+
-  theme(legend.position="none")
-
-
-#flight period start
-#check missing value
-tmeansMeans <- ddply(randomTrends,.(Year,variable),summarise,
-                     tmean = weighted.mean(Flight_start,value,na.rm=T))
-tmeansMeans <- ddply(tmeansMeans,.(Year),summarise,
-                     my.mean = mean(tmean),
-                     lowerCI = quantile(tmean,0.025),
-                     upperCI=quantile(tmean,0.975))
-
-g7<-ggplot(tmeansMeans)+
-  geom_line(aes(x=Year,y=my.mean))+
-  geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI),alpha=0.3)+
-  theme_bw()+
-  ylab("Start of flight period")+
-  theme(legend.position="none")
-
-#SZP
-tmeansMeans <- ddply(randomTrends,.(Year,variable),summarise,
-                     tmean = weighted.mean(SZP,value,na.rm=T))
-tmeansMeans <- ddply(tmeansMeans,.(Year),summarise,
-                     my.mean = mean(tmean),
-                     lowerCI = quantile(tmean,0.025),
-                     upperCI=quantile(tmean,0.975))
-
-g8<-ggplot(tmeansMeans)+
-  geom_line(aes(x=Year,y=my.mean))+
-  geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI),alpha=0.3)+
-  theme_bw()+
-  ylab("SZP")+
-  theme(legend.position="none")
-
-plot_grid(g4,g1,g7,g5,nrow=1)
 
 ####species richness#################################################
 
@@ -342,14 +638,14 @@ out$meanRichness<-apply(out[,2:1001],1,median)
 out$lowerRichness<-apply(out[,2:1001],1,function(x)quantile(x,0.025))
 out$upperRichness<-apply(out[,2:1001],1,function(x)quantile(x,0.975))
 
-g3 <- ggplot(subset(out,Year>1980))+
+out$Year <- out$Year+1979
+g2 <- ggplot(out)+
   geom_line(aes(x=Year,y=meanRichness))+
   geom_ribbon(aes(x=Year,ymin=lowerRichness,ymax=upperRichness),alpha=0.3)+
-  theme_bw()+
+  theme_classic()+
   ylab("Average species richness")
 
-library(cowplot)
-plot_grid(g1,g2,g3,nrow=1)
+plot_gridg1
 
 ###disimmilarity##############################################
 
@@ -420,510 +716,62 @@ ggplot(out)+
 
 #plot_grid(g1,g3,g2,nrow=1)
 
-####clustering############################################################################################
-
-#convert time series into a list
-annualDFS <- subset(annualDF,Year>1979)
-myTS <- dlply(annualDFS,.(Species),
-              function(x){x[,"mean"]})
-
-#preprocessing - mean
-myTS <- lapply(myTS,function(x){
-  x/mean(x)
-})
-
-#preprocessing - year 1
-myTS <- lapply(myTS,function(x){
-  x/x[1]
-})
-
-#combine and plot again
-temp <- ldply(myTS,function(x){
-  data.frame(Index=x,Year=1:length(x))
-})
-temp$Year <- temp$Year + min(annualDFS$Year)-1
-temp$Species <-temp$.id
-temp2 <- temp
-qplot(Year,Index,data=temp,colour=Species)+
-  theme(legend.position = "none")
-
-annualDFS <- subset(annualDF,Year>1979)
-
-###dwtclust#######################################################
-
-library("dtwclust")
-
-#SBD
-hc_sbd <- tsclust(myTS, type = "partitional", k=2:20L,
-                  preproc = zscore, 
-                  distance = "sbd",centroid = "shape")
-#DTW
-hc_sbd <- tsclust(myTS, ype="partitional", k= 2:20L,
-                  preproc = zscore, 
-                  distance = "dtw_basic", centroid = "dba")
-#pam
-hc_sbd <- tsclust(myTS, ype="partitional", k= 2:20L,
-                  preproc = zscore, 
-                  distance = "dtw_basic", centroid = "pam")
-
-#comparing cluster numbers
-names(hc_sbd) <- paste0("k_", 2L:20L)
-temp <- sapply(hc_sbd, cvi, type = "internal")
-#plot each one
-temp <- data.frame(temp)
-temp$Param <- row.names(temp)
-library(reshape2)
-temp <- melt(temp,id="Param")
-temp$variable <- as.numeric(gsub("k_","",temp$variable))
-qplot(variable,value,data=temp) + facet_wrap(~Param,scales="free")
-
-#get inflexion point for each plot
-#inflexion point is maximum absolute second derivative
-deriv <- function(x, y) diff(y) / diff(x)
-middle_pts <- function(x) x[-1] - diff(x) / 2
-out <- ldply(unique(temp$Param),function(x){
-  temp2 <- subset(temp,Param==x)
-  firstderiv <- deriv(temp2$variable, temp2$value)
-  #plot(firstderiv ~ temp2$variable[-1])
-  second_d <- deriv(middle_pts(temp2$variable), firstderiv)
-  #plot(second_d ~ temp2$variable[-c(1:2)])
-  df <- data.frame(second_d = second_d, 
-           midpts = middle_pts(middle_pts(temp2$variable)),
-           Param=x)
-  subset(df,second_d==max(second_d))
-})
-median(out$midpts)
-
-###pick K#####################################################################
-
-library("dtwclust")
-
-#SBD
-hc_sbd <- tsclust(myTS, type = "partitional", k=9L,
-                  preproc = zscore, 
-                  distance = "sbd",centroid = "shape")
-
-#DTW
-hc_sbd <- tsclust(myTS, ype="partitional", k= 3L,
-                  preproc = zscore, 
-                  distance = "dtw_basic", centroid = "dba")
-
-#pam
-hc_sbd <- tsclust(myTS, ype="partitional", k= 7L,
-                  preproc = zscore, 
-                  distance = "dtw", centroid = "pam")
-
-plot(hc_sbd)
-plot(hc_sbd, type = "sc")
-#plot(hc_sbd, type = "series", clus = 1L)
-plot(hc_sbd, type = "series")
-plot(hc_sbd, type = "centroids")
-
-#check
-clusterDF <- data.frame(Species=names(myTS),
-                        cluster=hc_sbd@cluster)
-
-annualDFS$cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
-plotCluster(annualDFS)
-
-###plot each cluster#######################################################
-
-#order cluster by numbers of species
-clusts <- table(clusterDF$cluster)
-clusterOrder <- rev(names(clusts)[order(clusts)])
-
-#examine cluster by cluster
-ggplot(subset(annualDFS,cluster==1))+
-  geom_line(aes(x=Year,y=mean))+
-  facet_wrap(~Species,scales="free")
-
-ggplot(subset(annualDFS,cluster==2))+
-  geom_line(aes(x=Year,y=mean))+
-  facet_wrap(~Species,scales="free")
-
-ggplot(subset(annualDFS,cluster==3))+
-  geom_line(aes(x=Year,y=mean))+
-  facet_wrap(~Species,scales="free")
-
-ggplot(subset(annualDFS,cluster==4))+
-  geom_line(aes(x=Year,y=mean))+
-  facet_wrap(~Species,scales="free")
-
-ggplot(subset(annualDFS,cluster==5))+
-  geom_line(aes(x=Year,y=mean))+
-  facet_wrap(~Species,scales="free")
-
-###plot clusters##############################################################
-
-myCentroids <- data.frame(Year=rep(sort(unique(annualDFS$Year)),length(hc_sbd@centroids)),
-                          Cluster=rep(1:length(hc_sbd@centroids),each=length(unique(annualDFS$Year))),
-                          ts=do.call(c,hc_sbd@centroids))
-myCentroids$Cluster <- factor(myCentroids$Cluster,levels=1:length(clusterOrder))
-
-#smooth predicted series
-ggplot(data=myCentroids,aes(x=Year,y=ts))+
-  geom_smooth(aes(colour=factor(Cluster),fill=factor(Cluster)))+
-  facet_wrap(~Cluster,nrow=1)+
-  theme_bw()+
-  theme(legend.position = "none")
-
-#smooth underlying dynamics
-temp2$Cluster <- clusterDF$cluster[match(temp2$Species,clusterDF$Species)]
-ggplot(data=temp2)+
-  geom_smooth(aes(x=Year,y=Index),size=rel(2))+
-  facet_wrap(~Cluster,ncol=1)+
-  theme_bw()+
-  theme(legend.position = "none")
-
-####bootstrap#############################################################
-
-#add cluster to original data frame
-annualDFS$Cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
-
-#rescale indicies to 1
-annualDFS <- ddply(annualDFS,.(Species,Code),function(x){
-  rescaleFactor = 1/x$mean[x$Year==1980]
-  x$sMean = x$mean * rescaleFactor
-  x$sSD = x$sd * rescaleFactor
-  x$rescale <- rescaleFactor
-  x$meanMean <- mean(x$mean)
-  
-  return(x)
-})
-
-gm_mean = function(x, na.rm=TRUE){
-  exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-}
-
-#bootstrap original values within each cluster at each step
-library(boot)
-
-myMean <- function(data, indices) {
-  
-  #randomply pick number
-  data$rMean <- apply(data,1,function(x)rnorm(1,
-                                              as.numeric(x["mean"]),
-                                              as.numeric(x["sd"])))
-  
-  #rescale number 
-  data$srMean <- data$rMean * data$rescale
-  
-  #pick bootstrp selection
-  d <- data[indices,] 
-  temp <-  gm_mean(d$srMean)
-  
-  return(temp)
-}
-
-# bootstrapping with 1000 replications
-applyBoot <- function(mydata){
-  results <- boot(data=mydata, statistic=myMean,
-                R=5000)
-  out <- boot.ci(results, type="bca")
-  data.frame(lowerQ = out$bca[1,4],
-           upperQ = out$bca[1,5])
-}
-
-applyBoot(annualDFS)
-
-mybootCI <- ddply(annualDFS,.(Year,Cluster),function(x)applyBoot(x))
-
-
-#plot
-ggplot(mybootCI)+
-  geom_ribbon(aes(x=Year,ymin=lowerQ,ymax=upperQ))+
-  facet_wrap(~Cluster,scales="free")
-
-###random#####################################################################
-
-#add cluster to original data frame
-annualDFS$Cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
-
-
-myMean <- function(mydata) {
-
-  rMean <- apply(mydata,1,function(x)rnorm(1,
-                                              as.numeric(x["mean"]),
-                                              as.numeric(x["sd"])))
-  return(gm_mean(rMean))
-  
-}
-
-
-# draw random number 1000 times and calculate the geometric mean
-applyRandomCI <- function(mydata,n.sim=1000){
-
-  myMeans <- NA
-  
-  for(i in 1:n.sim){
-    myMeans[i] <- myMean(mydata)
-  }
-  
- data.frame(lowerQ=quantile(myMeans,c(0.025)),upperQ=quantile(myMeans,c(0.975)))
-   
-}
-
-#
-myrandomCI <- ddply(annualDFS,.(Year,Cluster),function(x)applyRandomCI(x))
-
-
-#plot
-ggplot(myrandomCI)+
-  geom_ribbon(aes(x=Year,ymin=lowerQ,ymax=upperQ))+
-  facet_wrap(~Cluster,scales="free")
-
-
-###random scale####################################################################
-
-#add cluster to original data frame
-annualDFS$Cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
-
-myMean <- function(mydata) {
-  
-  rMean <- apply(mydata,1,function(x)rnorm(1,
-                                           as.numeric(x["mean"]),
-                                           as.numeric(x["sd"])))
-  
-  rMean <- rMean * mydata$rescale
-    
-  return(gm_mean(rMean))
-  
-}
-
-
-# draw random number 1000 times and calculate the geometric mean
-applyRandomCI <- function(mydata,n.sim=1000){
-  
-  myMeans <- NA
-  
-  for(i in 1:n.sim){
-    myMeans[i] <- myMean(mydata)
-  }
-  
-  data.frame(lowerQ=quantile(myMeans,c(0.025)),upperQ=quantile(myMeans,c(0.975)))
-  
-}
-
-#
-myrandomCI <- ddply(annualDFS,.(Year,Cluster),function(x)applyRandomCI(x))
-
-
-#plot
-ggplot(myrandomCI)+
-  geom_ribbon(aes(x=Year,ymin=lowerQ,ymax=upperQ))+
-  facet_wrap(~Cluster,scales="free")
-
-###random smooter########################################################
-
-#add cluster to original data frame
-annualDFS$Cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
-
-
-myGAMS <- function(mydata) {
-
-  mydata$rMean <- apply(mydata,1,function(x)rnorm(1,
-                                           as.numeric(x["mean"]),
-                                           as.numeric(x["sd"])))
-  
-  mydata$srMean <- mydata$rMean 
-  #mydata$srMean <- mydata$rMean * mydata$rescale
-  
-  #fit gam
-  require(mgcv)
-  gam1 <- loess(srMean ~ Year, data=mydata)
-  mydata$fits <- gam1$fitted
-  
-  return(mydata)
-   
-}
-
-#apply to each species
-
-
-# draw random number 1000 times and calculate the geometric mean
-applyRandomSmoothCI <- function(mydata,n.sim=1000){
-
-    Years <- min(mydata$Year):max(mydata$Year)
-    
-    #get means of the fits per year
-    myMeans <- matrix(data=NA,
-                      nrow=length(Years),
-                      ncol=n.sim)
-    
-    for(i in 1:n.sim){
-      mydata <- myGAMS(mydata)
-      myMeans[,i] <- as.numeric(tapply(mydata$fits,mydata$Year,gm_mean))
-    }
-    
-    lowerQ <- apply(myMeans,1,function(x)quantile(x,0.025))
-    medianQ <- apply(myMeans,1,function(x)quantile(x,0.5))
-    upperQ <- apply(myMeans,1,function(x)quantile(x,0.975))
-    
-    data.frame(Year=Years,lowerQ,medianQ,upperQ)
-    
-}
-  
-  
-myrandomSmoothCI <- ddply(annualDFS,.(Cluster),function(x)applyRandomSmoothCI(x))
-  
-#plot
-ggplot(myrandomSmoothCI)+
-  geom_line(aes(x=Year,y=medianQ))+
-  geom_ribbon(aes(x=Year,ymin=lowerQ,ymax=upperQ))+
-  facet_wrap(~Cluster,scales="free")
-
-###other plots##################################################################
-
-myOrder <- c(2,1,4,3)
-mylabels <- c("increasing","increasing-decreasing",
-              "decreasing-increasing","decreasing")
-
-mycols <- wes_palette("Darjeeling1", length(myOrder))
-myCentroids$Cluster <- factor(myCentroids$Cluster,levels=rev(myOrder))
-levels(myCentroids$Cluster) <- rev(mylabels)
-
-#plot as a smooth
-ggplot(data=myCentroids,aes(x=Year,y=ts))+
-  geom_smooth(aes(colour=factor(Cluster),fill=factor(Cluster)))+
-  facet_wrap(~Cluster,nrow=1)+
-  theme_bw()+
-  scale_fill_manual(values=rev(mycols))+
-  scale_colour_manual(values=rev(mycols))+
-  theme(legend.position = "none")+
-  ylab("relative occupancy prop")+
-  theme(axis.title = element_text(size=rel(1.2)),
-        axis.text = element_text(size=rel(1.2)),
-        strip.text = element_text(size=rel(1.2)))
-
-table(clusterDF$cluster)
-#8 35 16 18 
-
-#smooth underlying dynamics
-temp2$Cluster <- clusterDF$cluster[match(temp2$Species,clusterDF$Species)]
-myOrder <- c(1,2,3,4)
-mylabels <- c("increasing","increasing-decreasing",
-              "decreasing-increasing","decreasing")
-
-mycols <- wes_palette("Darjeeling1", length(myOrder))
-temp2$Cluster <- factor(temp2$Cluster,levels=myOrder)
-levels(temp2$Cluster) <- mylabels
-
-ggplot(data=temp2,aes(x=Year,y=Index))+
-  geom_smooth(aes(colour=Cluster,fill=Cluster))+
-  facet_wrap(~Cluster,ncol=1)+
-  theme_bw()+
-  scale_fill_manual(values=mycols)+
-  scale_colour_manual(values=mycols)+
-  theme(legend.position = "none")+
-  ylab("relative occupancy prop")
-
-###traits clusters########################################################
-
-clusterDF$Species[!clusterDF$Species %in% alltraits$Species]
-clusterDF <- merge(clusterDF,alltraits,by="Species",all.x=T)
-clusterDF$cluster <- factor(clusterDF$cluster,levels=myOrder)
-levels(clusterDF$cluster) <- mylabels
-
-#scale between 0 and 1
-stand <- function(x){
-  x = x[!is.na(x)]
-  (x-min(x))/(max(x)-min(x))
-}
-
-#get mean trait values for each cluster
-clusterTraits <- ddply(clusterDF,.(cluster),summarise,
-                       propDragon = median(ifelse(Suborder=="Anisoptera",1,0),na.rm=T),
-                       meanFlightStart = median(Flight_start,na.rm=T),
-                       propHabitat = mean(ifelse(Habitat=="Standing",1,0),na.rm=T),
-                       propHabitatBreadth = mean(ifelse(HabitatBreadth=="generalist",1,0),na.rm=T),
-                       meanRange = median(nuEuroGrids,na.rm=T),
-                       meanDevTime = median(devTime,na.rm=T),
-                       meanVoltinism = median(VoltinismProp,na.rm=T),
-                       meanTemp = median(meanTemp,na.rm=T),
-                       meanTempRange = median(sdTemp,na.rm=T),
-                       meanHW = median(medHw,na.rm=T))
-
-#plotting 
-clusterTraitsM <- melt(clusterTraits,id=c("cluster"))                       
-names(clusterTraitsM)[2:3] <- c("traits","meanValue")
-clusterTraitsM$cluster <- factor(clusterTraitsM$cluster)
-
-ggplot(clusterTraitsM)+
-  geom_point(aes(x=traits,y=meanValue,colour=cluster),shape="square")+
-  coord_flip()+
-  theme(legend.position="top")+
-  facet_wrap(~cluster)
-
-#check for which traits the clusters differ
-clusterDF$Habitat_Bin <- ifelse(clusterDF$Habitat=="Standing",1,0) 
-anova(lm(Flight_start ~ factor(cluster),data=clusterDF))
-anova(lm(nuEuroGrids ~ factor(cluster),data=clusterDF))
-anova(lm(devTime ~ factor(cluster),data=clusterDF))
-anova(lm(VoltinismProp ~ factor(cluster),data=clusterDF))
-anova(lm(meanTemp ~ factor(cluster),data=clusterDF))###
-anova(lm(sdTemp ~ factor(cluster),data=clusterDF))
-anova(lm(medHw ~ factor(cluster),data=clusterDF))
-anova(glm(Habitat_Bin ~ factor(cluster),family=binomial,data=clusterDF),test="Chisq")###
-#table(clusterDF$Habitat,clusterDF$cluster)     
- 
-trendEstimates$cluster <- clusterDF$cluster[match(trendEstimates$Species,clusterDF$Species)]
-summary(lm(trend~factor(cluster),data=trendEstimates,
-           weights=1/sd))
-
-#plot trait groups for each cluster
-
-#plot wing length for each cluster
-g1 <- ggplot(clusterDF)+
-  geom_boxplot(aes(x=cluster,y=medHw,fill=cluster))+
-  theme_bw()+ylab("Wing length (mm)")+xlab("Cluster")+
-  scale_fill_manual(values=mycols)+
-  theme(legend.position = "none")+
-  coord_flip()
-
-#plot temperature mean
-g2 <- ggplot(clusterDF)+
-  geom_boxplot(aes(x=cluster,y=meanTemp,fill=cluster))+
-  theme_bw()+ylab("Temp pref")+xlab("")+
-  scale_fill_manual(values=mycols)+
-  theme(legend.position = "none")+
-  coord_flip()
-
-#plot habitat use
-clusterDF$Habitat_Bin <- ifelse(clusterDF$Habitat=="Standing",0,1)
-clusterDF$HabitatBreadth_Bin <- ifelse(clusterDF$HabitatBreadth=="generalist",1,0)
-habitatSummary <- ddply(clusterDF,.(cluster),summarise,
-                        RunningWater=sum(Habitat_Bin),
-                        HabitatGeneralist=sum(HabitatBreadth_Bin),
-                        nuSpecies = length(Species))
-
-g3 <- ggplot(habitatSummary)+
-  geom_bar(aes(x=cluster,y=RunningWater/nuSpecies,fill=cluster),stat="identity")+
-  theme_bw()+ylab("Running water use")+xlab("Cluster")+
-  scale_fill_manual(values=mycols)+
-  theme(legend.position = "none")+
-  coord_flip()
-
-g4 <- ggplot(habitatSummary)+
-  geom_bar(aes(x=cluster,y=HabitatGeneralist/nuSpecies,fill=cluster),stat="identity")+
-  theme_bw()+ylab("Habitat generalism")+xlab("")+
-  scale_fill_manual(values=mycols)+
-  theme(legend.position = "none")+
-  coord_flip()
-  
-plot_grid(g1,g2,g3,g4,ncol=2)
-
-###change point analysis######################################################################
-
-library(changepoint)
-
-for(i in 1)
-m1=c(annualDF$mean[annualDF$Species=="Aeshna affinis"])
-m1.amoc=cpt.mean(m1)
-cpts(m1.amoc)
-plot(m1.amoc)
-
-ddply(annualDF,.(Species),function(x){
-  m1.amoc=cpt.mean(x$mean)
-  print(cpts(m1.amoc))
-})
-#none...
+###func diversity#########################################################
+
+library(FD)
+
+#gowdis computes the Gower dissimilarity from different trait types (continuous, ordinal, nominal, or binary)
+trendEstimates <- arrange(trendEstimates,Species)
+myTraits <- trendEstimates[,allTraits]
+row.names(myTraits) <- trendEstimates$Species
+ex1 <- gowdis(myTraits)
+
+myMatrix <- dcast(annualDF,Year~Species,value.var="mean")
+#Rows are sites and species are columns
+ex3 <- dbFD(ex1,myMatrix[,-1])#takes 1 min
+
+#Interesting output
+fdDF <- data.frame(Year=1980:2016,
+                   funcDiv=ex3$FDiv,
+                   funcDisp=ex3$FDis)
+
+qplot(Year,funcDiv,data=fdDF,geom="line")
+qplot(Year,funcDisp,data=fdDF,geom="line")
+
+ggplot(fdDF)+
+  geom_line(aes(x=Year,y=funcDiv))+
+  #geom_ribbon(aes(x=Year,ymin=lowerRichness,ymax=upperRichness),alpha=0.3)+
+  theme_classic()+
+  ylab("Average functional diversity")
+
+
+#apply as a function to each iteraction
+load("randomMatrix.RData")
+randomMatrixM <- melt(randomMatrix,id=c("Year","Species"))
+randomMatrixM <- arrange(randomMatrixM,Species,Year)
+randomMatrixM$Species[!randomMatrixM$Species %in% alltraits$Species]
+
+fdMeans <- ddply(randomMatrixM,.(variable),function(x){
+              
+                     myMatrix <- dcast(x,Year~Species,value.var="value")
+                     ex3 <- dbFD(ex1,myMatrix[,-1])
+                     
+                     #Interesting output
+                     fdDF <- data.frame(Year=1980:2016,
+                                        funcDiv=ex3$FDiv,
+                                        funcDisp=ex3$FDis)
+                     return(fdDF)
+                     
+                     })
+
+
+g3 <- ggplot(fdDF)+
+  geom_line(aes(x=Year,y=funcDisp))+
+  #geom_ribbon(aes(x=Year,ymin=lowerRichness,ymax=upperRichness),alpha=0.3)+
+  theme_classic()+
+  ylab("Functional diversity")
+
+plot_grid(g2,g1,g3,nrow=1)
+ggsave("plots/Community_level.png",width=7,height=2)
+
+###end###############################################################
