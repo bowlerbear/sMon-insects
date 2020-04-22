@@ -108,12 +108,6 @@ df <- subset(adultData, Year>=1980  & Year<2017)
 #myspecies="Aeshna cyanea"
 #stage="adult"
 
-#####################################################################################
-
-#remove sites visited once
-siteSummary <- ddply(df,.(MTB_Q),summarise,nuYears=length(unique(Year)))
-df <- subset(df, MTB_Q %in% siteSummary$MTB_Q[siteSummary$nuYears>1])
-
 ######################################################################################
 
 #get nationwide boxes
@@ -209,6 +203,12 @@ df <- subset(df, yday > obsPhenolData$minDay & yday < obsPhenolData$maxDay)
 # nrow(df)
 
 ######################################################################################
+#remove sites visited once
+siteSummary <- ddply(df,.(MTB_Q),summarise,nuYears=length(unique(Year)))
+df <- subset(df, MTB_Q %in% siteSummary$MTB_Q[siteSummary$nuYears>1])
+
+#####################################################################################
+
 
 #define a visit
 #df$visit <- paste(df$MTB_Q,df$Date,sep="_")
