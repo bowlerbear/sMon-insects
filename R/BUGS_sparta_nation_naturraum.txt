@@ -48,12 +48,6 @@
     #detection probability
     mean.p <- mean(p)
     
-    #change statistics
-    #occChange <- psi.fs[nyear]/psi.fs[1]
-    #e <- 0.0001
-    #logitChange <- logit(psi.fs[nyear]+e)-logit(psi.fs[1]+e)
-    
-
     #Priors 
     
     # State model priors
