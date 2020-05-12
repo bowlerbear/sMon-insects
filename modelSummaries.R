@@ -170,19 +170,9 @@ g1 <- ggplot(aes(x=order,y=mean),data=trends)+
 ####Naturraum models######################################################################
 
 #naturraum analysis
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 #original models
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum/5914536"
-
-#50000 iteractions
-
-#5000 iter
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_5000iter/6057269"
-#updated models
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_upated/6071906"
-#updated 2
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_upated2/6086325"
 
 #read in model summaries
 modelDF <- getModelSummaries(mdir)
@@ -445,13 +435,27 @@ mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/mode
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta_wo_eta/6329258"
 #without eta
 
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta_wo_rw/6354978"
+#without eta and rw (missing Calopteryx splendens)
+#trends between this and the last one are after similar
+
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6417285"
+#fixed subsetting code, with eta, ecoregion 1 and ecoregion 2 - but only works for a subset
+
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6441706"
+#fixed subsetting code, with eta, ecoregion 1 - but only works for a subset
+
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6466710"
+#fixed subsetting code, with eta, ecoregion 1, simple initial values - works for all!!
+
 #do we have the models for all species?
 speciesFiles <- list.files(mdir)
 mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
 
 #read in model summaries
 modelDF <- getModelSummaries(mdir)
-modelDF <- getCodeFromFile(modelDF,myfile="out_sparta_nation_naturraum_adult_")
+modelDF <- getCodeFromFile(modelDF,
+                           myfile="out_sparta_nation_naturraum_adult_")
 
 #annual tims series
 annualDF <- getBUGSfits(modelDF,param="psi.fs")
@@ -466,10 +470,42 @@ trendsDF <- getBUGSfits(modelDF,param="regres.psi")
 table(trendsDF$Rhat<1.1)
 trendsDF$Rhat[trendsDF$Rhat>1.1]
 
+###Nation naturraum#############################
+
+#included rw on persist and colonization
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_rw1/6336641"
+
+#do we have the models for all species?
+speciesFiles <- list.files(mdir)
+mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
+#missing quite a few
+#error in nodes for eta
+#Failure to calculate log density
+
+#read in model summaries
+modelDF <- getModelSummaries(mdir)
+modelDF <- getCodeFromFile(modelDF,
+                           myfile="out_dynamic_nation_naturraum_adult_")
+
+#annual tims series
+annualDF <- getBUGSfits(modelDF,param="psi.fs")
+annualDF$Year <- annualDF$ParamNu + 1979
+plotTS(annualDF)
+table(annualDF$Rhat<1.1)
+#FALSE  TRUE 
+#519  1368
+
+#trends
+trendsDF <- getBUGSfits(modelDF,param="regres.psi")
+table(trendsDF$Rhat<1.1)
+#FALSE  TRUE 
+#16    35
+
+trendsDF$Rhat[trendsDF$Rhat>1.1]
+
 ###Double random walk####################################################
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
-
+#include rw also on observation year effect
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_rw/6288917"
 #mistake in data processing
 
