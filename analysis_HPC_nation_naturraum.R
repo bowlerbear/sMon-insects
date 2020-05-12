@@ -209,7 +209,6 @@ df <- subset(df, MTB_Q %in% siteSummary$MTB_Q[siteSummary$nuYears>1])
 
 #####################################################################################
 
-
 #define a visit
 #df$visit <- paste(df$MTB_Q,df$Date,sep="_")
 df$visit <- paste(df$MTB_Q,df$Date,df$Beobachter,sep="_")
