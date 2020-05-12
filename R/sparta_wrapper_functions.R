@@ -239,6 +239,14 @@ getListLength<-function(df){
 }
 
 
+getBUGSfitsS <- function(out,param="psi.fs"){
+  out <- as.data.frame(out$summary)
+  if(all(!grepl("Param",names(out)))){out$Param <- row.names(out)}
+  out <- out[grepl(param,out$Param),]
+  out$ParamNu <- as.numeric(sub(".*\\[([^][]+)].*", "\\1", out$Param))
+  return(out)
+}
+
 getBUGSfits <- function(out,param="trend.year"){
   out <- as.data.frame(out)
   if(all(!grepl("Param",names(out)))){out$Param <- row.names(out)}
