@@ -22,7 +22,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 75000
+niterations = 50000
 
 Sys.time()
 
@@ -174,7 +174,6 @@ sum(is.na(df$CoarseNatur))
 # ####################################################################################
 
 #subset by average phenology across whole germany
-
 dfS <- subset(df, Species==myspecies)
 obsPhenolData <- summarise(dfS,
                            minDay = round(quantile(yday,0.05)),
@@ -384,8 +383,8 @@ listlengthDF$Species <- bugs.data$y
 all(row.names(occMatrix)==listlengthDF$visit)
 
 #set prior to zero if species never recorded in that state??
-temp <- ddply(listlengthDF,.(cnIndex),summarise,species=sum(Species))
-bugs.data$priorS <- ifelse(temp$species>0,0.99999,0.05)
+#temp <- ddply(listlengthDF,.(cnIndex),summarise,species=sum(Species))
+#bugs.data$priorS <- ifelse(temp$species>0,0.99999,0.05)
 
 #the below are used the linear regression model in the model file -see below
 bugs.data$sumX <- sum(1:bugs.data$nyear)
@@ -410,13 +409,12 @@ for(i in 1:nrow(zst)){
 
 inits <- function(){list(z = zst)}
 
-#inits <- function(){list(z = zst,
-                         #state.a = runif(bugs.data$nstate,0.0001,0.01),
-                         #lphi = runif(bugs.data$nstate,0,0.01),
-                         #lgam = runif(bugs.data$nstate,0,0.01),
-                         #effort.p = runif(1,0,0.01),
-                         #mu.phenol = runif(1,-0.01,0.01),
-                         #mu.phenol2 = runif(1,-0.01,0.01))}
+# inits <- function(){list(z = zst,
+#                          mu.p = runif(1,-2,2),
+#                          single.p = runif(1,0,0.001),
+#                          effort.p = runif(1,0,0.001),
+#                          mu.phenol = runif(1,-0.001,0.001),
+#                          mu.phenol2 = runif(1,-0.001,0.001))}
 
 ########################################################################################
 
@@ -430,20 +428,19 @@ n.cores = as.integer(Sys.getenv("NSLOTS", "1"))
 ###########################################################################################
 
 #choose model file
-modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum_wo_eta_wo_rw.txt"
-#modelfile="R/BUGS_sparta_nation_naturraum.txt"
+modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum.txt"
 
 effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
 
 #specify parameters to monitor
-params <- c("psi.fs","regres.psi","mean.p")
+params <- c("psi.fs","regres.psi","mean.p","mup")
 
 
 Sys.time()
 #run model
 out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=3,
-            n.chains=n.cores, n.burnin=niterations/4,
+            n.chains=n.cores, n.burnin=niterations/2,
             n.iter=niterations,parallel=T)
 
 Sys.time()
