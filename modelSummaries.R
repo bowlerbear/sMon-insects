@@ -455,6 +455,7 @@ mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/mode
 #fixed subsetting code, with eta, ecoregion 1, ecoregion 2,
 #simple initial values - works for all!!
 
+
 #do we have the models for all species?
 speciesFiles <- list.files(mdir)
 mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
@@ -482,12 +483,16 @@ trendsDF$Rhat[trendsDF$Rhat>1.1]
 #included rw on persist and colonization
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_rw1/6336641"
 
+#updates model fixing the site subset error
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum/6513010"
+#missing 8 species - errors in node eta (site-level random effect)
+#still have the problems at the start of the time series - upward bias
+#overly smoothed compared to simple model
+
 #do we have the models for all species?
 speciesFiles <- list.files(mdir)
 mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
-#missing quite a few
-#error in nodes for eta
-#Failure to calculate log density
+#missing 8
 
 #read in model summaries
 modelDF <- getModelSummaries(mdir)
@@ -602,8 +607,34 @@ save(randomMatrix,file="randomMatrix.RData")
 ###get z########################################################
 
 #HPC_update file
-#Calculate parameters for each site??? take too long
-#see what richness looks like
+#Get z for each site
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_sparta_upated/6522666"
+
+outA <- readRDS(paste(mdir,"out_sparta_updated_z_adult_Aeshna affinis.rds",sep="/"))
+outB <- readRDS(paste(mdir,"out_sparta_updated_z_adult_Aeshna caerulea.rds",sep="/"))
+
+for(i in list.files(mdir)){
+  outB <- readRDS(paste(mdir,i,sep="/"))
+  print(dim(outB))
+}
+
+#add arrays together
+outAll <- outA + outB
+
+#number of sites are different. how different??
+#max - 7961, min - 5192
+#use set of common sampled sites for all species - MTBQ and siteIndex
+#need to get list of sites used for each species
+
+#for each simulation run
+outAll <- outA[,1:10,] + outB[,1:10,]
+#get number of predicted species at each site in each year
+#get mean across simulation runs
+#95% across simulation runs
+meanRichness <- apply(outAll,c(2,3),mean) #per site/year
+#how to get do per year level
+
+###other functions###########################################
 
 plotTS <- function(x){
   require(ggplot2)
