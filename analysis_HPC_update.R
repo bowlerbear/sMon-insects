@@ -21,7 +21,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 10000
+niterations = 300
 
 ########################################################################################
 
@@ -38,8 +38,8 @@ n.cores = as.integer(Sys.getenv("NSLOTS", "1"))
 
 ###########################################################################################
 
-#choose model file
-myfolder <- "/work/bowler/Odonata_adult_nation_naturraum_upated/6071906"
+#choose model output files
+myfolder <- "/work/bowler/Odonata_adult_nation_naturraum_sparta/6502596"
 myfiles <- list.files(myfolder)
 myfile <- myfiles[grepl(myspecies,myfiles)]
 out <- readRDS(paste(myfolder,myfile,sep="/"))
@@ -47,11 +47,15 @@ out <- readRDS(paste(myfolder,myfile,sep="/"))
 Sys.time()
 
 #update model
-out <- update(out,n.iter=niterations)
+outU <- update(out,
+              parameters.to.save="z",
+              n.iter=niterations,
+              codaOnly=TRUE)
 
 Sys.time()
 
 #save as new output file
-saveRDS(out,file=paste0("out_dynamic_nation_naturraum_",stage,"_",myspecies,".rds"))
+saveRDS(outU$sims.list$z,
+        file=paste0("out_sparta_updated_z_",stage,"_",myspecies,".rds"))
 
 ########################################################################################
