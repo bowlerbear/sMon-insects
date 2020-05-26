@@ -103,7 +103,7 @@ adultData$Month <- month(adultData$Date)
 adultData <- subset(adultData,!is.na(Date))
 
 #fix names
-species<- read.delim("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Insects/traits/specieslist_odonata.txt")
+species<- read.delim("specieslist_odonata.txt")
 adultSpecies <- sort(unique(adultData$Species))
 adultSpecies[!adultSpecies%in%species$Species]
 
@@ -224,7 +224,7 @@ ggplot(subset(adultData,Year>1979 & Year <2016))+
 
 #plot number of records per MTB
 
-adultDataS <- adultData
+adultDataS <- subset(adultData,Year>=1980)
 
 #extract MTB from Q
 adultDataS$MTB <- gsub("/","",adultDataS$MTB_Q)
@@ -272,28 +272,38 @@ nrow(allDF)
 library(ggplot2)
 germanyMap <- spTransform(germanyMap,proj4string(mtbMap))
 AG <- fortify(germanyMap)
+
 ggplot()+ geom_polygon(data=AG, aes(long, lat, group = group), colour = "grey", fill=NA)+
-  geom_point(data=allDF,aes(x=x,y=y,colour=log(nuRecs)))+
-  scale_colour_viridis_c()+
+  geom_point(data=allDF,aes(x=x,y=y,colour=nuRecs),
+             shape=15,size=rel(0.45))+
+  scale_colour_viridis_c("Number of records",trans="log",
+                         breaks=c(1,20,400,8000),
+                         labels=c(1,20,400,8000),
+                         option="A",
+                         direction=-1)+
   xlab("X")+ylab("Y")+
+  coord_equal()+
   theme_void()
 
-ggsave(filename="plots/Adult_map_effort.png",width=8,height=7)
+ggsave(filename="plots/Adult_map_effort.png")
 ggsave(filename="plots/Juv_map_effort.png",width=8,height=7)
 
 #exclude sites visited once
-ggplot()+ geom_polygon(data=AG, aes(long, lat, group = group), colour = "grey", fill=NA)+
-  geom_point(data=subset(allDF,nuRecs==1),aes(x=x,y=y,colour=log(nuRecs)))+
-  scale_colour_viridis_c()+
+ggplot()+ geom_polygon(data=AG, aes(long, lat, group = group), 
+                       colour = "grey", fill=NA)+
+  geom_point(data=subset(allDF,nuYears>1),
+             aes(x=x,y=y,colour=nuRecs),
+             shape=15,size=rel(0.45))+
+  scale_colour_viridis_c("Number of records",trans="log",
+                         breaks=c(1,20,400,8000),
+                         labels=c(1,20,400,8000),
+                         option="A",
+                         direction=-1)+
   xlab("X")+ylab("Y")+
+  coord_equal()+
   theme_void()
 
-#not bad...
-ggplot()+ geom_polygon(data=AG, aes(long, lat, group = group), colour = "grey", fill=NA)+
-  geom_point(data=subset(allDF,nuYears!=1),aes(x=x,y=y,colour=log(nuRecs)))+
-  scale_colour_viridis_c()+
-  xlab("X")+ylab("Y")+
-  theme_void()
+ggsave(filename="plots/Adult_map_effort_sitesubset.png")
 
 #do we have data for all naturraums?
 load("mtbqsDF.RData")
