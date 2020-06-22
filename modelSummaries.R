@@ -410,9 +410,6 @@ table(colonizeDF$Rhat<1.1)
 
 ###Sparta models##########################################################
 
-a = 10
-
-
 #run on R server -  original sparta package function
 # mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/sparta-outputs"
 # 
@@ -489,10 +486,12 @@ mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/mode
 #still have the problems at the start of the time series - upward bias
 #overly smoothed compared to simple model
 
+#as above but without random priors and eta
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum/6524659"
+
 #do we have the models for all species?
 speciesFiles <- list.files(mdir)
 mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
-#missing 8
 
 #read in model summaries
 modelDF <- getModelSummaries(mdir)
@@ -587,7 +586,7 @@ randomMatrix <- ldply(myfiles,function(myfile){
 mymodel <- readRDS(paste(mdir,myfile,sep="/"))
   
 out <- ldply(1:37,function(i){
-  sims <- mymodel$sims.list$psi.fs[sample(1:56250,1000),i]
+  sims <- mymodel$sims.list$psi.fs[sample(1:25002,1000),i]
   cbind(Year=i,sims,Run=1:1000)
 })  
 
@@ -610,29 +609,85 @@ save(randomMatrix,file="randomMatrix.RData")
 #Get z for each site
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_sparta_upated/6522666"
 
+#check files
 outA <- readRDS(paste(mdir,"out_sparta_updated_z_adult_Aeshna affinis.rds",sep="/"))
 outB <- readRDS(paste(mdir,"out_sparta_updated_z_adult_Aeshna caerulea.rds",sep="/"))
 
-for(i in list.files(mdir)){
-  outB <- readRDS(paste(mdir,i,sep="/"))
-  print(dim(outB))
+#site dimension for each species
+mydims <- as.numeric()
+for(i in 1:length(list.files(mdir))){
+  outB <- readRDS(paste(mdir,list.files(mdir)[i],sep="/"))
+  mydims[i] <- dim(outB)[2]
+  rm(outB)
 }
 
-#add arrays together
-outAll <- outA + outB
+#check with number of sites calculated direct from data
+load("allSpeciesSites.RData")
+temp <- ddply(allSpeciesSites,.(Species),summarise,
+              nuSites = length(unique(MTB_Q)))
+all(temp$nuSites==mydims)#TRUE!!!!
 
-#number of sites are different. how different??
-#max - 7961, min - 5192
-#use set of common sampled sites for all species - MTBQ and siteIndex
-#need to get list of sites used for each species
+#get list of common MTBQs for all species
+mtbqSummary <- ddply(allSpeciesSites,.(MTB_Q),
+                     summarise,nuSpecies=length(unique(Species)))
+mtbqSummary <- subset(mtbqSummary,nuSpecies==77)
+nrow(mtbqSummary)
+#3243
+allSpeciesSites <- subset(allSpeciesSites,MTB_Q %in% mtbqSummary$MTB_Q)
+allSpeciesSites <- arrange(allSpeciesSites,Species,siteIndex)
 
-#for each simulation run
-outAll <- outA[,1:10,] + outB[,1:10,]
+
+#read in file for first species
+out1 <- readRDS(paste(mdir,"out_sparta_updated_z_adult_Aeshna affinis.rds",sep="/"))
+
+#subset to common files
+out1 <- out1[,allSpeciesSites$siteIndex[allSpeciesSites$Species=="Aeshna affinis"],]
+dim(out1)
+
+myspecies <- unique(allSpeciesSites$Species)
+
+#loop through each subsequent file, add them together,
+for(i in 2:50){
+  
+    #read in file  
+    outB <- readRDS(paste(mdir,list.files(mdir)[i],sep="/"))
+    
+    #restrict to common sites
+    outB <- outB[,allSpeciesSites$siteIndex[allSpeciesSites$Species==myspecies[i]],]
+    
+    #add files together
+    out1 <- out1 + outB
+   
+    #clean
+    rm(outB)
+}
+#done in the RStudio Server
+#files too big for here
+
+#read in output done on the server
+outAll <- readRDS("z_ALL.rds")
+dim(outAll)#sim,site,year
+max(outAll)
+mean(outAll)#21
+
+#we want mean number of species at a site in each year
+
 #get number of predicted species at each site in each year
-#get mean across simulation runs
-#95% across simulation runs
-meanRichness <- apply(outAll,c(2,3),mean) #per site/year
-#how to get do per year level
+richness <- apply(outAll,c(1,3),mean) #per sim/year
+dim(richness)
+
+#get mean and 95% across sims
+meanRichness <- apply(richness,2,mean)
+lowerQRichness <- apply(richness,2,function(x)quantile(x,0.025))
+upperQRichness <- apply(richness,2,function(x)quantile(x,0.975))
+Year <- 1980:2016
+richnessDF <- data.frame(Year,meanRichness,lowerQRichness,upperQRichness)
+
+ggplot(richnessDF)+
+  geom_line(aes(x=Year,y=meanRichness))+
+  geom_ribbon(aes(x=Year,ymin=lowerQRichness,ymax=upperQRichness))
+#almost the same as before....
+#save as the random matrix...or keep with original?
 
 ###other functions###########################################
 
@@ -641,9 +696,13 @@ plotTS <- function(x){
   g1 <- ggplot(x)+
     geom_line(aes(x=Year,y=mean))+
     geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
-    facet_wrap(~Code,ncol=6,scales="free_y")+
+    facet_wrap(~Code,ncol=6,scale="free")+
+    theme(axis.text = element_text(size =rel(0.55))) +
     ylab("Predicted occupancy")
   print(g1)
 }
+
+plotTS(annualDF)
+
 ggsave("plots/ts_scaled.png",height=10,width=7)
 
