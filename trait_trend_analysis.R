@@ -14,7 +14,7 @@ setwd("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects")
 load("alltraits.RData")
 
 #get original trends data
-# trendEstimates <- readRDS("model-outputs/modelTrends_nation_state_trends.rds")#more significant trait effects -  trends from draft 1
+# trendEstimates <- readRDS("model-outputs/modelTrends_nation_state_trends.rds")#trends from draft 1
 # trendEstimates <- readRDS("model-outputs/modelTrends_trends.rds")
 # #trendEstimates <- subset(trendEstimates,Param=="regres.psi")
 # trendEstimates$Species <- gsub("out_dynamic_nation_state_adult_","",trendEstimates$file)
@@ -66,7 +66,7 @@ trendEstimates$Trend <- "insignificant"
 
 #trend is annual proportional change in number of sites
 #mean 1% change over the 35 year - less than total change 5%
-0.05/36
+#0.05/36
 #[1] 0.001388889
 
 #standard deviation to large to detect a 5% change
@@ -84,6 +84,10 @@ trendEstimates$Trend[trendEstimates$X2.5.<0 & trendEstimates$X97.5.<0]<-"signifi
 #summary
 table(trendEstimates$Trend)
 
+#habitats of decreasing species - cols 50 -65
+subset(trendEstimates,Trend=="significant decrease")[,50:65]
+#all standing or slow-flowing species - pond species
+
 ###red list################################################################
 
 table(trendEstimates$RedList)
@@ -94,15 +98,37 @@ trendEstimates$RedList <- factor(trendEstimates$RedList,
                                  levels=c("not listed","least concern","near threatened",
                                           "vulnerable","endangered","critically endangered"))
 
+
+table(trendEstimates$RedList)
+
 g1 <- ggplot(trendEstimates)+
   geom_boxplot(aes(x=RedList,y=trend))+
+  geom_hline(yintercept=0,linetype="dashed")+
+  coord_flip()+
+  geom_text(x=1,y=0.01,label="1")+
+  geom_text(x=2,y=0.01,label="43")+
+  geom_text(x=3,y=0.01,label="6")+
+  geom_text(x=4,y=0.01,label="12")+
+  geom_text(x=5,y=0.01,label="6")+
+  geom_text(x=6,y=0.01,label="9")+
+  theme_classic()+
+  ylab("Long-term trend")+xlab("Red list category")
+
+#or add numbers of species to axes label??
+trendEstimates$RedListL <- trendEstimates$RedList
+levels(trendEstimates$RedListL) <- 
+  c("not listed (1)", "least concern (43)",
+    "near threatened (6)","vulnerable (12)",
+    "endangered (6)","critically endangered (9)")
+
+g1 <- ggplot(trendEstimates)+
+  geom_boxplot(aes(x=RedListL,y=trend))+
   geom_hline(yintercept=0,linetype="dashed")+
   coord_flip()+
   theme_classic()+
   ylab("Long-term trend")+xlab("Red list category")
 
 summary(lm(trend~RedList,data=subset(trendEstimates,RedList!="not listed")))
-
 summary(lm(trend~RedList-1,data=subset(trendEstimates,RedList!="not listed")))
 
 #no difference between near threatened and least concern
@@ -166,17 +192,20 @@ ggplot(trendEstimates)+
   xlab("Long-term trend")
 
 cor.test(trendEstimates$trend,log10(trendEstimates$change))
-#0.6818346
+#0.6742095
 
 #change of increasing species
+trendEstimates <- arrange(trendEstimates,trend)
 incr <- subset(trendEstimates,Trend=="significant increase")
 summary(incr$change)
+tail(incr[,c("Species","change","trend")])
+subset(annualDF,Species=="Crocothemis erythraea" & Year %in% c(1980,2016))
 
 #change of decreasing species
 decr <- subset(trendEstimates,Trend=="significant decrease")
 summary(decr$change)
-
-
+head(decr[,c("Species","change","trend")])
+subset(annualDF,Species=="Sympetrum danae" & Year %in% c(1980,2016))
 
 ###choose traits####################################################################
 
@@ -353,7 +382,7 @@ r.squaredGLMM(lme1)
 #genus explains a lot!!
 
 lme1 <- lmer(trend~  meanTemp + river + (1|Genus), data=trendEstimates)
-#river not significant after accounting for phylogeny
+#river not significant after accounting for phylogeny as a random effect
 
 ###change models#########################################################
 
@@ -410,6 +439,8 @@ table(trendEstimates$Suborder,trendEstimates$Trend)
 
 chisq.test(table(trendEstimates$Suborder,trendEstimates$Trend))
 #ns
+prop.test(c(23,12),c(50,27))
+prop.test(c(9,9),c(50,27))
 
 #family
 sum(is.na(trendEstimates$Family))
@@ -643,9 +674,7 @@ g2 <- ggplot(out)+
   geom_line(aes(x=Year,y=meanRichness))+
   geom_ribbon(aes(x=Year,ymin=lowerRichness,ymax=upperRichness),alpha=0.3)+
   theme_classic()+
-  ylab("Average species richness")
-
-plot_gridg1
+  ylab("Mean species richness")
 
 ###disimmilarity##############################################
 
@@ -665,7 +694,7 @@ out <- ddply(randomMatrixM,.(variable),function(x){
   data.frame(year,diss)
 })
 
-out$year <- as.numeric(as.character(out$year))
+out$year <- as.numeric(as.character(out$year))+1979
 out <- subset(out,year>1980)
 
 #take average across all
@@ -697,8 +726,8 @@ out <- ddply(randomMatrixM,.(variable),function(x){
   data.frame(year,div)
 })
 
-out$year <- as.numeric(as.character(out$year))
-out <- subset(out,year>1980)
+out$year <- as.numeric(as.character(out$year))+1979
+out <- subset(out,year>1979)
 
 #take average across all
 out <- ddply(out,.(year),summarise,
@@ -708,19 +737,21 @@ out <- ddply(out,.(year),summarise,
 
 out$Year <-as.numeric(as.character(out$year))
 
-ggplot(out)+
+g3 <- ggplot(out)+
   geom_line(aes(x=Year,y=meanD))+
   geom_ribbon(aes(x=Year,ymin=lowerCI,ymax=upperCI),alpha=0.3)+
-  theme_bw()+
-  ylab("Average diversity")
+  theme_classic()+
+  ylab("Mean diversity")
 
-#plot_grid(g1,g3,g2,nrow=1)
+plot_grid(g2,g3,g1,nrow=1)
+ggsave("plots/Community_level.png",width=7,height=2)
 
 ###func diversity#########################################################
 
 library(FD)
 
 #gowdis computes the Gower dissimilarity from different trait types (continuous, ordinal, nominal, or binary)
+trendEstimates$Species <- as.character(trendEstimates$Species)
 trendEstimates <- arrange(trendEstimates,Species)
 myTraits <- trendEstimates[,allTraits]
 row.names(myTraits) <- trendEstimates$Species
@@ -751,7 +782,8 @@ randomMatrixM <- melt(randomMatrix,id=c("Year","Species"))
 randomMatrixM <- arrange(randomMatrixM,Species,Year)
 randomMatrixM$Species[!randomMatrixM$Species %in% alltraits$Species]
 
-fdMeans <- ddply(randomMatrixM,.(variable),function(x){
+fdMeans <- ddply(subset(randomMatrixM,variable %in% 1:10),.(variable),
+                 function(x){
               
                      myMatrix <- dcast(x,Year~Species,value.var="value")
                      ex3 <- dbFD(ex1,myMatrix[,-1])
