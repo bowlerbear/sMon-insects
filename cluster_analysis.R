@@ -19,6 +19,10 @@ myTSlogit <- lapply(myTS,function(x){
   logit(x)
 })
 
+myTSlogit <- lapply(myTS,function(x){
+  logit(x)-logit(x)[1]
+})
+
 
 myTSlgr <- lapply(myTS,function(x){
   log(x/x[1])
@@ -52,7 +56,7 @@ temp <- ldply(myTS,function(x){
   data.frame(Index=x,Year=1:length(x))
 })
 temp$Year <- temp$Year + min(annualDFS$Year)-1
-temp$Species <-temp$.id
+#temp$Species <-temp$.id
 temp2 <- temp
 qplot(Year,Index,data=temp,colour=Species)+
   theme(legend.position = "none")
@@ -73,9 +77,11 @@ library(TSclust)
 #direct values
 #try dCORT and dCOR:1
 IP.dis <- diss(myTS, "CORT")#doesnt work well
-IP.dis <- diss(myTSm, "CORT")
+IP.dis <- diss(myTSm, "COR")
 IP.dis <- diss(myTSlogit, "COR")
-IP.dis <- diss(myTS, "COR")
+IP.dis <- diss(myTSgr, "COR")
+IP.dis <- diss(myTSlgr, "COR")
+IP.dis <- diss(myTSz, "COR")
 fit<- hclust(IP.dis)
 plot(fit)
 IP.clus <- pam(IP.dis, k = 5)$clustering
@@ -123,6 +129,16 @@ lapply(IP.clusList[,2:6],findStationary)
 
 getClusterStats(mydiss=IP.dis,myclustering=IP.clus)
 cluster.stats(IP.dis,IP.clus)
+#gr  
+#0.17384667 -0.03020397  0.11443949  0.19468101  0.09407528
+#logit          
+#0.19365092 0.27279460 0.06787094 0.03443074 0.24283877
+#lgr
+#0.20464290 -0.02920447  0.27307027  0.05001922  0.23158873 
+#m
+#0.17384667 -0.03020397  0.11443949  0.19468101  0.09407528 
+#z-score
+#0.17384667 -0.03020397  0.11443949  0.19468101  0.09407528
 
 getClusterStats(mydiss=hc_sbd@distmat,myclustering=hc_sbd@cluster)
 
@@ -160,6 +176,8 @@ clusterDF <- data.frame(Species=names(IP.clus),
                         cluster=as.numeric(IP.clus))
 
 annualDFS$cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
+
+table(clusterDF$cluster)
 
 plotCluster(annualDFS)
 
@@ -217,16 +235,16 @@ ggplot(annualDFS)+
   
 #identify outliers
 #cluster 1 - Aeshna affinis, Crocothermis erth
-#cluster 2 - Sympecma paedisca, Sympecma flav
-#cluster 3 - Sym pedemonatuns, Coen lunulatum
-#cluster 4 - Somatochlora arctica, Lestes barbarus
-#cluster 5 - Coengarion scitilim, Boyeria irene
+#cluster 2 - Sympecma paedisca, Sympecma flav, Sym pedemonatuns
+#cluster 3 - Somatochlora arctica, Lestes barbarus
+#cluster 4 - Leucorrhinia pectoralis
+#cluster 5 - Coengarion scitilim, Symp meridonale
 
 probSpecies <- c("Aeshna affinis","Crocothemis erythraea",
-                 "Sympecma paedisca","Sympetrum flaveolum",
-                 "Sympetrum pedemontanum","Coenagrion lunulatum",
+                 "Sympecma paedisca","Sympetrum flaveolum","Sympetrum pedemontanum",
                  "Somatochlora arctica","Lestes barbarus",
-                 "Coenagrion scitulum","Boyeria irene")
+                 "Leucorrhinia pectoralis","Sympetrum meridionale",
+                 "Coenagrion scitulum")
 
 annualDFS <- subset(annualDFS,!Species %in% probSpecies)
 ####bootstrap#############################################################
@@ -313,10 +331,10 @@ applyRandomCI <- function(mydata,n.sim=1000){
 #
 myrandomCI <- ddply(annualDFS,.(Year,Cluster),function(x)applyRandomCI(x))
 
-myorder <- c("1","5","4","2","3")
+myorder <- c("1","5","3","4","2")
 myrandomCI$Cluster <- factor(myrandomCI$Cluster,levels=myorder)
 myrandomCI$ClusterF <- myrandomCI$Cluster
-mylabels <- c("(1) increasing","(2) increasing late","(3) mixed","(4) decreasing late","(5) decreasing")
+mylabels <- c("(1) increasing","(2) increasing late","(3) mixed","(4) decreasing early","(5) decreasing")
 levels(myrandomCI$ClusterF) <- mylabels
 require(wesanderson)
 mycols <- wes_palette("Zissou1", 
@@ -324,7 +342,7 @@ mycols <- wes_palette("Zissou1",
                       type="continuous")[c(1,4,5,8,10)]
 
 #plot
-ggplot(myrandomCI)+
+gA <- ggplot(myrandomCI)+
   geom_ribbon(aes(x=Year,ymin=lowerQ,ymax=upperQ,
                   fill=factor(Cluster)))+
   facet_wrap(~ClusterF,scales="free",ncol=3)+
@@ -446,7 +464,12 @@ habitatSummary <- ddply(clusterDF,.(cluster),summarise,
 
 #order clusters
 clusterDF$cluster <- factor(clusterDF$cluster,levels=myorder)
-levels(clusterDF$cluster) <- c(1:5)
+habitatSummary$cluster <- factor(habitatSummary$cluster,levels=myorder)
+levels(clusterDF$cluster) <- 1:5
+levels(habitatSummary$cluster) <- 1:5
+clusterDF$cluster <- factor(clusterDF$cluster,levels=5:1)
+habitatSummary$cluster <- factor(habitatSummary$cluster,levels=5:1)
+
 
 #how does cluster relate to population trends?
 trendEstimates$cluster <- clusterDF$cluster[match(trendEstimates$Species,clusterDF$Species)]
@@ -458,7 +481,7 @@ summary(lm(trend~factor(cluster),data=trendEstimates))
 g1 <- ggplot(clusterDF)+
   geom_boxplot(aes(x=cluster,y=medHw,fill=cluster))+
   theme_bw()+ylab("Wing length")+xlab("Cluster")+
-  scale_fill_manual(values=rev(mycols))+
+  scale_fill_manual(values=mycols)+
   theme(legend.position = "none")+
   coord_flip()
 
@@ -466,7 +489,7 @@ g1 <- ggplot(clusterDF)+
 g2 <- ggplot(clusterDF)+
   geom_boxplot(aes(x=cluster,y=meanTemp,fill=cluster))+
   theme_bw()+ylab("Temp pref")+xlab("")+
-  scale_fill_manual(values=rev(mycols))+
+  scale_fill_manual(values=mycols)+
   theme(legend.position = "none")+
   coord_flip()
 
@@ -474,7 +497,7 @@ g2 <- ggplot(clusterDF)+
 g3 <- ggplot(clusterDF)+
   geom_boxplot(aes(x=cluster,y=VoltinismProp,fill=cluster))+
   theme_bw()+ylab("Voltinism")+xlab("")+
-  scale_fill_manual(values=rev(mycols))+
+  scale_fill_manual(values=mycols)+
   theme(legend.position = "none")+
   coord_flip()
 
@@ -482,15 +505,15 @@ g3 <- ggplot(clusterDF)+
 g4 <- ggplot(clusterDF)+
   geom_boxplot(aes(x=cluster,y=Flight_start,fill=cluster))+
   theme_bw()+ylab("Flight start")+xlab("")+
-  scale_fill_manual(values=rev(mycols))+
+  scale_fill_manual(values=mycols)+
   theme(legend.position = "none")+
   coord_flip()
 
 #habitat variables
 g5 <- ggplot(habitatSummary)+
   geom_bar(aes(x=cluster,y=RunningWater/nuSpecies,fill=cluster),stat="identity",colour="black")+
-  theme_bw()+ylab("Proportion of running water species")+xlab("Cluster")+
-  scale_fill_manual(values=rev(mycols))+
+  theme_bw()+ylab("Proportion of riverine species")+xlab("Cluster")+
+  scale_fill_manual(values=mycols)+
   theme(legend.position = "none")+
   coord_flip()
 
@@ -498,11 +521,12 @@ g6 <- ggplot(habitatSummary)+
   geom_bar(aes(x=cluster,y=Bog/nuSpecies,fill=cluster)
            ,stat="identity",color="black")+
   theme_bw()+ylab("Proportion of bog species")+xlab("")+
-  scale_fill_manual(values=rev(mycols))+
+  scale_fill_manual(values=mycols)+
   theme(legend.position = "none")+
   coord_flip()
 
 gB <- plot_grid(g1,g2,g5,g6,ncol=2)
+gB
 
 plot_grid(gA,gB,
           axis="tr",
