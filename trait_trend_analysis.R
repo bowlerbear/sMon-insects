@@ -632,6 +632,34 @@ q8<-ggplot(trendEstimates,aes(x=Overwintering,y=log10(change)))+
 plot_grid(q1,q2,q3,q4,q5,q6,q7,q8,align="v",ncol=2)
 
 ###Community-level################################################
+
+#plot for David
+out <- readRDS("modelSummary_Odonata_adult_Bav.rds")
+out <- getCodeFromFile(out,myfile="out_nuSpecies_adult_Bav_")
+out <- subset(out,grepl("psi.fs",out$Param))
+out$ParamNu <- as.numeric(sub(".*\\[([^][]+)].*", "\\1", out$Param))
+out$Year <- out$ParamNu+1979
+
+#for each species and year get 1000 possible occupancies
+
+outRandom <- ddply(out,.(Year,Species),summarise,
+                   vals = rnorm(1000,mean,sd),
+                   sim = 1:length(vals))
+
+#get mean occupancy per year
+outRandomMean <- ddply(outRandom,.(Year,sim),summarise,mean=mean(vals))
+outRandomQ <- ddply(outRandomMean,.(Year),summarise,
+                    medianM = median(mean),
+                    lowerQ = quantile(mean,0.025),
+                    upperQ = quantile(mean,0.975))
+
+ggplot(data=outRandomQ)+
+  theme_classic()+xlab("Year")+ylab("Mittlere Vorkommenswahrscheinlichkeit")+
+  geom_line(aes(x=Year,y=medianM))+
+  geom_ribbon(aes(x=Year,ymin=lowerQ,ymax=upperQ),alpha=0.4)
+
+ggsave("NULplot.tiff",dpi=600)
+
 ####cwm#################################################################
 
 load("randomMatrix.RData")
