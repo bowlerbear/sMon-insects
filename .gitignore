@@ -21,3 +21,5 @@ stateIndices.RData
 randomMatrix*
 df_sparta.rds
 model-auxfiles/*
+allSpeciesSites.RData
+vert.txt
