@@ -1,0 +1,136 @@
+
+  model{
+    
+    # State model
+    
+    for (i in 1:nsite){ 
+      for (t in 1:nyear){
+    
+    #data distribution
+      z[i,t] ~ dbern(muZ[i,t]) 
+
+    # model
+      logit(muZ[i,t]) <- mu[t] + cr.a[craumS[i]] + eta[i]
+      
+      }
+    }   
+    
+    ### Observation Model
+    for(j in 1:nvisit) {
+    
+    y[j] ~ dbern(Py[j]) #data is Y 
+    Py[j]<- z[site[j],year[j]]*p[j] 
+    
+    #detection model:
+    logit(p[j]) <-  mup[year[j]] + 
+                    mu.phenol * yday[j] + 
+                    mu.phenol2 * yday2[j]+
+                    effort.p * Effort[j] +
+                    single.p * singleList[j]
+    } 
+    
+
+    #predicted number of observations in a year
+    for(t in 1:nyear){
+      #sumP[t] <- sum(min(Py[year[t]],0))
+      p.t[t] <- mean(p[year[t]])
+    }
+
+  for(k in 1:nyear){ 
+    for(j in 1:nvisit){
+      grp[j,k] <- Py[j] * YrIdx[j,k]
+    }
+    sumP[k] <- sum(grp[,k])
+  }
+
+    # Derived parameters
+    
+    #metapopulation-level
+    for(t in 1:nyear){  
+      psi.fs[t] <- sum(z[1:nsite,t])/nsite
+    } 
+
+    # overall trend in occpuancy
+    sumY <- sum(psi.fs[1:nyear])
+    for (t in 1:nyear) {
+      sumxy[t] <- psi.fs[t]*t
+    }
+    sumXY <- sum(sumxy[1:nyear])
+    regres.psi <- (sumXY - ((sumX*sumY)/nyear))/(sumX2 - ((sumX*sumX)/nyear))#trend
+
+    
+    #detection probability
+    mean.p <- mean(p)
+    
+    #Priors 
+    
+    # State model priors
+    
+    #year
+    
+    #year 1
+    mu[1] ~ dnorm(0, 0.001)
+    
+    #other years
+    for(t in 2:nyear){
+      mu[t] ~ dnorm(mu[t-1], tau.a)
+    }
+    tau.a <- 1/(sd.a * sd.a)
+    sd.a ~ dt(0, 1, 1)T(0,) 
+
+    #cr.a random effects for coarse naturraum
+    for (s in 1:ncraum) {
+      cr.a[s] ~ dnorm(0, tau.cr.a)       
+    } 
+    tau.cr.a <- 1/(sd.cr.a * sd.cr.a)
+    sd.cr.a ~ dt(0, 1, 1)T(0,)
+    
+    #r.a random effects for naturraum
+    for (s in 1:nraum) {
+      r.a[s] ~ dnorm(0, tau.r.a)       
+    } 
+    tau.r.a <- 1/(sd.r.a * sd.r.a)
+    sd.r.a ~ dt(0, 1, 1)T(0,)
+    
+    #site effects
+    for (i in 1:nsite) {
+      eta[i] ~ dnorm(0, tau.eta)       
+    } 
+    tau.eta <- 1/(sd.eta * sd.eta) 
+    sd.eta ~ dt(0, 1, 1)T(0,)
+  
+    #####################################################
+    
+    #Observation model priors
+
+    #year
+    for(t in 1:nyear){
+      mup[t] ~ dnorm(mu.p, tau.ap)
+    }
+    mu.p ~ dnorm(0, 0.001)
+    tau.ap <- 1/(sd.ap * sd.ap)
+    sd.ap ~ dt(0, 1, 1)T(0,)  
+    
+    #effort effects
+    effort.p ~ dnorm(0, 0.001)
+    single.p ~ dnorm(0, 0.001)
+    
+    #phenology effects
+    mu.phenol ~ dnorm(0,0.001)
+    mu.phenol2 ~ dnorm(0,0.001)
+ 
+    #Discrepancy model
+    e <- 0.0001
+    for(t in 1:nyear){
+      chi2[t] <- pow((sumObs[t]-sumP[t]),2) / (sumP[t]+e)         
+      Obs.new[t] ~ dpois(sumP[t])      
+      chi2.new[t] <- pow((Obs.new[t]-sumP[t]),2) / (sumP[t]+e)
+    }
+    
+    #Add up discrepancy measures for entire data set
+    fit <- sum(chi2)                    
+    fit.new <- sum(chi2.new)
+    
+    
+  }
+    
