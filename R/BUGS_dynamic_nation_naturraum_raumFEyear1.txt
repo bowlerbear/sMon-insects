@@ -10,7 +10,8 @@
     #data distribution
     z[i,1] ~ dbern(psi1[i])
     
-    logit(psi1[i]) <- r.a[raumS[i]] + cr.a[craumS[i]] + random.site[i]
+    #FE for cr, RE for r and site
+    logit(psi1[i]) <- cr.a[craumS[i]] + r.a[raumS[i]] 
 
     for (t in 2:nyear){
     
@@ -30,13 +31,12 @@
     
     #detection model:
     logit(p[j]) <-  mup[year[j]] + 
-                    lp[craum[j]] +
-                    lp.r[raum[j]] +
-                    phenol.s[craum[j]] * yday[j] + 
-                    phenol2.s[craum[j]] * pow(yday[j],2)+
+                    mu.phenol * yday[j] + 
+                    mu.phenol2 * yday2[j]+
                     effort.p * Effort[j] +
                     single.p * singleList[j]
     } 
+    
     
     # Derived parameters
     
@@ -53,23 +53,22 @@
     sumXY <- sum(sumxy[1:nyear])
     regres.psi <- (sumXY - ((sumX*sumY)/nyear))/(sumX2 - ((sumX*sumX)/nyear))#linear regression trend
 
-
     meanPersist <- mean(persist)
     meanColonize <- mean(colonize)
     
     #detection probability
     mean.p <- mean(p)
-
+    
     #Priors 
     
     # State model priors
-    
     ##########################################
+    
     #year 1 spatial effects
     
     #cr.a fixed effects for couarse naturraum
     for (s in 1:ncraum) {
-      cr.a.prop[s] ~ dunif(0.000001,priorS1[s])
+      cr.a.prop[s] ~ dunif(0,1)
       cr.a[s] <- logit(cr.a.prop[s])     
     } 
 
@@ -79,63 +78,34 @@
     } 
     tau.r.a <- 1/(sd.r.a * sd.r.a)
     sd.r.a ~ dt(0, 1, 1)T(0,)
-
-    #site random effects
-    for (s in 1:nsite) {
-      random.site[s] ~ dnorm(0, tau.site.a)       
-    } 
-    tau.site.a <- 1/(sd.site.a * sd.site.a)
-    sd.site.a ~ dt(0, 1, 1)T(0,)
     
     ################################
-    
-    #change priors for persistence and colonization
-    
+    #priors for persistence and colonization
+  
     for(t in 1:(nyear-1)){
       persist[t] ~ dunif(0,1)
       colonize[t] ~ dunif(0,1)
     }
     
-    ################################
     #Observation model priors
-    
-    #intercept
-    int.dp ~ dnorm(0,0.01)
-    
-    #random year effects
-    for(t in 1:nyear){
-      mup[t]  ~ dnorm(0,tautp)
+    ################################
+  
+    #random year variation
+    for (t in 1:nyear) {
+      mup[t] ~ dnorm(a.mu.p, a.tau.p)            
     }
-    tautp <- 1/(sdtp * sdtp)
-    sdtp ~ dt(0, 1, 1)T(0,)
-    
-    #naturraum-level variaion - fixed effects
-    for(s in 1:ncraum){
-      lp[s]  ~ dnorm(0,0.01)
-    }
-
-    #random site effects
-    for(i in 1:nraum){
-      lp.r[i]  ~ dnorm(0,tau.rp)
-    }
-    tau.rp <- 1/(sd.rp * sd.rp)
-    sd.rp ~ dt(0, 1, 1)T(0,)
+    mu.prop ~ dunif(0,1)
+    a.mu.p <- logit(mu.prop)
+    a.tau.p <- 1 / (a.sd.p * a.sd.p)                 
+    a.sd.p ~ dt(0, 1, 1)T(0,) 
     
     #effort effects
     effort.p ~ dnorm(0, 0.01)
     single.p ~ dnorm(0, 0.01)
     
-    #random slopes for phenology
-    for(s in 1:ncraum){
-      phenol.s[s] ~ dnorm(mu.phenol, tau.phenol)
-      phenol2.s[s] ~ dnorm(mu.phenol2, tau.phenol2)
-    }
+    #phenology
     mu.phenol ~ dnorm(0,0.01)
     mu.phenol2 ~ dnorm(0,0.01)
-    tau.phenol <- 1/(sd.phenol * sd.phenol)
-    tau.phenol2 <- 1/(sd.phenol2 * sd.phenol2)
-    sd.phenol ~ dt(0, 1, 1)T(0,)
-    sd.phenol2 ~ dt(0, 1, 1)T(0,) 
     
   }
     
