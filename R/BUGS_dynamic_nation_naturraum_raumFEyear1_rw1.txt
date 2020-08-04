@@ -10,6 +10,7 @@
     #data distribution
     z[i,1] ~ dbern(psi1[i])
     
+    #FE for cr, RE for r and site
     logit(psi1[i]) <- cr.a[craumS[i]] + r.a[raumS[i]] + eta[i]
 
     for (t in 2:nyear){
@@ -31,7 +32,7 @@
     #detection model:
     logit(p[j]) <-  mup[year[j]] + 
                     mu.phenol * yday[j] + 
-                    mu.phenol2 * pow(yday[j],2)+
+                    mu.phenol2 * yday2[j]+
                     effort.p * Effort[j] +
                     single.p * singleList[j]
     } 
@@ -62,11 +63,12 @@
     
     # State model priors
     ##########################################
+    
     #year 1 spatial effects
     
     #cr.a fixed effects for couarse naturraum
     for (s in 1:ncraum) {
-      cr.a.prop[s] ~ dunif(0.0001,0.9999)
+      cr.a.prop[s] ~ dunif(0,1)
       cr.a[s] <- logit(cr.a.prop[s])     
     } 
 
@@ -90,8 +92,8 @@
     
     #random walk models
     
-    persist[1] ~ dunif(0.0001,0.9999)
-    colonize[1] ~ dunif(0.0001,0.9999)
+    persist[1] ~ dunif(0,1)
+    colonize[1] ~ dunif(0,1)
     logit.persist[1] <- logit(persist[1])
     logit.colonize[1] <- logit(colonize[1])
     
@@ -116,7 +118,7 @@
     for (t in 1:nyear) {
       mup[t] ~ dnorm(a.mu.p, a.tau.p)            
     }
-    mu.prop ~ dunif(0.0001,0.9999)
+    mu.prop ~ dunif(0,1)
     a.mu.p <- logit(mu.prop)
     a.tau.p <- 1 / (a.sd.p * a.sd.p)                 
     a.sd.p ~ dt(0, 1, 1)T(0,) 
