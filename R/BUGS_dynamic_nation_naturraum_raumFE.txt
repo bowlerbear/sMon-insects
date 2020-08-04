@@ -21,10 +21,10 @@
       muZ[i,t] <- persist[i,t-1]*z[i,t-1] + colonize[i,t-1]*(1-z[i,t-1])
     
     #persistence occupancy model
-      logit(persist[i,t-1]) <- muphi[t-1] + r.p[raumS[i]] + cr.p[craumS[i]] 
+      logit(persist[i,t-1]) <- muphi[t-1] + cr.p[craumS[i]] 
     
     #colonization occupancy model
-      logit(colonize[i,t-1]) <- mugam[t-1] + r.c[raumS[i]] + cr.c[craumS[i]] 
+      logit(colonize[i,t-1]) <- mugam[t-1] + cr.c[craumS[i]] 
 
       }
     }   
