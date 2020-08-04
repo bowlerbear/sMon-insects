@@ -22,7 +22,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 150000
+niterations = 75000
 
 Sys.time()
 
@@ -75,8 +75,8 @@ adultData <- subset(adultData,yday!=1)
 #remove MTBQs not in the shapefile = "51561" "50561" "49563"
 #remove MTBQS without naurraum 81443, 44553, 58401
 adultData$MTB_Q <- gsub("/","",adultData$MTB_Q)
-adultData <- subset(adultData, !MTB_Q %in% c("51561","50561","49563","55484","63012",
-                                             "81443","44553","58401"))
+adultData <- subset(adultData, !MTB_Q %in% c("51561","50561","49563","55484",
+                                             "63012","81443","44553","58401"))
 
 ###################################################################################
 #filter to 1980 onwards
@@ -203,6 +203,7 @@ df <- subset(df, yday > obsPhenolData$minDay & yday < obsPhenolData$maxDay)
 # nrow(df)
 
 ######################################################################################
+
 #remove sites visited once
 siteSummary <- ddply(df,.(MTB_Q),summarise,nuYears=length(unique(Year)))
 df <- subset(df, MTB_Q %in% siteSummary$MTB_Q[siteSummary$nuYears>1])
@@ -364,14 +365,22 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   craumR = raumInfo$cnIndex,
                   raumS = siteInfo$nnIndex,
                   boxS = siteInfo$boxIndex,
-                  yday = listlengthDF$yday - median(listlengthDF$yday),
-                  nuSpecies = log(listlengthDF$nuSpecies) - log(median(listlengthDF$nuSpecies)),
+                  yday = listlengthDF$yday - 
+                    median(listlengthDF$yday),
+                  yday2 = listlengthDF$yday^2 - 
+                    median(listlengthDF$yday^2),
+                  nuSpecies = log(listlengthDF$nuSpecies) - 
+                    log(median(listlengthDF$nuSpecies)),
                   singleList = listlengthDF$singleList,
                   shortList = listlengthDF$shortList,
-                  nuRecs = log(listlengthDF$nuRecords) - log(median(listlengthDF$nuRecords)),
-                  nuSS = log(listlengthDF$samplingSites) - log(median(listlengthDF$samplingSites)),# up to 3
-                  expertise = log(listlengthDF$expertise)-median(log(listlengthDF$expertise)),
-                  RpS = log(listlengthDF$RpS) - median(log(listlengthDF$RpS)),
+                  nuRecs = log(listlengthDF$nuRecords) - 
+                    log(median(listlengthDF$nuRecords)),
+                  nuSS = log(listlengthDF$samplingSites) - 
+                    log(median(listlengthDF$samplingSites)),# up to 3
+                  expertise = log(listlengthDF$expertise)-
+                    median(log(listlengthDF$expertise)),
+                  RpS = log(listlengthDF$RpS) - 
+                    median(log(listlengthDF$RpS)),
                   y = as.numeric(occMatrix[,myspecies]),
                   siteStates = siteStates,
                   nsiteState = statesSiteNu,
@@ -412,16 +421,16 @@ for(i in 1:nrow(zst)){
 }  
 
 #mu.prop - mean probability to see it on a visit given its there
-dets <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=mean,na.rm=T)
-meanDets <- mean(dets[dets>0],na.rm=T)
-expectedP <- ifelse(meanDets<=0.1|is.na(meanDets)|is.null(meanDets),0.1,meanDets)
+#dets <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=mean,na.rm=T)
+#meanDets <- mean(dets[dets>0],na.rm=T)
+#expectedP <- ifelse(meanDets<=0.1|is.na(meanDets)|is.null(meanDets),0.1,meanDets)
 
-inits <- function(){list(z = zst,
-                         mu.prop = expectedP,
-                         effort.p = runif(1,-0.1,0.1),
-                         single.p = runif(1,-0.1,0.1),
-                         mu.phenol = runif(1,-0.1,0.1),
-                         mu.phenol2 = runif(1,-0.1,0.1))}
+inits <- function(){list(z = zst)}
+                         #mu.prop = expectedP,
+                         #effort.p = runif(1,-0.1,0.1),
+                         #single.p = runif(1,-0.1,0.1),
+                         #mu.phenol = runif(1,-0.1,0.1),
+                         #mu.phenol2 = runif(1,-0.1,0.1))}
 
 ########################################################################################
 
@@ -435,7 +444,7 @@ n.cores = as.integer(Sys.getenv("NSLOTS", "1"))
 ###########################################################################################
 
 #choose model file
-modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_naturraum_raumFEyear1_rw1.txt"
+modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_naturraum_raumFEyear1.txt"
 
 effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
@@ -447,8 +456,8 @@ params <- c("mean.p","regres.psi","psi.fs",
 
 Sys.time()
 #run model
-out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=3,
-            n.chains=n.cores, n.burnin=niterations/4,
+out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=5,
+            n.chains=n.cores, n.burnin=niterations/2,
             n.iter=niterations,parallel=T)
 
 Sys.time()
@@ -457,8 +466,6 @@ Sys.time()
 #save as output file
 saveRDS(out,file=paste0("out_dynamic_nation_naturraum_",stage,"_",myspecies,".rds"))
 
-########################################################################################
-
-
+######################################################################################
 
 
