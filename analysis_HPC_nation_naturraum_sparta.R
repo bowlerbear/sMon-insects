@@ -83,6 +83,10 @@ adultData <- subset(adultData, !MTB_Q %in% c("51561","50561","49563","55484","63
 
 df <- subset(adultData, Year>=1980  & Year<2017)
 
+
+#and subset to Hessen
+df <- subset(df, File=="adult_datafile_He.rds")
+
 #write list of species###############################################################
 
 #summaryInfo <- ddply(df, .(Species), summarise, nuRecs=length(Species)) 
@@ -298,18 +302,21 @@ raumInfo <- unique(siteInfo[,c("nnIndex","cnIndex")])
 
 ########################################################################################
 
-#get matrix of site versus state
-
+# #get matrix of site versus state
+# 
 siteInfo$dummy <- 1
 siteStates <- acast(siteInfo,siteIndex~stateIndex,value.var="dummy")
 siteStates[is.na(siteStates)] <- 0
 
 #get number of sites for each state
 statesSiteNu <- as.numeric(colSums(siteStates))
+# 
+#get number of sites per
+nsite_cr <- table(siteInfo$cnIndex)
 
-#########################################################################################
-#get matrix of site versus raum
-
+# #########################################################################################
+# #get matrix of site versus raum
+# 
 siteInfo$dummy <- 1
 siteRaums <- acast(siteInfo,siteIndex~cnIndex,value.var="dummy")
 siteRaums[is.na(siteRaums)] <- 0
@@ -362,15 +369,16 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   stateS = siteInfo$stateIndex,
                   craumS = siteInfo$cnIndex,
                   craumR = raumInfo$cnIndex,
+                  nsite_cr = as.numeric(nsite_cr),
                   raumS = siteInfo$nnIndex,
                   boxS = siteInfo$boxIndex,
                   yday = listlengthDF$yday - median(listlengthDF$yday),
                   yday2 = listlengthDF$yday^2 - median(listlengthDF$yday^2),
-                  nuSpecies = log(listlengthDF$nuSpecies) - log(median(listlengthDF$nuSpecies)),
+                  nuSpecies = log(listlengthDF$nuSpecies) - median(log(listlengthDF$nuSpecies)),
                   singleList = listlengthDF$singleList,
                   shortList = listlengthDF$shortList,
-                  nuRecs = log(listlengthDF$nuRecords) - log(median(listlengthDF$nuRecords)),
-                  nuSS = log(listlengthDF$samplingSites) - log(median(listlengthDF$samplingSites)),# up to 3
+                  nuRecs = log(listlengthDF$nuRecords) - median(log(listlengthDF$nuRecords)),
+                  nuSS = log(listlengthDF$samplingSites) - median(log(listlengthDF$samplingSites)),# up to 3
                   expertise = log(listlengthDF$expertise)-median(log(listlengthDF$expertise)),
                   RpS = log(listlengthDF$RpS) - median(log(listlengthDF$RpS)),
                   y = as.numeric(occMatrix[,myspecies]),
@@ -390,8 +398,44 @@ all(row.names(occMatrix)==listlengthDF$visit)
 bugs.data$sumX <- sum(1:bugs.data$nyear)
 bugs.data$sumX2 <- sum((1:bugs.data$nyear)^2)
 
-#######################################################################################
+#########################################################################
+#indices for cream
+#by site and year
 
+sy.combos <- expand.grid(Site = siteInfo$siteIndex, 
+                         Year = unique(bugs.data$year))
+sy.combos <- arrange(sy.combos,Year,Site)
+head(sy.combos)
+nSiteYears <- nrow(sy.combos)
+
+#by craum and year
+cy.combos <- expand.grid(Craum = unique(siteInfo$cnIndex), 
+                         Year = unique(bugs.data$year))
+cy.combos <- arrange(cy.combos,Year,Craum)
+head(cy.combos)
+nCraumYears <- nrow(cy.combos)
+sy.combos$craum <- siteInfo$cnIndex[match(sy.combos$Site,siteInfo$siteIndex)]
+
+Index <- matrix(data=0,
+                nrow = nSiteYears,
+                ncol = nCraumYears)
+
+for(i in 1:nrow(Index)){
+  Index[i,which(cy.combos$Craum==sy.combos$craum[i] & 
+                  cy.combos$Year==sy.combos$Year[i])] <- 1
+}
+
+cy.combos <- as.matrix(cy.combos)
+
+#add to bugs data.
+bugs.data$nSiteYears = nSiteYears
+bugs.data$nCraumYears = nCraumYears
+bugs.data$Index = Index
+bugs.data$Site = sy.combos$Site
+bugs.data$Year = sy.combos$Year
+bugs.data$cy.combos = cy.combos
+
+#########################################################################
 #specify initial values
 zst <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=max)
 zst [is.infinite(zst)] <- NA
@@ -434,19 +478,18 @@ effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
 
 #specify parameters to monitor
-params <- c("psi.fs","regres.psi","mean.p","mup")
-
+params <- c("sum.fs","psi.fs","regres.psi","mean.p","mup")
 
 Sys.time()
 #run model
-out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=3,
-            n.chains=n.cores, n.burnin=niterations/2,
+out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=5,
+            n.chains=n.cores, n.burnin=round(niterations/2),
             n.iter=niterations,parallel=T)
 
 Sys.time()
 
-#save as output file
-saveRDS(out,file=paste0("out_sparta_nation_naturraum_",stage,"_",myspecies,".rds"))
+#save as output file - for regional/dynamic model
+saveRDS(out,file=paste0("out_sparta_nation_naturraum_Hessen_",stage,"_",myspecies,".rds"))
 
 ########################################################################################
 
