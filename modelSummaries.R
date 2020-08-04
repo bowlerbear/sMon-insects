@@ -448,7 +448,7 @@ mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/mode
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6466710"
 #fixed subsetting code, with eta, ecoregion 1, simple initial values - works for all!!
 
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6474342"
+ 
 #fixed subsetting code, with eta, ecoregion 1, ecoregion 2,
 #simple initial values - works for all!!
 
