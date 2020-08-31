@@ -15,7 +15,7 @@ Read in data frame
 
 library(rgdal)
 
-datafile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/raw-data/Saxony/Libellen",
+datafile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/raw-data/Saxony/Libellen",
                     layer="20181122-ZeNA-Libellen-3")
 
 #convert to data frame

@@ -13,7 +13,7 @@ Read in data frame
 
 ```{r}
 library(rgdal)
-datafile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/raw-data/Saschen-Anhalt/Libellen_DatenbankLAU_Gesamt_20190208",
+datafile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/raw-data/Saschen-Anhalt/Libellen_DatenbankLAU_Gesamt_20190208",
                     layer="Libellen_DatenbankLAU_Gesamt_20190208")
 
 #"+proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs"

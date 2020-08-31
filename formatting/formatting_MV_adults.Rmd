@@ -14,7 +14,7 @@ Read in data frame
 ```{r}
 
 library(rgdal)
-datafile <- read.csv("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/raw-data/MV/qry_ArtData.csv",sep=";",dec=",",as.is=T)
+datafile <- read.csv("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/raw-data/MV/qry_ArtData.csv",sep=";",dec=",",as.is=T)
 
 source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
 

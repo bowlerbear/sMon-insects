@@ -15,7 +15,7 @@ Read in data frame
 
 datafile <- read.csv("raw-data/SH/Libellen_Schleswig-Holstein.csv",as.is=T)
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ```
 
