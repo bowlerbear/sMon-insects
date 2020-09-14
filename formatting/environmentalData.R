@@ -21,7 +21,7 @@ mtbqs <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Informatio
                 layer="MTBQ_25833")
 mtbqsDF <- data.frame(mtbqs@data)
 
-#get MTBQs
+#get MTBs
 mtbs <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",
                  layer="MTB_25832")
 
