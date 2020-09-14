@@ -73,6 +73,19 @@ plotTS <- function(x){
   print(g1)
 }
 
+
+tidyTS <- function(annualDFS){
+  
+  ggplot(annualDFS)+
+    geom_line(aes(x=Year,y=mean))+
+    geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
+    xlab("Year")+
+    ylab("Occupancy proportion")+
+    theme_bw()
+  
+}
+
+
 #get annual predictions of occupancy for each species
 #@param models = output of getSpartaModels()
 
