@@ -22,7 +22,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 75000
+niterations = 50000
 
 Sys.time()
 
@@ -400,9 +400,9 @@ all(row.names(occMatrix)==listlengthDF$visit)
 bugs.data$sumX <- sum(1:bugs.data$nyear)
 bugs.data$sumX2 <- sum((1:bugs.data$nyear)^2)
 
-#add on number of annual visits each year
-annualVisits <- ddply(listlengthDF,.(yearIndex),summarise,nuVisits=length(unique(visit)))
-bugs.data$annualVisits <- annualVisits$nuVisits
+#add on annual number of detections
+annualDetections <- ddply(listlengthDF,.(Year),summarise,nuDetections = sum(Species))
+bugs.data$obsDets <- annualDetections$nuDetections
 
 #########################################################################
 
@@ -469,13 +469,13 @@ n.cores = as.integer(Sys.getenv("NSLOTS", "1"))
 #choose model file
 #modelfile="/data/idiv_ess/Odonata/BUGS_sparta_regional_nation_naturraum.txt"
 #modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum_phenologyChange.txt"
-modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum.txt"
+modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum_ppc.txt"
 
 effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
 
 #specify parameters to monitor
-params <- c("psi.fs","regres.psi","mean.p","mup","annual.p")
+params <- c("psi.fs","regres.psi","mean.p","totP","bpv")
 
 Sys.time()
 #run model
@@ -486,15 +486,23 @@ out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=5,
 Sys.time()
 
 #save as output file - for regional/dynamic model
-saveRDS(out,file=paste0("out_sparta_nation_naturraum_",stage,"_",myspecies,".rds"))
-
+#saveRDS(out,file=paste0("out_sparta_regional_nation_naturraum_",stage,"_",myspecies,".rds"))
 #saveRDS(out,file=paste0("out_sparta_nation_naturraum_phenologyChange_",stage,"_",myspecies,".rds"))
-
-#saveRDS(out,file=paste0("out_sparta_nation_naturraum_ppc_",stage,"_",myspecies,".rds"))
+saveRDS(out,file=paste0("out_sparta_nation_naturraum_ppc_",stage,"_",myspecies,".rds"))
 
 ########################################################################################
 
+# #compare predictions with data
+# annualDF <- readRDS("annualDF_ppc_first10.rds")
+# #run through code above with aeshna cyanea'
+# annualDF <- subset(annualDF,Species=="Aeshna cyanea")
+# annualDF <- subset(annualDF,Species=="Aeshna affinis")
+# 
+# #get number of observed detections each year
+# annualDetections <- ddply(listlengthDF,.(Year),summarise,nuDetections = sum(Species))
+# 
+# #plot the relationshop between the predictions and the data
+#qplot(annualDF$mean,annualDetections$nuDetections) 
+#looks pretty good for Aeshna cyanea and Aeshna affinis
 
-
-
-
+#cor.test(annualDF$mean,annualDetections$nuDetections)

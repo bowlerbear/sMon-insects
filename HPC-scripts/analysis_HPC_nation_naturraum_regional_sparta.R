@@ -22,7 +22,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 75000
+niterations = 50000
 
 Sys.time()
 
@@ -33,14 +33,6 @@ myfiles <- list.files("/data/idiv_ess/Odonata")
 #read in and combine all adult files
 adultFiles <- myfiles[grepl("adult_datafile",myfiles)]
 adultFiles <- adultFiles[grepl("rds",adultFiles)]
-
-#exclude MTB64 files
-adultFiles <- adultFiles[!grepl("MTB64",adultFiles)]
-  
-#exclude original files if an updated file is available
-updatedFiles <- adultFiles[grepl("updated",adultFiles)]
-updatedFiles <- gsub("_updated","",updatedFiles)
-adultFiles <- adultFiles[!adultFiles %in% updatedFiles]
 
 #combine these files
 adultData <- ldply(adultFiles,function(x){
@@ -80,22 +72,20 @@ adultData <- subset(adultData,yday!=1)
 
 #####################################################################################
 
-#tidy and subset MTBQs
-
+#remove MTBQs not in the shapefile = "51561" "50561" "49563"
+#remove MTBQS without naurraum 81443, 44553, 58401
 adultData$MTB_Q <- gsub("/","",adultData$MTB_Q)
-#adultData <- subset(adultData, !MTB_Q %in% c("51561","50561","49563","55484","63012",
-#                                             "81443","44553","58401"))
-
-adultData <- subset(adultData, !MTB_Q %in% c("63012","55484","51561","50561","49563","44553"))
+adultData <- subset(adultData, !MTB_Q %in% c("51561","50561","49563","55484","63012",
+                                             "81443","44553","58401"))
 
 ###################################################################################
 #filter to 1980 onwards
 
-df <- subset(adultData, Year>=1980  & Year<2017)
-#df <- subset(adultData, Year>=1980  & Year<2020)
+df <- subset(adultData, Year>=1985  & Year<2017)
+
 
 #and subset to Hessen
-#df <- subset(df, File=="adult_datafile_He_updated.rds")
+#df <- subset(df, File=="adult_datafile_He.rds")
 
 #write list of species###############################################################
 
@@ -116,14 +106,6 @@ df <- subset(adultData, Year>=1980  & Year<2017)
 
 ######################################################################################
 
-#pick species
-
-#practise species
-#myspecies="Aeshna cyanea"
-#stage="adult"
-
-######################################################################################
-
 #get nationwide boxes
 #load("mtbqsDF.RData")
 load("/data/idiv_ess/Odonata/mtbqsDF.RData")
@@ -141,6 +123,11 @@ sum(is.na(df$Natur))
 mtbqsDF$CoarseNatur[is.na(mtbqsDF$CoarseNatur)] <- mtbqsDF$MTB_CoarseNatur[is.na(mtbqsDF$CoarseNatur)]
 df$CoarseNatur <- mtbqsDF$CoarseNatur[match(df$MTB_Q,mtbqsDF$MTB_Q)]
 sum(is.na(df$CoarseNatur))
+
+###remove baden wuttemberg #########################################################
+
+df <- subset(df,State!="Baden-Württemberg")
+df <- subset(df,!is.na(State))
 
 ##########################################################################################
 
@@ -188,8 +175,10 @@ sum(is.na(df$CoarseNatur))
 # ####################################################################################
 
 #subset by average phenology across whole germany
-dfS <- subset(df, Species==myspecies)
-obsPhenolData <- summarise(dfS,
+#dfS <- subset(df, Species==myspecies)
+
+#same for all species
+obsPhenolData <- summarise(df,
                            minDay = round(quantile(yday,0.05)),
                            maxDay = round(quantile(yday,0.95)))
 df <- subset(df, yday > obsPhenolData$minDay & yday < obsPhenolData$maxDay)
@@ -218,8 +207,8 @@ df <- subset(df, yday > obsPhenolData$minDay & yday < obsPhenolData$maxDay)
 ######################################################################################
 
 #remove sites visited once
-siteSummary <- ddply(df,.(MTB_Q),summarise,nuYears=length(unique(Year)))
-df <- subset(df, MTB_Q %in% siteSummary$MTB_Q[siteSummary$nuYears>1])
+#siteSummary <- ddply(df,.(MTB_Q),summarise,nuYears=length(unique(Year)))
+#df <- subset(df, MTB_Q %in% siteSummary$MTB_Q[siteSummary$nuYears>1])
 
 #####################################################################################
 
@@ -241,11 +230,11 @@ getListLength<-function(df){
   require(plyr)
   out <- ddply(df,.(visit,Date,MTB_Q),summarise,
                nuSpecies=length(unique(Species)),
-               nuRecords=length(Species))
-               #Richness2=mean(Richness),
-               #RpS = length(Species)/length(unique(Species)),
-               #expertise = sum(Expertise),
-               #samplingSites = length(unique(interaction(lat,lon))))
+               nuRecords=length(Species),
+               Richness2=mean(Richness),
+               RpS = length(Species)/length(unique(Species)),
+               expertise = sum(Expertise),
+               samplingSites = length(unique(interaction(lat,lon))))
   
   #sort dataset to match with the occurrence Matrix
   out <- arrange (out,visit)
@@ -388,45 +377,55 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   singleList = listlengthDF$singleList,
                   shortList = listlengthDF$shortList,
                   nuRecs = log(listlengthDF$nuRecords) - median(log(listlengthDF$nuRecords)),
-                  #nuSS = log(listlengthDF$samplingSites) - median(log(listlengthDF$samplingSites)),# up to 3
-                  #expertise = log(listlengthDF$expertise)-median(log(listlengthDF$expertise)),
-                  #RpS = log(listlengthDF$RpS) - median(log(listlengthDF$RpS)),
-                  y = as.numeric(occMatrix[,myspecies]))
+                  nuSS = log(listlengthDF$samplingSites) - median(log(listlengthDF$samplingSites)),# up to 3
+                  expertise = log(listlengthDF$expertise)-median(log(listlengthDF$expertise)),
+                  RpS = log(listlengthDF$RpS) - median(log(listlengthDF$RpS)),
+                  y = as.numeric(occMatrix[,myspecies]),
+                  siteStates = siteStates,
+                  nsiteState = statesSiteNu,
+                  siteRaums = siteRaums,
+                  nsiteRaum = raumSiteNu)
 listlengthDF$Species <- bugs.data$y
 
 all(row.names(occMatrix)==listlengthDF$visit)
 
-#the below are used the linear regression model in the model file -see below
-bugs.data$sumX <- sum(1:bugs.data$nyear)
-bugs.data$sumX2 <- sum((1:bugs.data$nyear)^2)
-
-#add on number of annual visits each year
-annualVisits <- ddply(listlengthDF,.(yearIndex),summarise,nuVisits=length(unique(visit)))
-bugs.data$annualVisits <- annualVisits$nuVisits
 
 #########################################################################
+#indices for cream
+#by site and year
 
-#indices for the number of detections
-
-#for each i, sum into t 
-StrIdx <- array(data=0, dim = c(bugs.data$nvisit,bugs.data$nyear))
-for(i in 1:bugs.data$nvisit){
-  StrIdx[i,bugs.data$year[i]] <- 1
-}
-bugs.data$StrIdx <- StrIdx
-
-# siteyear <- unique(data.frame(site = bugs.data$site, 
-#                               year = bugs.data$year))
+# sy.combos <- expand.grid(Site = siteInfo$siteIndex, 
+#                          Year = unique(bugs.data$year))
+# sy.combos <- arrange(sy.combos,Year,Site)
+# head(sy.combos)
+# nSiteYears <- nrow(sy.combos)
 # 
-# bugs.data$siteyear <- siteyear
-# bugs.data$nsiteyear <- nrow(siteyear)
+# #by craum and year
+# cy.combos <- expand.grid(Craum = unique(siteInfo$cnIndex), 
+#                          Year = unique(bugs.data$year))
+# cy.combos <- arrange(cy.combos,Year,Craum)
+# head(cy.combos)
+# nCraumYears <- nrow(cy.combos)
+# sy.combos$craum <- siteInfo$cnIndex[match(sy.combos$Site,siteInfo$siteIndex)]
 # 
-# #for each i, sum into t 
-# StrIdx <- array(data=0, dim = c(bugs.data$nvisit,bugs.data$nsiteyear))
-# for(i in 1:100){
-#   StrIdx[i,which(bugs.data$site[i] == siteyear$site &  bugs.data$year[i] == siteyear$year)] <- 1
+# Index <- matrix(data=0,
+#                 nrow = nSiteYears,
+#                 ncol = nCraumYears)
+# 
+# for(i in 1:nrow(Index)){
+#   Index[i,which(cy.combos$Craum==sy.combos$craum[i] & 
+#                   cy.combos$Year==sy.combos$Year[i])] <- 1
 # }
-# bugs.data$StrIdx <- StrIdx
+# 
+# cy.combos <- as.matrix(cy.combos)
+# 
+# #add to bugs data.
+# bugs.data$nSiteYears = nSiteYears
+# bugs.data$nCraumYears = nCraumYears
+# bugs.data$Index = Index
+# bugs.data$Site = sy.combos$Site
+# bugs.data$Year = sy.combos$Year
+# bugs.data$cy.combos = cy.combos
 
 #########################################################################
 
@@ -464,18 +463,17 @@ set.factory("bugs::Conjugate", FALSE, type="sampler")
 #n.cores = 3
 n.cores = as.integer(Sys.getenv("NSLOTS", "1")) 
 
-###########################################################################################
+#############################################################################
 
 #choose model file
-#modelfile="/data/idiv_ess/Odonata/BUGS_sparta_regional_nation_naturraum.txt"
-#modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum_phenologyChange.txt"
-modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum.txt"
+#modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum.txt"
+modelfile="/data/idiv_ess/Odonata/BUGS_sparta_regional_nation_finenaturraum.txt"
 
 effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
 
 #specify parameters to monitor
-params <- c("psi.fs","regres.psi","mean.p","mup","annual.p")
+params <- c("mean.p","mup","muZ")
 
 Sys.time()
 #run model
@@ -486,14 +484,10 @@ out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=5,
 Sys.time()
 
 #save as output file - for regional/dynamic model
-saveRDS(out,file=paste0("out_sparta_nation_naturraum_",stage,"_",myspecies,".rds"))
-
-#saveRDS(out,file=paste0("out_sparta_nation_naturraum_phenologyChange_",stage,"_",myspecies,".rds"))
-
-#saveRDS(out,file=paste0("out_sparta_nation_naturraum_ppc_",stage,"_",myspecies,".rds"))
+saveRDS(out,file=paste0("out_sparta_regional_nation_finenaturraum_",stage,"_",myspecies,".rds"))
+#saveRDS(out,file=paste0("out_sparta_nation_naturraum_Hessen_",stage,"_",myspecies,".rds"))
 
 ########################################################################################
-
 
 
 
