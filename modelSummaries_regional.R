@@ -8,7 +8,7 @@ library(sf)
 library(tmap)
 library(boot)
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 plotTS_regional <- function(x){
   require(ggplot2)
@@ -27,7 +27,7 @@ allSpecies <- read.delim("specieslist_odonata.txt",as.is=T)$Species
 
 ### get ecoregions #########################################################################################
 
-nr <- st_read("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/Narurraeume/naturraeume_polygon.shp")
+nr <- st_read("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Spatial_data/Narurraeume/naturraeume_polygon.shp")
 
 plot(nr)
 
@@ -54,7 +54,7 @@ CoarseRegions <- c("Alpen","Alpenvorland","Nordostdeutsches Tiefland","Nordwestd
 
 ### ecoregion 1 ############################################################################################
 
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_sparta_regional/6869992"
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_sparta_regional/6869992"
 
 #do we have the models for all species?
 speciesFiles <- list.files(mdir)
@@ -143,9 +143,52 @@ tm_shape(nr_dissolved)+
 
 #### ecoregion 2 model ###################################################################
 
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_regional_nation_raumunit_sparta/7180407"
 
+#do we have the models for all species?
+speciesFiles <- list.files(mdir)
+mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
+
+#read in model summaries
+modelDF <- getModelSummaries(mdir)
+modelDF <- getCodeFromFile(modelDF,myfile="out_sparta_regional_nation_raumunit_adult_")
+
+#annual time series - psi.fs
+annual_z_DF <- getBUGSfitsII(modelDF,param="muZ")
+
+#plot time-series
+ggplot(annual_z_DF)+
+  geom_line(aes(x=Year,y=mean,colour=factor(Site)))+
+  facet_wrap(~Code)+
+  theme(legend.position = "none")
+#there is change over time...????
+
+#match with raums
+
+#get siteInfo from HPC script
+annual_z_DF  <- merge(annual_z_DF,siteInfo,by.x="Site",by.y="siteIndex")
+#fix German accents
+annual_z_DF$Name <- sapply(annual_z_DF$Natur,function(x)iconv(x,from="UTF-8",to="latin1"))
+
+#what species do we have data for
+unique(annual_z_DF$Code)
+
+#pull out data for 1 species
+annual_z_DF_species1 <- subset(annual_z_DF,Code=="Aes_vir")
+
+#map to naturraum polygons
+nr_sf <- st_as_sf(nr)
+nr_sf <- full_join(nr_sf,annual_z_DF_species1,by="Name")
+nr_sf <- subset(nr_sf, !is.na(mean))
+
+tm_shape(nr_sf)+
+    tm_polygons("mean")+
+    tm_facets(by="Year")
+
+#looks like very little change over time...
 
 ### spline model #########################################################################
 
 
 
+###end####################################################################################
