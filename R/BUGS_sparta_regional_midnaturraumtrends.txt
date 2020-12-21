@@ -1,0 +1,83 @@
+
+  model{
+    
+    # State model
+    
+    for (i in 1:nsite){ 
+      for (t in 1:nyear){
+    
+    #data distribution
+      z[i,t] ~ dbern(muZ[i,t]) 
+
+    # model
+      logit(muZ[i,t]) <- mu[mraumS[i]] + mraumtrend[mraumS[i]] * t # site effect in mu, year effect in trend
+      
+      }
+    }   
+    
+    ### Observation Model
+    for(j in 1:nvisit) {
+    
+    y[j] ~ dbern(Py[j]) #data is Y 
+    Py[j]<- z[site[j],year[j]]*p[j] 
+    
+    #detection model:
+    logit(p[j]) <-  mup[craum[j],year[j]] + 
+                    mu.phenol * yday[j] + 
+                    mu.phenol2 * yday2[j] +
+                    effort.p * Effort[j] +
+                    single.p * singleList[j]
+                    
+    } 
+    
+    # Derived parameters
+
+    #detection probability
+    mean.p <- mean(p)
+  
+    #Priors 
+    
+    # State model priors
+    
+    #site variation
+    for(i in 1:nmraum){
+      mu[i] ~ dnorm(int.logit,int.tau)
+    }
+    
+    int.prop ~ dunif(0,1)
+    int.logit <- logit(int.prop)
+    int.tau <- 1/(int.sd * int.sd)
+    int.sd ~ dt(0, pow(2.5,-2), 1)T(0,) 
+    
+    #trend variation
+    for(i in 1:nmraum){
+      mraumtrend[i] ~ dnorm(trend.mu,trend.tau)
+    }
+    trend.mu ~ dnorm(0,0.01)
+    trend.tau <- 1/(trend.sd * trend.sd)
+    trend.sd ~ dt(0, pow(2.5,-2), 1)T(0,)
+
+ 
+    #####################################################
+    
+    #Observation model priors
+
+    #year
+    for(i in 1:ncraum){
+      for(t in 1:nyear){
+        mup[i,t] ~ dnorm(mu.p, tau.ap)
+      }
+    }
+    mu.p ~ dnorm(0, 0.001)
+    tau.ap <- 1/(sd.ap * sd.ap)
+    sd.ap ~ dt(0, pow(2.5,-2), 1)T(0,)  
+    
+    #effort effects
+    effort.p ~ dnorm(0, 0.01)
+    single.p ~ dnorm(0, 0.01)
+    
+    #phenology effects
+    mu.phenol ~ dnorm(0,0.01)
+    mu.phenol2 ~ dnorm(0,0.01)
+ 
+  }

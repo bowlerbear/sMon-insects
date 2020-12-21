@@ -9,7 +9,7 @@
     #data distribution
       z[i,t] ~ dbern(muZ[i,t]) 
 
-    #model
+    # model
       logit(muZ[i,t]) <- mu.t[t] + cr.a[craumS[i]] + r.a[raumS[i]] + eta[i]
       
       }
@@ -23,11 +23,10 @@
     
     #detection model:
     logit(p[j]) <-  mup[year[j]] + 
-                    mu.phenol * yday[j] + 
-                    mu.phenol2 * yday2[j]+
+                    phenol[year[j]] * yday[j] + #allow the slopes to change among years
+                    phenol2[year[j]] * yday2[j]+ #allow the slopes to change among years
                     effort.p * Effort[j] +
                     single.p * singleList[j]
-                    
     } 
     
     # Derived parameters
@@ -48,16 +47,7 @@
     
     #detection probability
     mean.p <- mean(p)
-  
-    #get mean detection probability each year
-      for(t in 1:nyear){
-        for(j in 1:nvisit){
-          p.idx[j,t] <- p[j] * StrIdx[j,t]     
-        }
-        annual.p[t] <- sum(p.idx[,t])/annualVisits[t]
-      }
     
-
     #Priors 
     
     # State model priors
@@ -65,8 +55,8 @@
     #year
     
     #year 1
-    prop.mu ~ dunif(0,1)
-    mu.t[1] <- logit(prop.mu)
+    mu.prop ~ dunif(0,1)
+    mu.t[1] <- logit(mu.prop)
     
     #other years
     for(t in 2:nyear){
@@ -104,8 +94,8 @@
     for(t in 1:nyear){
       mup[t] ~ dnorm(mu.p, tau.ap)
     }
-    prop.p ~ dunif(0,1)
-    mu.p <- logit(prop.p)
+    p.prop ~ dunif(0,1)
+    mu.p <- logit(p.prop) 
     tau.ap <- 1/(sd.ap * sd.ap)
     sd.ap ~ dt(0, pow(2.5,-2), 1)T(0,)  
     
@@ -114,8 +104,16 @@
     single.p ~ dnorm(0, 0.01)
     
     #phenology effects
+    for(t in 1:nyear){
+      phenol[t] ~ dnorm(mu.phenol,tau.phenol)
+      phenol2[t] ~ dnorm(mu.phenol2,tau.phenol2)
+    }
     mu.phenol ~ dnorm(0,0.01)
     mu.phenol2 ~ dnorm(0,0.01)
+    tau.phenol <- 1/(sd.phenol * sd.phenol)
+    tau.phenol2 <- 1/(sd.phenol2 * sd.phenol2)
+    sd.phenol ~ dt(0, pow(2.5,-2), 1)T(0,)  
+    sd.phenol2 ~ dt(0, pow(2.5,-2), 1)T(0,)  
     
   }
     

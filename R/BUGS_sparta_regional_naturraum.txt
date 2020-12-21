@@ -1,0 +1,102 @@
+
+  model{
+    
+    # State model
+    
+    for (i in 1:nsite){ 
+      for (t in 1:nyear){
+    
+    #data distribution
+      z[i,t] ~ dbern(muZ[i,t]) 
+
+    # model
+      logit(muZ[i,t]) <- cr.a[craumS[i],t] + r.a[raumS[i]] + eta[i]
+      
+      }
+    }   
+    
+    ### Observation Model
+    for(j in 1:nvisit) {
+    
+    y[j] ~ dbern(Py[j]) #data is Y 
+    Py[j]<- z[site[j],year[j]]*p[j] 
+    
+    #detection model:
+    logit(p[j]) <-  mup[craum[j],year[j]] + 
+                    mu.phenol * yday[j] + 
+                    mu.phenol2 * yday2[j]+
+                    effort.p * Effort[j] +
+                    single.p * singleList[j]
+    } 
+    
+    # Derived parameters
+    
+    #get mean
+    for(s in 1:ncraum){
+      for(t in 1:nyear){
+        psi.fs[s,t] <- sum(z[craumS[s],t])
+      }
+    }
+    
+    #detection probability
+    mean.p <- mean(p)
+    
+    #Priors 
+    
+    # State model priors
+    
+    #year
+    
+    #year 1
+    for(i in 1:ncraum){
+      prob.mu[i,1] ~ dunif(0,1)
+      cr.a[i,1] <- logit(prob.mu[i,1]) 
+    }
+    
+    #other years
+    for(i in 1:ncraum){
+      for(t in 2:nyear){
+        cr.a[i,t] ~ dnorm(cr.a[i,t-1], tau.a)
+      }
+    }
+    tau.a <- 1/(sd.a * sd.a)
+    sd.a ~ dt(0, 1, 1)T(0,) 
+    
+    #r.a random effects for naturraum
+    for (s in 1:nraum) {
+      r.a[s] ~ dnorm(0, tau.r.a)       
+    } 
+    tau.r.a <- 1/(sd.r.a * sd.r.a)
+    sd.r.a ~ dt(0, 1, 1)T(0,)
+    
+    #site effects
+    for (i in 1:nsite) {
+      eta[i] ~ dnorm(0, tau.eta)       
+    } 
+    tau.eta <- 1/(sd.eta * sd.eta) 
+    sd.eta ~ dt(0, 1, 1)T(0,)
+  
+    #####################################################
+    
+    #Observation model priors
+
+    #year
+    for(i in 1:ncraum){
+      for(t in 1:nyear){
+        mup[i,t] ~ dnorm(mu.p, tau.ap)
+      }
+    }
+    mu.p ~ dnorm(0, 0.001)
+    tau.ap <- 1/(sd.ap * sd.ap)
+    sd.ap ~ dt(0, 1, 1)T(0,)  
+    
+    #effort effects
+    effort.p ~ dnorm(0, 0.001)
+    single.p ~ dnorm(0, 0.001)
+    
+    #phenology effects
+    mu.phenol ~ dnorm(0,0.001)
+    mu.phenol2 ~ dnorm(0,0.001)
+ 
+    
+  }

@@ -9,8 +9,8 @@
     #data distribution
       z[i,t] ~ dbern(muZ[i,t]) 
 
-    #model
-      logit(muZ[i,t]) <- mu.t[t] + cr.a[craumS[i]] + r.a[raumS[i]] + eta[i]
+    # model
+      logit(muZ[i,t]) <- mu.t[t] + r.a[raumS[i]] + eta[i]
       
       }
     }   
@@ -27,7 +27,6 @@
                     mu.phenol2 * yday2[j]+
                     effort.p * Effort[j] +
                     single.p * singleList[j]
-                    
     } 
     
     # Derived parameters
@@ -43,21 +42,12 @@
       sumxy[t] <- psi.fs[t]*t
     }
     sumXY <- sum(sumxy[1:nyear])
-    regres.psi <- (sumXY - ((sumX*sumY)/nyear))/(sumX2 - ((sumX*sumX)/nyear))#trend
+    regres.psi <- (sumXY - ((sumX*sumY)/nyear))/(sumX2 - ((sumX*sumX)/nyear))
 
     
     #detection probability
     mean.p <- mean(p)
-  
-    #get mean detection probability each year
-      for(t in 1:nyear){
-        for(j in 1:nvisit){
-          p.idx[j,t] <- p[j] * StrIdx[j,t]     
-        }
-        annual.p[t] <- sum(p.idx[,t])/annualVisits[t]
-      }
     
-
     #Priors 
     
     # State model priors
@@ -65,8 +55,7 @@
     #year
     
     #year 1
-    prop.mu ~ dunif(0,1)
-    mu.t[1] <- logit(prop.mu)
+    mu.t[1] ~ dnorm(0, 0.01)
     
     #other years
     for(t in 2:nyear){
@@ -74,13 +63,6 @@
     }
     tau.a <- 1/(sd.a * sd.a)
     sd.a ~ dt(0, pow(2.5,-2), 1)T(0,) 
-
-    #cr.a random effects for coarse naturraum
-    for (s in 1:ncraum) {
-      cr.a[s] ~ dnorm(0, tau.cr.a)       
-    } 
-    tau.cr.a <- 1/(sd.cr.a * sd.cr.a)
-    sd.cr.a ~ dt(0, pow(2.5,-2), 1)T(0,)
     
     #r.a random effects for naturraum
     for (s in 1:nraum) {
@@ -104,8 +86,7 @@
     for(t in 1:nyear){
       mup[t] ~ dnorm(mu.p, tau.ap)
     }
-    prop.p ~ dunif(0,1)
-    mu.p <- logit(prop.p)
+    mu.p ~ dnorm(0, 0.01)
     tau.ap <- 1/(sd.ap * sd.ap)
     sd.ap ~ dt(0, pow(2.5,-2), 1)T(0,)  
     
@@ -116,6 +97,7 @@
     #phenology effects
     mu.phenol ~ dnorm(0,0.01)
     mu.phenol2 ~ dnorm(0,0.01)
+ 
     
   }
     

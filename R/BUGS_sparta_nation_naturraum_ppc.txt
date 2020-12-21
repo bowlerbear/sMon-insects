@@ -28,6 +28,9 @@
                     effort.p * Effort[j] +
                     single.p * singleList[j]
                     
+    #Create simulated dataset to calculate the Bayesian p-value
+    y.sim[j] ~ dbern(Py[j]) #data is Y 
+    
     } 
     
     # Derived parameters
@@ -48,16 +51,9 @@
     
     #detection probability
     mean.p <- mean(p)
-  
-    #get mean detection probability each year
-      for(t in 1:nyear){
-        for(j in 1:nvisit){
-          p.idx[j,t] <- p[j] * StrIdx[j,t]     
-        }
-        annual.p[t] <- sum(p.idx[,t])/annualVisits[t]
-      }
     
-
+    
+    
     #Priors 
     
     # State model priors
@@ -117,5 +113,34 @@
     mu.phenol ~ dnorm(0,0.01)
     mu.phenol2 ~ dnorm(0,0.01)
     
+    #bayesian p-value
+      
+      #get number of predicted detections per year
+      for(t in 1:nyear){
+        for(j in 1:nvisit){
+          exp.idx[j,t] <- Py[j] * StrIdx[j,t]     
+          temp[j,t] <- y.sim[j] * StrIdx[j,t]
+        }
+        e.count[t] <- sum(exp.idx[,t])
+        predDets[t] <- sum(temp[,t])
+      }
+    
+    e <- 0.0001# Add small value e to denominator to avoid division by zero
+    
+    for(t in 1:nyear){
+    
+    # Chi-square discrepancy for the actual data
+    chi2.actual[t] <- pow((obsDets[t]-e.count[t]),2) / (e.count[t]+e)
+    
+    # Chi-square discrepancy for the simulated ('perfect') data
+    chi2.sim[t] <- pow((predDets[t]-e.count[t]),2) / (e.count[t]+e)
+    
+    }
+    
+    # Add up individual chi2 values for overall fit statistic
+    fit.actual <- sum(chi2.actual)  # Fit statistic for actual data set
+    fit.sim <- sum(chi2.sim)        # Fit statistic for a fitting model
+    bpv <- step(fit.sim-fit.actual)    # Bayesian p-value
+
   }
     
