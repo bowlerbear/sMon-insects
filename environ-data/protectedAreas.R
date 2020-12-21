@@ -1,0 +1,65 @@
+#protectedAreas
+library(sf)
+
+#get proj
+mtbqs <- st_read("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile","MTBQ_25833")
+
+#data from Bfn
+paFiles <- list.files("C:/Users/db40fysa/Nextcloud/sMon/Gis-DataData/ProtectedAreas_DE/BFN")
+paFiles <- paFiles[grepl(".zip",paFiles)]
+#paFiles 1 is gros naturraume
+#paFiles 2 is naturraume - looks interesting - habitat info
+
+#limit to schutz files
+paFiles <- paFiles[grepl("SCH",paFiles)]
+
+setwd("C:/Users/db40fysa/Nextcloud/sMon/Gis-DataData/ProtectedAreas_DE/BFN")
+#create a temp file
+for(i in 1:length(paFiles)){
+  temp <- tempfile()
+  #unzip the contents and save unzipped content in 'temp'
+  unzip(zipfile = paFiles[i], exdir = temp)
+  #finds the filepath of the shapefile (.shp) file in the temp2 unzip folder
+  #the $ at the end of ".shp$" ensures you are not also finding files such as .shp.xml 
+  your_SHP_file<-list.files(temp, pattern = ".shp$",full.names=TRUE)
+  
+  #read the shapefile. 
+  paShape <- sf::read_sf(your_SHP_file)
+  
+  #transform to utm
+  paShape <- st_transform(paShape,crs=st_crs(mtbqs))
+  
+  #clean in
+  paShape <- st_buffer(paShape,dist=0)
+  #head(paShape)
+  #plot(as(paShape,'Spatial'))
+  assign(paste0("paShape",i), paShape)
+}     
+
+#merge them
+object.size(paShape1)
+object.size(paShape2)#large
+object.size(paShape3)
+object.size(paShape4)
+object.size(paShape5)#large
+object.size(paShape6)
+object.size(paShape7)
+object.size(paShape8)#large
+object.size(paShape9)
+object.size(paShape10)
+object.size(paShape11)
+object.size(paShape12)#large
+object.size(paShape13)
+
+paShape1 <- st_make_valid(paShape1)
+paShape3 <- st_make_valid(paShape3)
+temp <- st_union(paShape1,paShape3,by_feature=TRUE)
+
+paShape4 <- st_make_valid(paShape4)
+temp <- st_union(temp,paShape4,by_feature=TRUE)
+
+paShape6 <- st_make_valid(paShape6)
+temp <- st_union(temp,paShape6,by_feature=TRUE)
+
+paShape7 <- st_make_valid(paShape7)
+temp <- st_union(temp,paShape7,by_feature=TRUE)
