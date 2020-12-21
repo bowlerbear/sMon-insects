@@ -3,22 +3,13 @@ library(rgdal)
 library(ggplot2)
 library(plyr)
 library(reshape2)
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ###Species list#################################################################################################
 
 mySpecies <- read.delim("model-auxfiles/speciesTaskID_adult.txt",as.is=T)$Species
 
 allSpecies <- read.delim("specieslist_odonata.txt",as.is=T)$Species
-
-###Model summaries############################################################################################
-
-#model summaries:
-#modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_naturraum_raumFEyear1_rw1.txt"
-#single random walk
-
-#modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_naturraum_raumFEyear1_rw.txt"
-#double random walk
 
 ###Nation state model#########################################################################################
 
@@ -408,74 +399,7 @@ table(colonizeDF$Rhat<1.1)
 
 #still problematic
 
-###Sparta models##########################################################
-
-#run on R server -  original sparta package function
-# mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/sparta-outputs"
-# 
-# modelDF <- getSpartaModels(mdir)
-# modelDF$Species <- gsub(".rdata","",modelDF$File)
-# annualDF <- getBUGSfits(modelDF,param="psi.fs")
-# annualDF$Year <- annualDF$ParamNu + 1979
-# plotTS(annualDF)
-# #look very nice!!!
-# table(annualDF$Rhat<1.1)
-# #seems to be fewer problems
-
-#sparta models - run on HPC using own sparta jags file with naturraum as fixedeffect
-
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
-
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6288453"
-#mistake in data processing
-
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6323394"
-#didnt run for all species
-
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta_wo_eta/6329258"
-#without eta
-
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta_wo_rw/6354978"
-#without eta and rw (missing Calopteryx splendens)
-#trends between this and the last one are after similar
-
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6417285"
-#fixed subsetting code, with eta, ecoregion 1 and ecoregion 2 - but only works for a subset
-
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6441706"
-#fixed subsetting code, with eta, ecoregion 1 - but only works for a subset
-
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6466710"
-#fixed subsetting code, with eta, ecoregion 1, simple initial values - works for all!!
-
- 
-#fixed subsetting code, with eta, ecoregion 1, ecoregion 2,
-#simple initial values - works for all!!
-
-
-#do we have the models for all species?
-speciesFiles <- list.files(mdir)
-mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
-
-#read in model summaries
-modelDF <- getModelSummaries(mdir)
-modelDF <- getCodeFromFile(modelDF,
-                           myfile="out_sparta_nation_naturraum_adult_")
-
-#annual tims series
-annualDF <- getBUGSfits(modelDF,param="psi.fs")
-annualDF$Year <- annualDF$ParamNu + 1979
-plotTS(annualDF)
-table(annualDF$Rhat<1.1)
-#FALSE  TRUE 
-#46  2803
-
-#trends
-trendsDF <- getBUGSfits(modelDF,param="regres.psi")
-table(trendsDF$Rhat<1.1)
-trendsDF$Rhat[trendsDF$Rhat>1.1]
-
-###Nation naturraum#############################
+### Dynamic nation naturraum#############################
 
 #included rw on persist and colonization
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_rw1/6336641"
@@ -514,38 +438,110 @@ table(trendsDF$Rhat<1.1)
 
 trendsDF$Rhat[trendsDF$Rhat>1.1]
 
-###Double random walk####################################################
+###FINAL: Sparta models##########################################################
 
-#include rw also on observation year effect
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_rw/6288917"
-#mistake in data processing
+#sparta models - run on HPC using own sparta jags file with naturraum as fixedeffect
+
+source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
+
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6417285"
+#fixed subsetting code, with eta, ecoregion 1 and ecoregion 2 - but only works for a subset
+
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6441706"
+#fixed subsetting code, with eta, ecoregion 1 - but only works for a subset
+
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6466710"
+#fixed subsetting code, with eta, ecoregion 1, simple initial values - works for all!!
+
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6474342" 
+#fixed subsetting code, with eta, ecoregion 1, ecoregion 2,
+#simple initial values - works for all!!
+
+#updated data with revised files for Hessen and BW
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7469396"
 
 #do we have the models for all species?
 speciesFiles <- list.files(mdir)
 mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
-#none missing
+#"Coenagrion armatum"      "Coenagrion ornatum"      "Cordulegaster bidentata" "Sympetrum flaveolum"     "Sympetrum fonscolombii" 
+problemSpecies <- c("Coenagrion armatum","Coenagrion ornatum","Cordulegaster bidentata","Sympetrum flaveolum","Sympetrum fonscolombii")
 
-allSpecies[!sapply(allSpecies,function(x)any(grepl(x,speciesFiles)))]
-#none missing
+#error message is:
+#Non-finite boundary in truncated normal
 
 #read in model summaries
 modelDF <- getModelSummaries(mdir)
-modelDF <- getCodeFromFile(modelDF,myfile="out_dynamic_nation_naturraum_adult_")
+modelDF <- getCodeFromFile(modelDF,
+                           myfile="out_sparta_nation_naturraum_adult_")
 
-#annual tims series
+#annual time series in occupancy
 annualDF <- getBUGSfits(modelDF,param="psi.fs")
 annualDF$Year <- annualDF$ParamNu + 1979
 plotTS(annualDF)
 table(annualDF$Rhat<1.1)
 #FALSE  TRUE 
-#832  2017
+#46  2803
 
-table(annualDF$Rhat<1.1,annualDF$Species)
+#trends in occupancy
+trendsDF <- getBUGSfits(modelDF,param="regres.psi")
+table(trendsDF$Rhat<1.1)
+trendsDF$Rhat[trendsDF$Rhat>1.1]
+trendsDF$Species[trendsDF$Rhat>1.1]
 
-#example a few
-list.files(mdir)
-mod <- readRDS(paste(mdir,speciesFiles[1],sep="/"))
+#annual detection probabilities
+annualDF <- getBUGSfits(modelDF,param="annual.p")
+annualDF$Year <- annualDF$ParamNu + 1979
+table(annualDF$Rhat<1.1)
+annualDF$Species[annualDF$Rhat>1.1]
 
+#mean detection probability
+detprobDF <- getBUGSfits(modelDF,param="mean.p")
+table(detprobDF$Rhat<1.1)
+detprobDF$Rhat[detprobDF$Rhat>1.1]
+detprobDF$Species[detprobDF$Rhat>1.1]
+
+### plotting ##################################
+
+#Increasing the size of the plots, even if it takes up more space, as they are difficult to read
+#Add the  % change to the title for each species
+#Colour and/or group/order the plots according to the time series cluster that they fall in
+
+#occupancy model
+plotTS_scales(annualDF)
+
+ggsave("plots/ts_scaled.png",height=10,width=7)
+
+#add occupancy data as rug plots
+speciesAnnualObs <- readRDS("speciesAnnualObs.rds")
+speciesAnnualObs$Code <- annualDF$Code[match(speciesAnnualObs$Species,annualDF$Species)]
+speciesAnnualObs$dummy <- 0
+
+#first 40
+species1 <- sort(unique(annualDF$Species))[1:40]
+plotTSwithRugs(subset(annualDF,Species %in% species1),subset(speciesAnnualObs,Species %in% species1)) 
+ggsave("plots/ts_rugged_group1_scaled.png",height=10,width=7)
+
+#next 40
+species1 <- sort(unique(annualDF$Species))[41:77]
+plotTSwithRugs(subset(annualDF,Species %in% species1),subset(speciesAnnualObs,Species %in% species1)) 
+ggsave("plots/ts_rugged_group2_scaled.png",height=10,width=7)
+
+#annual detection model
+plotDetections(annualDF)
+ggsave("plots/ts_detection.png",height=10,width=7)
+
+#mean detection probability plot
+detprobDF <- arrange(detprobDF,desc(mean))
+detprobDF$Species <- factor(detprobDF$Species,levels=detprobDF$Species)
+summary(detprobDF$mean)
+ggplot(detprobDF)+
+  geom_bar(aes(x=Species,y=mean),stat="identity")+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle=90,hjust=1))+
+  ylab("Mean detection probability")+
+  xlab("")
+ggsave("plots/mean_detection.png",height=7,width=3)
+  
 ###Posterior draws############################################
 
 library(rjags)
@@ -689,20 +685,65 @@ ggplot(richnessDF)+
 #almost the same as before....
 #save as the random matrix...or keep with original?
 
-###other functions###########################################
+### sensitivity analysis #############################################################
 
-plotTS <- function(x){
-  require(ggplot2)
-  g1 <- ggplot(x)+
-    geom_line(aes(x=Year,y=mean))+
-    geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
-    facet_wrap(~Code,ncol=6,scale="free")+
-    theme(axis.text = element_text(size =rel(0.55))) +
-    ylab("Predicted occupancy")
-  print(g1)
-}
+### phenology change #################################################################
+
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta_phenologyChange/7464688" 
+#two species are missing: "Coenagrion ornatum"      "Cordulegaster bidentata"
+
+#do we have the models for all species?
+speciesFiles <- list.files(mdir)
+mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
+
+#read in model summaries
+modelDF <- getModelSummaries(mdir)
+modelDF <- getCodeFromFile(modelDF,
+                           myfile="out_sparta_nation_naturraum_phenologyChange_adult_")
+
+#annual tims series
+annualDF <- getBUGSfits(modelDF,param="psi.fs")
+annualDF$Year <- annualDF$ParamNu + 1979
+plotTS(annualDF)
+table(annualDF$Rhat<1.1)
+#FALSE  TRUE 
+#78  2697
+
+#trends
+trendsDF <- getBUGSfits(modelDF,param="regres.psi")
+table(trendsDF$Rhat<1.1)
+trendsDF$Rhat[trendsDF$Rhat>1.1]
+#FALSE  TRUE 
+#6    69 
+
+
+### ppc ################################################################################
+
+mdir <- c("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta_ppc/7464694")
+
+modelDF <- getModelSummaries(mdir)
+
+modelDF <- getCodeFromFile(modelDF,
+                           myfile="out_sparta_nation_naturraum_ppc_adult_")
+
+#extract prediction number of annual detections for each species
+unique(modelDF$Param)
+annualDF <- getBUGSfits(modelDF,param="totP")
+annualDF$Year <- annualDF$ParamNu + 1979
 
 plotTS(annualDF)
 
-ggsave("plots/ts_scaled.png",height=10,width=7)
+#save file
+saveRDS(annualDF,file="annualDF_ppc_first10.rds")
 
+
+mdir <- c("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta_ppc/7469394")
+
+#run lines above
+
+unique(modelDF$Param)
+bpvDF <- getBUGSfits(modelDF,param="bpv")
+
+hist(bpvDF$mean)#all look pretty good!
+
+### end ################################################################################
