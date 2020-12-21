@@ -69,7 +69,49 @@ plotTS <- function(x){
   g1 <- ggplot(x)+
     geom_line(aes(x=Year,y=mean))+
     geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
-    facet_wrap(~Species)
+    facet_wrap(~Species)+
+    theme_bw()+
+    theme(axis.text = element_text(size =rel(0.55))) +
+    ylab("Predicted occupancy")
+  print(g1)
+}
+
+plotDetections <- function(x){
+  require(ggplot2)
+  g1 <- ggplot(x)+
+    geom_line(aes(x=Year,y=mean))+
+    geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
+    facet_wrap(~Species)+
+    theme_bw()+
+    theme(axis.text = element_text(size =rel(0.55))) +
+    ylab("Detection probability")
+  print(g1)
+}
+
+plotTS_scaled <- function(x){
+  require(ggplot2)
+  g1 <- ggplot(x)+
+    geom_line(aes(x=Year,y=mean))+
+    geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
+    theme_bw()+
+    facet_wrap(~Code,ncol=6,scale="free")+
+    theme(axis.text = element_text(size =rel(0.55))) +
+    ylab("Predicted occupancy")
+  print(g1)
+}
+
+plotTSwithRugs <- function(x,y){
+  require(ggplot2)
+  g1 <- ggplot(x)+
+    geom_line(aes(x=Year,y=mean))+
+    geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
+    theme(axis.text = element_text(size =rel(0.55))) +
+    ylab("Predicted occupancy")+
+    geom_rug(data=y,aes(x=Year,y=dummy,colour=Obs),sides="b",size=2)+
+    scale_colour_viridis_c(name = "Number of observations",trans="log10")+
+    theme_bw()+
+    facet_wrap(~Code,ncol=4,scale="free")+
+    theme(legend.position = "top")
   print(g1)
 }
 
