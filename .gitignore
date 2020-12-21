@@ -23,4 +23,4 @@ model-auxfiles/*
 allSpeciesSites.RData
 vert.txt
 old/*
-
+occMatrix.RData
