@@ -3,7 +3,7 @@ library(rgdal)
 library(ggplot2)
 library(plyr)
 library(reshape2)
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ###Species list#################################################################################################
 
@@ -15,10 +15,10 @@ library(maptools)
 library(sp)
 
 #get map of Germany
-germanyMap <- readRDS("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/AdminBoundaries/gadm36_DEU_1_sp.rds")
+germanyMap <- readRDS("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Spatial_data/AdminBoundaries/gadm36_DEU_1_sp.rds")
 
 #MTBQ
-mtbqMap <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",
+mtbqMap <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",
                    layer="MTBQ_25833")
 
 #convert to raster
@@ -47,7 +47,7 @@ mtbqDF$Q[which(mtbqDF$Quadrant=="SO")]<-4
 mtbqDF$MTB_Q <- paste0(mtbqDF$Value,mtbqDF$Q)
 
 #MTB
-mtbMap <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",
+mtbMap <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",
                   layer="MTB_25832")
 
 #Get crs
@@ -67,6 +67,9 @@ myfiles <- list.files("derived-data")
 #read in and combine all adult files
 adultFiles <- myfiles[grepl("adult_datafile",myfiles)]
 adultFiles <- adultFiles[grepl("rds",adultFiles)]
+
+#when available take updated data files
+adultFiles <- adultFiles[-c(3,5,7)]
 
 #combine these files
 adultData <- ldply(adultFiles,function(x){
@@ -101,6 +104,7 @@ adultData$yday <- yday(adultData$Date)
 adultData$week <- week(adultData$Date)
 adultData$Month <- month(adultData$Date)
 adultData <- subset(adultData,!is.na(Date))
+adultData$MTB_Q <- gsub("/","",adultData$MTB_Q)
 
 #fix names
 species<- read.delim("specieslist_odonata.txt")
@@ -227,7 +231,7 @@ ggplot(subset(adultData,Year>1979 & Year <2016))+
 adultDataS <- subset(adultData,Year>=1980)
 
 #extract MTB from Q
-adultDataS$MTB <- gsub("/","",adultDataS$MTB_Q)
+adultDataS$MTB_Q <- gsub("/","",adultDataS$MTB_Q)
 
 #if MTB is 5 characters, take first 4 as MTB and last character as Q
 adultDataS$Q<- unlist(sapply(adultDataS$MTB, function(x){
@@ -318,7 +322,38 @@ subset(temp, nuRecs<10)#only one with zero!!!
 
 ####Record time series############################################################################################
 
-#Time series over time
+#Time-series for whole Germany
+timeSummary <- ddply(adultData,.(Year),summarise,
+                     nuRecs=length(Species),
+                     nuSpecies=length(unique(Species)),
+                     nuPlots=length(unique(MTB_Q)),
+                     nuVisits=length(unique(interaction(Beobachter,Date,MTB_Q))))
+
+g1 <- ggplot(subset(timeSummary,Year>1950 & Year <2017))+
+  geom_bar(aes(x=Year,y=nuRecs),stat="identity")+
+  theme_classic()+
+  xlab("Year")+
+  scale_x_continuous(breaks=c(1950,1960,1970,1980,1990,2000,2010),
+                     labels=c(1950,1960,1970,1980,1990,2000,2010))+
+  geom_vline(xintercept=1980,colour="red",linetype="dashed")+
+  ylab("Total number of records")
+
+g2 <- ggplot(subset(timeSummary,Year>1950 & Year <2017))+
+  geom_bar(aes(x=Year,y=nuPlots),stat="identity")+
+  theme_classic()+
+  xlab("Year")+
+  scale_x_continuous(breaks=c(1950,1960,1970,1980,1990,2000,2010),
+                     labels=c(1950,1960,1970,1980,1990,2000,2010))+
+  geom_vline(xintercept=1980,colour="red",linetype="dashed")+
+  ylab("Total number of grids")
+
+library(cowplot)
+plot_grid(g1,g2)
+
+#subset to plots visited once each decade??
+
+
+#Time series over time for each state
 
 timeSummary <- ddply(adultData,.(Year,State),summarise,
                      nuRecs=length(Species),
@@ -368,6 +403,58 @@ ggsave(filename="plots/Juv_timeseries_effort.png",width=12,height=7)
 library(GGally)
 timeSummary[,3:6]<-sapply(timeSummary[,3:6],log)
 ggpairs(timeSummary[,3:6])
+
+### species summary statistics ##############################################################################
+
+#Coenagrion hylas, Gomphus simillimus, Lestes macrostigma, Onychogomphus uncatus were excluded
+
+adultData <- subset(adultData,!Species %in% c("Coenagrion hylas", "Gomphus simillimus", "Lestes macrostigma", "Onychogomphus uncatus"))
+
+speciesSummary <- ddply(subset(adultData,Year>1980 & Year <2017),
+                        .(Species),summarise,
+                        nuRecs=length(Date),
+                        nuGrids=length(unique(MTB_Q)),
+                        nuYears=length(unique(Year)))
+
+speciesSummary <- arrange(speciesSummary,nuRecs)
+speciesSummary
+
+subset(speciesSummary,nuYears<20)
+median(speciesSummary$nuYears)
+summary(speciesSummary$nuYears)
+
+speciesDetectionYears <- ddply(subset(adultData,Year>1980 & Year <2017),.(Species,Year),
+                               summarise,
+                               nuRecs=length(Date))
+
+#expand to all years and species
+newgrid <- expand.grid(Species = unique(adultData$Species),
+                       Year = 1980:2016)
+
+speciesDetectionYears <- merge(speciesDetectionYears,newgrid,all=T)
+saveRDS(speciesDetectionYear,file="SpeciesDetecionYears.rds")
+
+### geographic statistics ###################################################################################
+
+#number of records each month, year and state
+
+
+### revisit statistics ######################################################################################
+
+#how many dates are there per MTBQ and per Year
+
+reVisits <- ddply(subset(adultData,Year>1980 & Year <2017),.(MTB_Q,Year),
+                               summarise,nuVisits=length(unique(Date)))
+
+#how many sites are revisied at least once
+(temp <- ddply(reVisits,.(Year),summarise,mean(nuVisits>1)))
+summary(temp$..1)
+
+
+temp <- ddply(reVisits,.(Year),summarise,
+      mean(nuVisits[!is.na(nuVisits & nuVisits>1)]))
+
+summary(temp$..1)
 
 ###species check##############################################################################################
 
