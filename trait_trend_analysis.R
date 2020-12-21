@@ -319,6 +319,10 @@ temp
 summary(lm(change ~ river + bog,data=trendEstimates))
 #more marginal        
 
+### range size effects ##############################################################
+
+
+
 ###trend models######################################################################
 
 #use weights or not?
