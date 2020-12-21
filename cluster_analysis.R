@@ -350,21 +350,27 @@ gA <- ggplot(myrandomCI)+
   theme_classic()+
   theme(legend.position = "none")
   
-#plus GAM derivatives
-myrandomCI$Signif <- clusterDeriv$Signif[match(interaction(myrandomCI$Cluster,myrandomCI$Year),interaction(clusterDeriv$Cluster,clusterDeriv$data))]
+# #plus GAM derivatives
+# myrandomCI$Signif <- clusterDeriv$Signif[match(interaction(myrandomCI$Cluster,myrandomCI$Year),interaction(clusterDeriv$Cluster,clusterDeriv$data))]
+# 
+# gA <- ggplot(myrandomCI)+
+#   geom_ribbon(aes(x=Year,ymin=lowerQ,ymax=upperQ,
+#                   fill=factor(Cluster)))+
+#   facet_wrap(~ClusterF,scales="free",ncol=3)+
+#   scale_fill_manual(values=rev(mycols))+
+#   theme_classic()+
+#   ylab("Mean occupancy index")+
+#   theme(legend.position = "none")+
+#   geom_point(data=subset(myrandomCI,Signif!="insig"),aes(x=Year,y=upperQ),color="black",size=0.5,shape=18)+
+#   geom_point(data=subset(myrandomCI,Signif!="insig"),aes(x=Year,y=lowerQ),color="black",size=0.5,shape=18)
 
-gA <- ggplot(myrandomCI)+
-  geom_ribbon(aes(x=Year,ymin=lowerQ,ymax=upperQ,
-                  fill=factor(Cluster)))+
-  facet_wrap(~ClusterF,scales="free",ncol=3)+
-  scale_fill_manual(values=rev(mycols))+
-  theme_classic()+
-  ylab("Mean occupancy index")+
-  theme(legend.position = "none")+
-  geom_point(data=subset(myrandomCI,Signif!="insig"),aes(x=Year,y=upperQ),color="black",size=0.5,shape=18)+
-  geom_point(data=subset(myrandomCI,Signif!="insig"),aes(x=Year,y=lowerQ),color="black",size=0.5,shape=18)
+
+#add on geometric mean of the assemblage-level results
 
 ggsave("plots/RandomCI_5_wo_outliers.png",width=7,height=4)
+
+### plot timeseries of each cluster ####################################
+
 
 ###GAM on fits###########################################################
 
