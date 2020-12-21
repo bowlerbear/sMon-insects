@@ -1,0 +1,93 @@
+
+  model{
+    
+    # State model
+    
+    #### GAM priors from mgcv::jagam()
+    
+    ### YEAR 1
+    ## Parametric effect priors
+    for (i in 1:1) {
+      b[i, 1] ~ dnorm(0,0.05)
+    }
+    
+    ## prior for s(x,y)
+    K1 <- S1[1:14,1:14] * lambda[1]  + S1[1:14,15:28] * lambda[2]
+    b[2:15,1] ~ dmnorm(zero[2:15],K1) 
+    
+    ## smoothing parameter priors
+    for(i in 1:2) {
+      lambda[i] ~ dgamma(.05,.005)
+      rho[i] <- log(lambda[i])
+    }
+    
+    ### YEARS 2-t
+    for(jj in 1:15){
+      for(t in 2:nyear){
+        b[jj, t] ~ dnorm(b[jj, t-1], tau.gam)
+      }
+    }
+    
+    tau.gam <- pow(sigma.gam, -2)
+    sigma.gam ~ dunif(0, 5)
+    
+    for (i in 1:nsite){ 
+      logit(psi[i, 1]) <- inprod(X[i,], b[, 1]) 
+      z[i, 1] ~ dbern(psi[i, 1])
+    
+      for (t in 2:nyear){
+      logit(psi[i, t]) <- inprod(X[i,], b[, t]) 
+      z[i, t] ~ dbern(psi[i, t])
+        
+      }
+    }   
+    
+    
+    #predict to full extent
+    for (i in 1:nsite_Full){ 
+      for (t in 1:nyear){
+        logit(psi_Full[i, t]) <- inprod(X_Full[i,], b[, t]) 
+      }
+    }  
+    
+    ### Observation Model
+    for(j in 1:nvisit) {
+    
+    y[j] ~ dbern(Py[j]) #data is Y 
+    Py[j]<- z[site[j],year[j]]*p[j] 
+    
+    #detection model:
+    logit(p[j]) <-  mup[year[j]] + 
+                    mu.phenol * yday[j] + 
+                    mu.phenol2 * yday2[j]+
+                    effort.p * Effort[j] +
+                    single.p * singleList[j]
+    } 
+    
+    # Derived parameters
+  
+    
+    #detection probability
+    mean.p <- mean(p)
+    
+    #Observation model priors
+
+    #year
+    for(t in 1:nyear){
+      mup[t] ~ dnorm(mu.p, tau.ap)
+    }
+    mu.p ~ dnorm(0, 0.001)
+    tau.ap <- 1/(sd.ap * sd.ap)
+    sd.ap ~ dt(0, 1, 1)T(0,)  
+    
+    #effort effects
+    effort.p ~ dnorm(0, 0.001)
+    single.p ~ dnorm(0, 0.001)
+    
+    #phenology effects
+    mu.phenol ~ dnorm(0,0.001)
+    mu.phenol2 ~ dnorm(0,0.001)
+ 
+    
+  }
+    
