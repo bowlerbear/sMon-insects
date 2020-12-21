@@ -13,21 +13,40 @@ Read in data frame
 
 ```{r}
 
-datafile <- read.delim("raw-data/He/X_Jena.txt",as.is=T)
-datafile2 <- read.delim("raw-data/He/X_Jena2.txt",as.is=T)
-datafile <- unique(rbind(datafile,datafile2))
+#read in first datafile sent
+datafile <- read.delim("raw-data/update 2020/He/Daten_1980-2019.csv",as.is=T,sep=",")
+datafile <- datafile[,-which(names(datafile)=="R16")]
 
 source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ```
+
+read in also additional file
+
+```{r}
+
+#read in second data file sent with higher resolution data
+datafile2 <- read.delim("raw-data/update 2020/He/Daten_2006-2019.txt",sep=",",as.is=T)
+datafile2$Datum <- sapply(datafile2$Datum,function(x)strsplit(x," ")[[1]][1])
+
+#subset to same columns in the first file
+datafile2 <- datafile2[,names(datafile)]
+
+#and merge
+datafile <- rbind(datafile,datafile2)
+
+#remove duplicates
+datafile <- unique(datafile)
+
+```
+
 
 Format data info
 
 ```{r}
 
 library(lubridate)
-datafile$Date <- sapply(datafile$Datum,function(x)strsplit(x," ")[[1]][1])
-datafile$Date <- as.Date(datafile$Date,format="%m/%d/%Y")
+datafile$Date <- as.Date(datafile$Datum,format="%m/%d/%Y")
 datafile$Month <- month(datafile$Date)
 datafile$Year <- year(datafile$Date)
 datafile$yday <- yday(datafile$Date)
@@ -46,7 +65,6 @@ datafile$Species <- datafile$Art
 Fix MTBQ
 ```{r}
 
-datafile$Q <- sapply(as.character(datafile$Rasterfeld),function(x)substr(x,1,1))
 datafile$MTB_Q <- apply(datafile,1,function(x)paste0(x["MTB"],x["Q"]))
 
 ```
@@ -54,19 +72,12 @@ datafile$MTB_Q <- apply(datafile,1,function(x)paste0(x["MTB"],x["Q"]))
 Check species names against the standard list
 
 ```{r}
-
 specieslist <- read.delim("specieslist_odonata.txt")
 unique(datafile$Species[!datafile$Species%in%specieslist$Species])
 
-#remove genus data
-datafile <- datafile[grepl(" ",datafile$Species),]
+#remove higher-level data
+datafile <- subset(datafile,!Species %in% c("Odonata","Cordulegaster","Calopteryx","Sympetrum","Aeshna","Erythromma"))
   
-#correct species names
-datafile$Species[which(datafile$Species=="Pyrrhosoma nympula")]<-"Pyrrhosoma nymphula"
-
-#check
-unique(datafile$Species[!datafile$Species%in%specieslist$Species])
-
 ```
 
 Identifying adult observation
@@ -84,7 +95,8 @@ Sort count data
 
 ```{r}
 
-datafile$Anzahl_min <- NA
+datafile$Anzahl_min <- datafile$Anzahl
+summary(datafile$Anzahl_min)
 
 ```
 
@@ -95,7 +107,6 @@ Get coords of the MTBs
 load("mtbqsDF.RData")
 datafile$lon <- mtbqsDF$x[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]
 datafile$lat <- mtbqsDF$y[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]
-datafile <- subset(datafile,!is.na(lon))
 
 ```
 
@@ -194,17 +205,64 @@ summary(datafile$Expertise)
 
 ```
 
-
-Save juvenile and adult data separately
-
+limit to standard columns
 ```{r}
 
 adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
                            "Richness","lon","lat","Beobachter","Anzahl_min")]
-save(adult_datafile,file="derived-data/adult_datafile_He.RData")
-saveRDS(adult_datafile,file="derived-data/adult_datafile_He.rds")
 
 ```
 
 
+combine with previous data for Hessen
 
+```{r}
+
+adult_datafile_orig <- readRDS("derived-data/adult_datafile_He.rds")
+
+#remove duplicates
+adult_datafile <- rbind(adult_datafile,adult_datafile_orig) 
+adult_datafile <- unique(adult_datafile)
+
+```
+
+
+```{r}
+
+#save(adult_datafile,file="derived-data/adult_datafile_He_updated.RData")
+saveRDS(adult_datafile,file="derived-data/adult_datafile_He_updated.rds")
+
+```
+
+#Jorg says
+#For our Red List we are mainly looking at the period from 2006 onwards, 
+#so it would be great if you could do the analysis for this #period and in MTB/64 raster
+#so we also save:
+
+```{r}
+
+datafile_64 <- read.delim("raw-data/update 2020/He/Daten_2006-2019.txt",sep=",",as.is=T)
+
+#format Date
+datafile_64$Datum <- sapply(datafile_64$Datum,function(x)strsplit(x," ")[[1]][1])
+datafile_64$Date <- as.Date(datafile_64$Datum,format="%m/%d/%Y")
+datafile_64$Month <- month(datafile_64$Date)
+datafile_64$Year <- year(datafile_64$Date)
+datafile_64$yday <- yday(datafile_64$Date)
+
+#species
+datafile_64$Species <- datafile_64$Art
+unique(datafile_64$Species[!datafile_64$Species%in%specieslist$Species])
+datafile_64 <- subset(datafile_64,!Species %in% c("Odonata","Cordulegaster","Calopteryx","Sympetrum","Aeshna","Erythromma"))
+
+#unit
+datafile_64 <- subset(datafile_64, Einheit %in% c("Alttier/Imago","Emergenz","Keine Angabe","Exuvien"))
+datafile_64$Anzahl_min <- datafile_64$Anzahl
+
+#select subset of variables
+datafile_64$MTB_Q <- apply(datafile_64,1,function(x)paste0(x["MTB"],x["Q"]))
+
+adult_datafile_64<- datafile_64[,c("Date","MTB","MTB_Q","MTB64","Species","Beobachter","Anzahl_min")]
+
+
+saveRDS(adult_datafile_64,file="derived-data/adult_datafile_He_updated_MTB64.rds")

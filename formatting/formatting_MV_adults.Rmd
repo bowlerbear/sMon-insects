@@ -14,9 +14,9 @@ Read in data frame
 ```{r}
 
 library(rgdal)
-datafile <- read.csv("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/raw-data/MV/qry_ArtData.csv",sep=";",dec=",",as.is=T)
+datafile <- read.csv("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/raw-data/MV/qry_ArtData.csv",sep=";",dec=",",as.is=T)
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ```
 
@@ -38,6 +38,7 @@ datafile$Beobachter <- datafile$GUID_Beobachter
 datafile$Fundort <- datafile$Ortsbezeichnung
 datafile <- subset(datafile, !is.na(yday))
 datafile <- subset(datafile, yday!=1)
+
 ```
 
 Sort MTBQ
@@ -53,6 +54,7 @@ datafile$MTB_Q <- paste0(datafile$MTB,datafile$MTBQ)
 Subset to just dragonflies
 
 ```{r}
+
 #exclude: molch, kröte,schrecke,hüpfer (amphibians and grasshoppers)
 notSpecies1 <- unique(datafile$Art_Deutsch[grepl("molch",datafile$Art_Deutsch)])
 notSpecies2 <- unique(datafile$Art_Deutsch[grepl("kröte",datafile$Art_Deutsch)])
@@ -79,13 +81,14 @@ datafile <- subset(datafile, !Species %in% c("- Dummy-Art -","- Negativnachweis 
 
 Subset to just adults
 ```{r}
-einheitDF <- read.csv("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/raw-data/MV/dbo_tblEinheiten.csv",sep=",",dec=",",as.is=T)
+
+einheitDF <- read.csv("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/raw-data/MV/dbo_tblEinheiten.csv",sep=",",dec=",",as.is=T)
 datafile$Einheit <- einheitDF$Einheit[match(datafile$ID_Einheit,einheitDF$ID_Einheit)]
 table(datafile$Einheit)
 unique(datafile$Einheit)
 nrow(subset(datafile,!is.na(Einheit)))
 
-datafile <- subset(datafile,!Einheit %in% c("Jungtier","Larve"))
+datafile <- subset(datafile,!Einheit %in% c("Larve"))
 
 ```
 
@@ -140,6 +143,7 @@ ggpairs(surveys[,5:9])
 Characterize the total richness found in each grid:
 
 ```{r}
+
 gridRichness <- ddply(datafile,.(MTB_Q),summarise,
                     nuSpecies=length(unique(Species)),
                     nuRecs=length(Species),
@@ -177,7 +181,7 @@ Sort out the observer data:
 
 ```{r}
 
-beobachterDF <- read.csv("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/raw-data/MV/dbo_vwBeobachter.csv",sep=",",as.is=T)
+beobachterDF <- read.csv("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/raw-data/MV/dbo_vwBeobachter.csv",sep=",",as.is=T)
 
 datafile$Beobachter <- beobachterDF$ID_Beobachter[match(datafile$GUID_Beobachter,beobachterDF$GUID_Beobachter)]
 #211 is unknown

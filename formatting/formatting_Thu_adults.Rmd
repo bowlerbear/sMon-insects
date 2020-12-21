@@ -14,10 +14,10 @@ Read in data frame
 ```{r}
 
 library(rgdal)
-datafile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/raw-data/Thuringia/dragonflies_TH",layer="dragonflies_TH")
+datafile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/raw-data/Thuringia/dragonflies_TH",layer="dragonflies_TH")
 #+proj=utm +zone=32 +ellps=GRS80 +towgs84=0.0,0.0,0.0,0.0,0.0,0.0,0.0 +units=m +no_defs"
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ```
 
@@ -68,7 +68,8 @@ Get count information - this is a mixture of words and numbers
 ```{r}
 
 datafile$Anzahl_min <- as.numeric(as.character(datafile$ANZAHL_GES))
-
+summary(datafile$Anzahl_min)
+nrow(summary(datafile,Anzahl_min==0))#7
 ```
 
 Add lon/lat info
@@ -91,7 +92,7 @@ Subset to adults
 ```{r}
 unique(datafile$STATUS_K_R)
 table(datafile$STATUS_K_R)
-datafile <- subset(datafile,STATUS_K_R %in% c("Im","k","e","If","MI","WI","?","Ex"))
+datafile <- subset(datafile,!STATUS_K_R %in% c("La"))
 
 ```
 
@@ -185,14 +186,11 @@ Characterise average expertise level
 
 allObservers <- as.character(sort(unique(datafile$Beobachter)))
 
-allObservers <- removeGerman(allObservers)
-allObservers <- formatObservers(allObservers)
 
 #for each observer, calculate how many records they were involved in collecting
 library(plyr)
 expertise<-ldply(allObservers,function(x){
   Beobachter <- as.character(datafile$Beobachter)
-  Beobachter <- removeGerman(Beobachter)
   Level = sum(Beobachter==x)
   data.frame(Beobachter=x,Level)
 })

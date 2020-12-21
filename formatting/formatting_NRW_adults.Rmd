@@ -21,6 +21,7 @@ nrow(datafile)#177205
 Add species names
 
 ```{r}
+
 speciesDF <- read.csv("raw-data/NRW/rohdaten_aklnrw_an_idiv_181116/reflibellenarten.csv",as.is=T)
 datafile$Species <- speciesDF$wiss_name[match(datafile$art,speciesDF$art_id)]
 
@@ -29,17 +30,20 @@ datafile$Species <- speciesDF$wiss_name[match(datafile$art,speciesDF$art_id)]
 Check species names against the standard list
 
 ```{r}
+
 specieslist <- read.delim("specieslist_odonata.txt")
 
 unique(datafile$Species[!datafile$Species%in%specieslist$Species])
 datafile$Species[which(datafile$Species=="Lestes viridis")]<-"Chalcolestes viridis"
 
 unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+
 ```
 
 Check out geographic coords
 
 ```{r}
+
 geoDF <- read.csv("raw-data/NRW/rohdaten_aklnrw_an_idiv_181116/reffundortart.csv",as.is=T)
 
 datafile$fundortart <- geoDF$erlaeuterung[match(datafile$fundortart,geoDF$fundortartid)]
@@ -50,15 +54,17 @@ table(datafile$fundortart)
 datafile <- subset(datafile,!is.na(r_wert))
 datafile <- subset(datafile,!is.na(h_wert))
 
+
 ```
 
 Add MTB_Q info
 
 ```{r}
+
 library(rgdal)
 
 #get MTB Q
-MTBshapefile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",layer="MTBQ_25833")
+MTBshapefile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",layer="MTBQ_25833")
 #crs specified as +proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs
 MTBshapefile@data$Q <- NA
 MTBshapefile@data$Q[which(MTBshapefile@data$Quadrant=="NW")]<-1
@@ -86,11 +92,14 @@ mycoords <- spTransform(mycoords,CRS("+proj=longlat +datum=WGS84"))
 datafile$lon <- mycoords@coords[,1]
 datafile$lat <- mycoords@coords[,2]
 datafile <- subset(datafile, !is.na(MTB))
+
+
 ```
 
 Sort out the dates
 
 ```{r}
+
 library(lubridate)
 datafile$Date <- as.Date(datafile$datum) 
 datafile$Month <- month(datafile$Date)
@@ -100,6 +109,7 @@ summary(datafile$yday)
 
 nrow(subset(datafile,is.na(yday)))
 nrow(subset(datafile,!is.na(yday)))
+#data up to 2011
 
 datafile <- subset(datafile, !is.na(yday))
 datafile <- subset(datafile,yday!=1)
@@ -122,7 +132,21 @@ Sort stage info and restrict to adult
 ```{r}
 
 table(datafile$imag_kl)
-datafile <- subset(datafile,imag_kl>0|exuv_kl>0)
+table(datafile$exuv_kl)
+
+#exclude ones that are only larval observations
+
+#exclude if imago and exuv are both 0
+datafile <- subset(datafile,!(imag_kl==0 & exuv_kl==0))
+
+#change negative values to missing data
+datafile$larv_kl[datafile$larv_kl<0] <- NA
+datafile$exuv_kl[datafile$exuv_kl<0] <- NA
+datafile$imag_kl[datafile$imag_kl<0] <- NA
+datafile$Anzahl_min <- apply(datafile,1,function(x)
+  sum(as.numeric(x[c("imag_kl","exuv_kl")]),na.rm=T))
+datafile$Anzahl_min[is.na(datafile$imag_kl) | is.na(datafile$exuv_kl)] <- NA
+
 
 ```
 
@@ -131,8 +155,8 @@ Sort data columns
 
 ```{r}
 
-hist(datafile$imag_kl)
-summary(datafile$imag_kl)
+hist(datafile$Anzahl_min)
+summary(datafile$Anzahl_min)
 
 ```
 
@@ -159,7 +183,6 @@ Characterize the total richness found in each grid:
 
 ```{r}
 
-
 gridRichness <- ddply(datafile,.(MTB_Q,Month),summarise,
                     nuSpecies=length(unique(Species)),
                     nuRecs=length(Species),
@@ -176,7 +199,7 @@ gridRichness <- ddply(datafile,.(MTB_Q),summarise,
                     nuDates = length(unique(Date)))
 
 summary(gridRichness$nuSpecies)
-#1 to 48
+#1 to 49
 
 qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
 #the more records, the more species
@@ -274,8 +297,7 @@ Save data
 ```{r}
 
 adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
-                           "Richness","lon","lat","Beobachter","imag_kl")]
-names(adult_datafile)[which(names(adult_datafile)=="imag_kl")] <- "Anzahl_min"
+                           "Richness","lon","lat","Beobachter","Anzahl_min")]
 save(adult_datafile,file="derived-data/adult_datafile_NRW.RData")
 saveRDS(adult_datafile,file="derived-data/adult_datafile_NRW.rds")
 

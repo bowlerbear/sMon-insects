@@ -15,7 +15,7 @@ Read in data frame
 
 datafile <- read.csv("raw-data/Saarland/Trockur_Saarl_2018_1.csv",as.is=T)
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ```
 
@@ -28,6 +28,8 @@ datafile$Date <- as.Date(datafile$datum,format="%d.%m.%Y")
 datafile$Month <- month(datafile$Date)
 datafile$Year <- year(datafile$Date)
 datafile$yday <- yday(datafile$Date)
+datafile <- subset(datafile,yday!=1)
+datafile <- subset(datafile,!is.na(yday))
 
 ```
 
@@ -35,6 +37,7 @@ datafile$yday <- yday(datafile$Date)
 Check species names against the standard list
 
 ```{r}
+
 specieslist <- read.delim("specieslist_odonata.txt")
 
 unique(datafile$Species[!datafile$Species%in%specieslist$Species])
@@ -46,6 +49,7 @@ datafile$Species[which(datafile$Species=="Lestes virens vestalis")]<-"Lestes vir
 datafile$Species[which(datafile$Species=="Lestes viridis")]<-"Chalcolestes viridis"
 
 unique(datafile$Species[!datafile$Species%in%specieslist$Species])
+
 ```
 
 Sort data columns
@@ -56,34 +60,34 @@ Sort data columns
 datafile$Kopula <- gsub(">","",datafile$Kopula)
 datafile$Kopula <- gsub("mind ","",datafile$Kopula)
 datafile$Kopula <- as.numeric(as.character(datafile$Kopula))
-datafile$Kopula[is.na(datafile$Kopula)] <- 0
+datafile$Kopula[is.na(datafile$Kopula)] <- NA
 
 #Larven
 datafile$Larven <- gsub("jag","",datafile$Larven)
 datafile$Larven <- as.numeric(as.character(datafile$Larven))
-datafile$Larven[is.na(datafile$Larven)] <- 0
+datafile$Larven[is.na(datafile$Larven)] <- NA
 
 #exuvien
 datafile$Exuvien[which(datafile$Exuvien=="21-50")] <- 21
 datafile$Exuvien <- gsub(">","",datafile$Exuvien)
 datafile$Exuvien <- as.numeric(as.character(datafile$Larven))
-datafile$Exuvien[is.na(datafile$Exuvien)] <- 0
+datafile$Exuvien[is.na(datafile$Exuvien)] <- NA
 
 #oviposition
 datafile$Eiablage <- as.numeric(as.character(datafile$Eiablage))
-datafile$Eiablage[is.na(datafile$Eiablage)] <- 0
+datafile$Eiablage[is.na(datafile$Eiablage)] <- NA
 
 #juvenile
 datafile$Juvenile[which(datafile$Juvenile=="50-100")] <- 50
 datafile$Juvenile <- as.numeric(as.character(datafile$Juvenile))
-datafile$Juvenile[is.na(datafile$Juvenile)] <- 0
+datafile$Juvenile[is.na(datafile$Juvenile)] <- NA
 
 #adulte
 datafile$Adulte <- sapply(datafile$Adulte,function(x)getFirstRange(x))
 datafile$Adulte <- gsub(">","",datafile$Adulte)
 datafile$Adulte <- gsub("mind. ","",datafile$Adulte)
 datafile$Adulte <- as.numeric(as.character(datafile$Adulte))
-datafile$Adulte[is.na(datafile$Adulte)] <- 0
+datafile$Adulte[is.na(datafile$Adulte)] <- NA
 
 ```
 
@@ -94,10 +98,11 @@ Identifying adult and juvenile observation
 #Jagdflug#all good
 #Jagend# all good
 #Ruhe# all good
-datafile$Adult <- apply(datafile[,c("Adulte","Jagdflug","Jagend","Ruhe","Eiablage","Kopula","Exuvien")],1,sum,na.rm=T)
+datafile$Adult <- apply(datafile[,c("Adulte","Jagdflug","Jagend","Ruhe","Eiablage","Kopula","Exuvien","Juvenile")],1,sum,na.rm=T)
 
-#create a total juvenile column
-datafile$Juv <- datafile$Larven + datafile$Exuvien + datafile$Juvenile
+#if they are all NA, then Adult should be NA too
+datafile$Adult <- apply(datafile[,c("Adulte","Jagdflug","Jagend","Ruhe","Eiablage","Kopula","Exuvien","Juvenile")],1,function(x){
+                        ifelse(all(is.na(x)),NA,x)})
 
 ```
 
@@ -105,14 +110,17 @@ Restrict to adult sampling
 
 ```{r}
 
-datafile <- subset(datafile, Adult>0)
+nrow(datafile)#48281
+nrow(subset(datafile,Adult==0))#23
+nrow(subset(datafile,is.na(Adult)))#7193
 
 #check for extremes
 hist(datafile$Adult)
-quantile(datafile$Adult,0.99)
+quantile(datafile$Adult,0.99,na.rm=T)
 
 #block upper values
-datafile$Adult[datafile$Adult > quantile(datafile$Adult,0.99)] <- quantile(datafile$Adult,0.99)
+datafile$Adult[datafile$Adult > quantile(datafile$Adult,0.99,na.rm=T)] <- quantile(datafile$Adult,0.99,na.rm=T)
+
 hist(datafile$Adult)
 
 ```
@@ -146,7 +154,7 @@ gridRichness <- ddply(datafile,.(MTB_Q),summarise,
                     nuDates = length(unique(Date)))
 
 summary(gridRichness$nuSpecies)
-#1 to 49!!!
+#1 to 52!!!
 #1 is unlikely...
 
 qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
@@ -179,7 +187,6 @@ samplingSites <- ddply(datafile,. (Date,MTB_Q),summarise,
 
 summary(samplingSites$nuLocations)
 summary(samplingSites$nuCoords)
-#usually just one or two
 
 ```
 

@@ -16,7 +16,7 @@ Read in data frame
 #datafile <- read.csv("raw-data/BW/Odonata_gesamt.csv",as.is=T,sep=";")
 datafile <- read.csv("raw-data/BW/SGL_Libellen_2006_bis_2018.csv",as.is=T,sep=";")
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ```
 
@@ -30,6 +30,7 @@ datafile$Date <- as.Date(datafile$Date,format="%d.%m.%Y")
 datafile$Month <- month(datafile$Date)
 datafile$Year <- year(datafile$Date)
 datafile$yday <- yday(datafile$Date)
+datafile <- subset(datafile,yday!=1)
 
 ```
 
@@ -59,7 +60,6 @@ datafile <- datafile[grepl(" ",datafile$Species),]
 #correct species names
 datafile <- subset(datafile, Species!="Orthetrum chrysostigma")
 
-
 ```
 
 Identifying adult observation
@@ -69,14 +69,13 @@ Identifying adult observation
 unique(datafile$Einheit)
 table(datafile$Einheit)
 
-datafile <- subset(datafile, !Einheit %in% c("Larve","Jungtier"))
+datafile <- subset(datafile, !Einheit %in% c("Larve"))
 
 ```
 
 Sort count data
 
 ```{r}
-
 
 #check for extremes
 hist(datafile$Anzahl)
@@ -95,6 +94,7 @@ summary(datafile$Anzahl)
 Get coords of the MTBs
 
 ```{r}
+
 load("mtbqsDF.RData")
 datafile$lon <- mtbqsDF$lon[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]
 datafile$lat <- mtbqsDF$lat[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]

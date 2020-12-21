@@ -15,7 +15,7 @@ Read in data frame
 
 datafile <- read.csv("raw-data/SH/Libellen_Schleswig-Holstein.csv",as.is=T)
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ```
 
@@ -86,8 +86,7 @@ Restrict to adult sampling
 table(datafile$VERH)
 unique(datafile$VERH)
 
-datafile <- subset(datafile, VERH %in% 
-                     c("I","PA","EI","E",NA))#imagos, pairs copulating, laying eggs
+datafile <- subset(datafile, ! VERH %in% c("L","FR"))
 
 #check for extremes
 hist(datafile$ANZAHL)

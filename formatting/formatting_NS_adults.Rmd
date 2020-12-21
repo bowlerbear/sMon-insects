@@ -17,7 +17,7 @@ library(readxl)
 
 datafile <- read_excel("raw-data/NiederSaschen/000_NDS_HB_data_export_iDiv_w_date.xlsx")
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ```
 
@@ -30,6 +30,7 @@ datafile$Date <- as.Date(datafile$date,format="%Y-%m-%d")
 datafile$Month <- month(datafile$Date)
 datafile$Year <- year(datafile$Date)
 datafile$yday <- yday(datafile$Date)
+datafile <- subset(datafile,yday!=1)
 
 ```
 
@@ -41,8 +42,8 @@ datafile$MTB_Q <- datafile$mtbq
 datafile$Beobachter <- datafile$observer_id
 
 #save natural region info
-naturraum_Saarland <- unique(datafile[,c("MTB_Q","nat_reg_id")])
-saveRDS(naturraum_Saarland,file="naturraum_Saarland.rds")
+#naturraum_Saarland <- unique(datafile[,c("MTB_Q","nat_reg_id")])
+#saveRDS(naturraum_Saarland,file="naturraum_Saarland.rds")
 
 ```
 
@@ -70,7 +71,7 @@ Identifying adult observation
 unique(datafile$unit)
 table(datafile$unit)
 
-datafile <- subset(datafile, !unit %in% c("Larve","Jungtier"))
+datafile <- subset(datafile, !unit %in% c("Larve"))
 
 ```
 
@@ -130,7 +131,7 @@ gridRichness <- ddply(datafile,.(MTB_Q),summarise,
                     nuDates = length(unique(Date)))
 
 summary(gridRichness$nuSpecies)
-#1 to 51!!!
+#1 to 52!!!
 #1 is unlikely...
 
 qplot(log(nuRecs),log(nuSpecies),data=gridRichness)

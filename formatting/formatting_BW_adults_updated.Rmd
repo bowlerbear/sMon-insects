@@ -1,5 +1,5 @@
 ---
-title: "formatting_Saarland"
+title: "formatting_BW"
 output: html_document
 ---
 
@@ -9,45 +9,86 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```
 
-Read in data frame
+Read in original data frame
 
 ```{r}
 
-datafile <- read.delim("raw-data/He/X_Jena.txt",as.is=T)
-datafile2 <- read.delim("raw-data/He/X_Jena2.txt",as.is=T)
-datafile <- unique(rbind(datafile,datafile2))
+datafile <- read.csv("raw-data/BW/SGL_Libellen_2006_bis_2018.csv",as.is=T,sep=";")
+nrow(datafile)
+#42747
 
 source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ```
 
+plot these coordinates just for a reference
+
+```{r}
+
+library(sp)
+
+#"SGL-Schutzgemeinschaft Libellen BW"
+
+unique(datafile$EPSG)#31467
+coords <- datafile[,c("X","Y")]
+coordinates(coords) <- c("X","Y")
+proj4string(coords) <- CRS("+init=epsg:31467")
+plot(coords)
+
+#get shapefile for Baden Wuttemburg
+
+germanAdmin <- readRDS("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Spatial_data/AdminBoundaries/gadm36_DEU_1_sp.rds")
+BW <- subset(germanAdmin,NAME_1 %in% c("Baden-Württemberg"))
+BW <- spTransform(BW,CRS("+init=epsg:31467"))
+
+plot(BW)
+plot(coords,add=T)
+
+```
+
+
+get new data file
+
+```{r}
+
+datafile <- read.csv("raw-data/update 2020/BW/SGL_Daten_bis 2005.csv",as.is=T,sep=",")
+nrow(datafile)#83928
+
+```
+
+
 Format data info
 
 ```{r}
 
+#any missing data
+sum(is.na(datafile$Datum))
+sum((datafile$Datum==""))#24603
+
 library(lubridate)
+datafile <- subset(datafile, Datum!="")
 datafile$Date <- sapply(datafile$Datum,function(x)strsplit(x," ")[[1]][1])
-datafile$Date <- as.Date(datafile$Date,format="%m/%d/%Y")
+datafile$Date <- as.Date(datafile$Date,format="%d.%m.%Y")
 datafile$Month <- month(datafile$Date)
 datafile$Year <- year(datafile$Date)
 datafile$yday <- yday(datafile$Date)
 datafile <- subset(datafile,yday!=1)
-datafile <- subset(datafile,!is.na(yday))
+
+nrow(datafile)#59309
 
 ```
 
 Fix column headings
 ```{r}
 
-datafile$Species <- datafile$Art
+datafile$Species <- datafile$Art.Wissenschaftlich
 
 ```
 
 Fix MTBQ
 ```{r}
 
-datafile$Q <- sapply(as.character(datafile$Rasterfeld),function(x)substr(x,1,1))
-datafile$MTB_Q <- apply(datafile,1,function(x)paste0(x["MTB"],x["Q"]))
+datafile$MTB_Q <- apply(datafile,1,function(x)paste0(x["MTB"],x["MTBQ"]))
 
 ```
 
@@ -58,14 +99,6 @@ Check species names against the standard list
 specieslist <- read.delim("specieslist_odonata.txt")
 unique(datafile$Species[!datafile$Species%in%specieslist$Species])
 
-#remove genus data
-datafile <- datafile[grepl(" ",datafile$Species),]
-  
-#correct species names
-datafile$Species[which(datafile$Species=="Pyrrhosoma nympula")]<-"Pyrrhosoma nymphula"
-
-#check
-unique(datafile$Species[!datafile$Species%in%specieslist$Species])
 
 ```
 
@@ -84,7 +117,13 @@ Sort count data
 
 ```{r}
 
-datafile$Anzahl_min <- NA
+#check for extremes
+hist(datafile$Anzahl)
+summary(datafile$Anzahl)
+
+#block upper values
+datafile$Anzahl[datafile$Anzahl > quantile(datafile$Anzahl,0.99,na.rm=T)] <- quantile(datafile$Anzahl,0.99,na.rm=T)
+summary(datafile$Anzahl)
 
 ```
 
@@ -93,9 +132,8 @@ Get coords of the MTBs
 ```{r}
 
 load("mtbqsDF.RData")
-datafile$lon <- mtbqsDF$x[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]
-datafile$lat <- mtbqsDF$y[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]
-datafile <- subset(datafile,!is.na(lon))
+datafile$lon <- mtbqsDF$lon[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]
+datafile$lat <- mtbqsDF$lat[match(datafile$MTB_Q,mtbqsDF$MTB_Q)]
 
 ```
 
@@ -120,7 +158,6 @@ ggpairs(surveys[,5:9])
 Characterize the total richness found in each grid:
 
 ```{r}
-
 gridRichness <- ddply(datafile,.(MTB_Q),summarise,
                     nuSpecies=length(unique(Species)),
                     nuRecs=length(Species),
@@ -128,7 +165,7 @@ gridRichness <- ddply(datafile,.(MTB_Q),summarise,
                     nuDates = length(unique(Date)))
 
 summary(gridRichness$nuSpecies)
-#1 to 50
+#1 to 46
 #1 is unlikely...
 
 qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
@@ -158,7 +195,6 @@ obsRichness <- ddply(datafile,.(Beobachter),summarise,
                     nuRecs=length(Species))
 
 summary(obsRichness$nuSpecies)
-#1 to 60!!!
 
 qplot(log(nuRecs),log(nuSpecies),data=obsRichness)
 
@@ -194,17 +230,55 @@ summary(datafile$Expertise)
 
 ```
 
+#subset to columns of interest
+
+```{r}
+
+adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
+                           "Richness","lon","lat","Beobachter","Anzahl")]
+names(adult_datafile)[which(names(adult_datafile)=="Anzahl")] <- "Anzahl_min"
+
+
+```
+
+Get data from the previous year
+
+```{r}
+
+adult_datafile_orig <- readRDS("derived-data/adult_datafile_BW.rds")
+
+#remove duplicates
+adult_datafile <- rbind(adult_datafile,adult_datafile_orig) 
+adult_datafile <- unique(adult_datafile)
+
+```
 
 Save juvenile and adult data separately
 
 ```{r}
 
-adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
-                           "Richness","lon","lat","Beobachter","Anzahl_min")]
-save(adult_datafile,file="derived-data/adult_datafile_He.RData")
-saveRDS(adult_datafile,file="derived-data/adult_datafile_He.rds")
+saveRDS(adult_datafile,file="derived-data/adult_datafile_BW_updated.rds")
 
 ```
 
+plot data
+
+```{r}
+
+library(sp)
+
+germanAdmin <- readRDS("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Spatial_data/AdminBoundaries/gadm36_DEU_1_sp.rds")
+BW <- subset(germanAdmin,NAME_1 %in% c("Baden-Württemberg"))
+
+coords <- adult_datafile[,c("lon","lat")]
+coordinates(coords) <- c("lon","lat")
+proj4string(coords) <- CRS(proj4string(BW))
+
+#plot it
+plot(BW)
+plot(coords,add=T)
+#looks good!!!
+
+```
 
 

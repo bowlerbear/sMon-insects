@@ -15,7 +15,7 @@ Read in data frame
 
 library(rgdal)
 
-datafile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/raw-data/Saxony/Libellen",
+datafile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/raw-data/Saxony/Libellen",
                     layer="20181122-ZeNA-Libellen-3")
 
 #convert to data frame
@@ -34,7 +34,7 @@ datafile$Species <- datafile$Art_wiss
 Check species names against the standard list
 
 ```{r}
-specieslist <- read.delim("specieslist_odonata.txt")
+specieslist <- read.delim("model-auxfiles/specieslist_odonata.txt")
 
 unique(datafile$Species[!datafile$Species%in%specieslist$Species])
 
@@ -79,6 +79,7 @@ datafile <- subset(datafile, !is.na(MTB_Q))
 Sort out the dates
 
 ```{r}
+
 library(lubridate)
 datafile$Date <- sapply(as.character(datafile$Datum),function(x)strsplit(x," ")[[1]][1])
 datafile$Date <- as.Date(datafile$Date,format="%d.%m.%Y")
@@ -112,7 +113,7 @@ Sort stage info and restrict to adult
 unique(datafile$Einheit)
 table(datafile$Einheit)
 
-datafile <- subset(datafile,!Einheit %in%c("Larve","Jungtier"))
+datafile <- subset(datafile,!Einheit %in%c("Larve"))
 
 ```
 
@@ -225,21 +226,12 @@ Characterise average expertise level
 
 ```{r}
 
-source('R/sparta_wrapper_functions.R')
-
-#extract duplicates
-library(gdata)
-
 allObservers <- as.character(sort(unique(datafile$Beobachter)))
-allObservers <- removeGerman(allObservers)
 
 #for each observer, calculate how many records they were involved in collecting
 library(plyr)
-expertise<-ldply(allObservers,function(x){
-  Beobachter <- as.character(datafile$Beobachter)
-  Beobachter <- removeGerman(Beobachter)
-  Level = sum(Beobachter==x)
-  data.frame(Beobachter=x,Level)
+expertise <-ldply(allObservers,function(x){
+  data.frame(Beobachter=x,Level=sum(x==datafile$Beobachter))
 })
 
 hist(log(expertise$Level))  
@@ -252,13 +244,7 @@ Add information on expertise to the datafile
 
 ```{r}
 
-datafile$Expertise <-
-  sapply(as.character(datafile$Beobachter),function(x){
-    myobs <- removeGerman(x)
-    max(expertise$Level[expertise$Beobachter %in% myobs])#take maximum level when there is a group of observers
-    })
-
-datafile$Expertise[is.infinite(datafile$Expertise)]<-1
+datafile$Expertise <- expertise$Level[match(datafile$Beobachter,expertise$Beobachter)]
 
 summary(datafile$Expertise)
 

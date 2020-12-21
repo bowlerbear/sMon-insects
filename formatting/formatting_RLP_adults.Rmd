@@ -14,10 +14,10 @@ Read in data frame
 ```{r}
 
 library(rgdal)
-datafile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/raw-data/RLP/direct_download/export_artdatenpool", layer="export_artdatenpool")
+datafile <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/raw-data/RLP/direct_download/export_artdatenpool", layer="export_artdatenpool")
 #+proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ```
 
@@ -182,7 +182,6 @@ Characterise average expertise level
 ```{r}
 
 allObservers <- as.character(sort(unique(datafile$Beobachter)))
-
 allObservers <- removeGerman(allObservers)
 allObservers <- formatObservers(allObservers)
 
@@ -198,7 +197,6 @@ expertise<-ldply(allObservers,function(x){
 hist(log(expertise$Level))  
 
 arrange(expertise,desc(Level))
-
 
 ```
 
@@ -216,7 +214,6 @@ datafile$Expertise <-
 datafile$Expertise[is.infinite(datafile$Expertise)]<-1
 
 summary(datafile$Expertise)
-
 
 ```
 

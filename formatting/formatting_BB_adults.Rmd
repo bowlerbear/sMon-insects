@@ -89,6 +89,7 @@ datafile$Fundort <-datafile$BASIS_ort
 datafile$Beobachter <- datafile$BASIS_beobachter 
 
 #how many MTB_Q's are actually MTBs..
+
 sum(!grepl("\\.",datafile$mtb))#most do
 sum(grepl("\\.",datafile$mtb))
 
@@ -104,7 +105,7 @@ Get lon/lat of MTBs
 
 library(rgdal)
 library(sp)
-mtbqs <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",layer="MTBQ_25833")
+mtbqs <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",layer="MTBQ_25833")
 mtbqs <- spTransform(mtbqs,
 CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
 mtbqsDF <- data.frame(mtbqs@data,coordinates(mtbqs))
@@ -136,11 +137,10 @@ unique(datafile$BASIS_stadium)
 table(datafile$BASIS_stadium)
 
 #restrict to adults
-datafile <- subset(datafile,  BASIS_stadium%in% c("Imago","Exuvie"))
+datafile <- subset(datafile, !BASIS_stadium%in% c("Larve"))
 
 
 ```
-
 
 Sort data columns
 its only presence data
@@ -190,7 +190,7 @@ gridRichness <- ddply(datafile,.(MTB_Q),summarise,
                     nuDates = length(unique(Date)))
 
 summary(gridRichness$nuSpecies)
-#1 to 54
+#1 to 55
 
 qplot(log(nuRecs),log(nuSpecies),data=gridRichness)
 #the more records, the more species
@@ -208,7 +208,7 @@ samplingSites <- ddply(datafile,. (Date,MTB_Q),summarise,
 nuLocations=length(unique(Fundort)))
 
 summary(samplingSites$nuLocations)
-#always 1
+#up to 8
 
 #add to the data frame
 datafile$samplingSites <- samplingSites$nuLocations[match(interaction(datafile$Date,datafile$MTB_Q),
@@ -290,6 +290,7 @@ datafile$Expertise <-
 datafile$Expertise[is.infinite(datafile$Expertise)]<-1
 
 summary(datafile$Expertise)
+#this section was not run - expertise set to 1
 
 ```
 
