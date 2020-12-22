@@ -1,4 +1,4 @@
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 library(plyr)
 library(ggplot2)
 library(reshape2)
@@ -8,7 +8,7 @@ library(MuMIn)
 
 ###get data###################################################################
 
-setwd("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects")
+setwd("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects")
 
 #get traits data
 load("alltraits.RData")
@@ -152,6 +152,27 @@ g2 <- ggplot(trendEstimates)+
 library(cowplot)
 plot_grid(g2,g1,nrow=1)
 ggsave("plots/Trend_summary.png",width=8,height=3)
+
+
+#as interactive plot
+#using ggiraph
+library(ggiraph)
+g2 <- ggplot(trendEstimates)+
+  geom_bar_interactive(aes(x=Species,y=trend,fill=Trend,tooltip=Species,data_id=Species),
+           stat="identity",width=rel(1))+
+  theme_classic()+  
+  theme(axis.text.x = element_blank())+
+  scale_fill_viridis_d()+
+  theme(legend.position = "top")+
+  ylab("Long-term trend")+xlab("Species")
+
+x <- girafe(ggobj = g2,
+       options = list(
+         opts_hover(css = "fill:black;")))
+if( interactive() ) print(x)
+library(htmlwidgets)
+library(plotly)
+htmlwidgets::saveWidget(x, "Longterm_trends.html")
 
 ###prop change############################################################
 
@@ -372,6 +393,8 @@ ggplot(coefDF)+
   ylab("Effect on trend")+xlab("")
 
 ggsave("plots/Trait_effect_sizes.png",width=5,height=4)
+
+#save as csv file
 
 #as mixed models including genus
 library(lme4)
