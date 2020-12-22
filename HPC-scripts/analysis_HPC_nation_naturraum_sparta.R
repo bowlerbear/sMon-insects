@@ -267,8 +267,6 @@ all(listlengthDF$visit==row.names(occMatrix))
 #######################################################################################
 
 #add on some indices
-
-#add on box info to listlength
 listlengthDF$State <- mtbqsDF$Counties[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
 listlengthDF$Date <- as.Date(listlengthDF$Date)
 listlengthDF$Year <- year(listlengthDF$Date)
@@ -297,7 +295,7 @@ listlengthDF$longList <- ifelse(listlengthDF$nuSpecies>3,1,0)
 #######################################################################################
 #get summary site info data
 
-siteInfo <- unique(listlengthDF[,c("stateIndex","mtbIndex","siteIndex","boxIndex",
+siteInfo <- unique(listlengthDF[,c("stateIndex","mtbIndex","siteIndex",
                                    "MTB_Q","nnIndex","cnIndex")])
 head(siteInfo)
 
