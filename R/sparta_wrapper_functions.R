@@ -665,3 +665,4 @@ read.asc <-
     return(output)
   }
 
+floor_decade    = function(value){ return(value - value %% 10) }
