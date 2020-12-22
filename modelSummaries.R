@@ -442,7 +442,7 @@ trendsDF$Rhat[trendsDF$Rhat>1.1]
 
 #sparta models - run on HPC using own sparta jags file with naturraum as fixedeffect
 
-source('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
+source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6417285"
 #fixed subsetting code, with eta, ecoregion 1 and ecoregion 2 - but only works for a subset
