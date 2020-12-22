@@ -56,7 +56,7 @@ adultData$State <- sapply(adultData$File,function(x)strsplit(x,"\\.rds")[[1]][1]
 adultData$State <- sapply(adultData$State,function(x)strsplit(x,"_")[[1]][3])
 nrow(adultData)#1023689
 
-saveRDS(adultData,file="derived-data/adultData_allStates_Dec2020.rds")
+#saveRDS(adultData,file="derived-data/adultData_allStates_Dec2020.rds")
 
 ##########################################################################################
 
@@ -184,7 +184,7 @@ specieslist <- speciesTaskID$Species
 speciesAnnualObs <- ldply(specieslist,function(x){
   getSpeciesDF(df,x)
 })
-saveRDS(speciesAnnualObs,file="speciesAnnualObs.rds")
+#saveRDS(speciesAnnualObs,file="speciesAnnualObs.rds")
 
 #####################################################################################
 
@@ -255,6 +255,9 @@ listlengthDF$singleList <- ifelse(listlengthDF$nuSpecies==1,1,0)
 listlengthDF$shortList <- ifelse(listlengthDF$nuSpecies%in%2:3,1,0)
 listlengthDF$longList <- ifelse(listlengthDF$nuSpecies>3,1,0)
 
+table(listlengthDF$singleList)
+table(listlengthDF$shortList)
+table(listlengthDF$longList)
 
 #######################################################################################
 #get summary site info data
