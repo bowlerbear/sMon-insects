@@ -507,6 +507,7 @@ detprobDF$Species[detprobDF$Rhat>1.1]
 #Colour and/or group/order the plots according to the time series cluster that they fall in
 
 #occupancy model
+write.csv(annualDF,file="derived-data/annualOccupancies.csv")
 plotTS_scales(annualDF)
 
 ggsave("plots/ts_scaled.png",height=10,width=7)
