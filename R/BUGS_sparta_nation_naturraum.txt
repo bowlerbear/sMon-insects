@@ -65,8 +65,7 @@
     #year
     
     #year 1
-    prop.mu ~ dunif(0,1)
-    mu.t[1] <- logit(prop.mu)
+    mu.t[1] ~ dnorm(0,0.25)
     
     #other years
     for(t in 2:nyear){
@@ -104,8 +103,7 @@
     for(t in 1:nyear){
       mup[t] ~ dnorm(mu.p, tau.ap)
     }
-    prop.p ~ dunif(0,1)
-    mu.p <- logit(prop.p)
+    mu.p ~ dnorm(0,0.25)
     tau.ap <- 1/(sd.ap * sd.ap)
     sd.ap ~ dt(0, pow(2.5,-2), 1)T(0,)  
     
