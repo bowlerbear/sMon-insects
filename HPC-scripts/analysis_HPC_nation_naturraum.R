@@ -10,6 +10,8 @@ suppressMessages(library(plyr))
 
 #load the relational table of task ids and species
 speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult.txt"),as.is=T)
+#fit model for problem species only
+
 #get task id
 task.id = as.integer(Sys.getenv("SGE_TASK_ID", "1")) 
 #get species for this task
@@ -22,7 +24,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 75000
+niterations = 5000
 
 Sys.time()
 
@@ -450,9 +452,7 @@ effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
 
 #specify parameters to monitor
-params <- c("mean.p","regres.psi","psi.fs",
-            "meanPersist","meanColonize",
-            "colonize","persist","mup")
+params <- c("mean.p","regres.psi","psi.fs")
 
 Sys.time()
 #run model
