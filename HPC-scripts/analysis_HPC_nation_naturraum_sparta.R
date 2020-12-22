@@ -9,7 +9,11 @@ suppressMessages(library(plyr))
 
 
 #load the relational table of task ids and species
-speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult.txt"),as.is=T)
+#speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult.txt"),as.is=T)
+
+speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/problemspeciesTaskID_adult.txt"),as.is=T)
+
+
 #get task id
 task.id = as.integer(Sys.getenv("SGE_TASK_ID", "1")) 
 #get species for this task
@@ -22,7 +26,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 75000
+niterations = 5000
 
 Sys.time()
 
@@ -265,16 +269,12 @@ all(listlengthDF$visit==row.names(occMatrix))
 #add on some indices
 
 #add on box info to listlength
-listlengthDF$km50 <- mtbqsDF$km50[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
-summary(listlengthDF$km50)
-
 listlengthDF$State <- mtbqsDF$Counties[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
 listlengthDF$Date <- as.Date(listlengthDF$Date)
 listlengthDF$Year <- year(listlengthDF$Date)
 listlengthDF$yday <- yday(listlengthDF$Date)
 listlengthDF$yearIndex <- as.numeric(factor(listlengthDF$Year))
 listlengthDF$stateIndex <- as.numeric(factor(listlengthDF$State))
-listlengthDF$boxIndex <- as.numeric(factor(paste0(listlengthDF$stateIndex,listlengthDF$km50)))
 listlengthDF$siteIndex <- as.numeric(factor(paste0(listlengthDF$stateIndex,
                                                    listlengthDF$MTB_Q)))
 listlengthDF$mtbIndex <- as.numeric(factor(paste0(listlengthDF$stateIndex,
@@ -334,28 +334,6 @@ siteRaums[is.na(siteRaums)] <- 0
 #get number of sites for each state
 raumSiteNu <- as.numeric(colSums(siteRaums))
 
-#########################################################################################
-
-# Examine amount of data per 50 km box
-# df <- subset(df, Species==myspecies)
-# df <- merge(df,mtbqsDF,by="MTB_Q",all.x=T)
-# boxData <- ddply(df, .(km50),summarise,
-#                  nuYears = length(unique(Year)),
-#                  nuRecs = length(Species))
-# 
-# #plotting
-# library(raster)
-# library(sp)
-# germanAdmin <- readRDS("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/AdminBoundaries/gadm36_DEU_1_sp.rds")
-# myGrid <- raster('C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/km50grid.tif')
-# germanAdmin <- spTransform(germanAdmin,projection(myGrid))
-# myGrid[] <- NA
-# myGrid[boxData$km50] <- boxData$nuYears
-# plot(myGrid)
-# #myGrid[boxData$km50] <- boxData$nuRecs
-# #plot(myGrid)
-# plot(germanAdmin,add=T)
-
 ########################################################################################
 
 #fit nation-wide model with random slopes to each box
@@ -368,20 +346,17 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   nstate = length(unique(siteInfo$stateIndex)),
                   nraum = length(unique(siteInfo$nnIndex)),
                   ncraum = length(unique(siteInfo$cnIndex)),
-                  nbox = length(unique(siteInfo$boxIndex)),
                   nvisit = nrow(listlengthDF),
                   site = listlengthDF$siteIndex,
                   state = listlengthDF$stateIndex,
                   raum = listlengthDF$nnIndex,
                   craum = listlengthDF$cnIndex,
-                  box = listlengthDF$boxIndex,
                   year = listlengthDF$yearIndex,
                   stateS = siteInfo$stateIndex,
                   craumS = siteInfo$cnIndex,
                   craumR = raumInfo$cnIndex,
                   nsite_cr = as.numeric(nsite_cr),
                   raumS = siteInfo$nnIndex,
-                  boxS = siteInfo$boxIndex,
                   yday = listlengthDF$yday - median(listlengthDF$yday),
                   yday2 = listlengthDF$yday^2 - median(listlengthDF$yday^2),
                   nuSpecies = log(listlengthDF$nuSpecies) - median(log(listlengthDF$nuSpecies)),
@@ -469,6 +444,7 @@ n.cores = as.integer(Sys.getenv("NSLOTS", "1"))
 #choose model file
 #modelfile="/data/idiv_ess/Odonata/BUGS_sparta_regional_nation_naturraum.txt"
 #modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum_phenologyChange.txt"
+
 modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum.txt"
 
 effort = "shortList"
@@ -479,7 +455,7 @@ params <- c("psi.fs","regres.psi","mean.p","mup","annual.p")
 
 Sys.time()
 #run model
-out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=5,
+out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=10,
             n.chains=n.cores, n.burnin=round(niterations/2),
             n.iter=niterations,parallel=T)
 
