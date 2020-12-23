@@ -176,6 +176,14 @@ return(dfSpecies)
 
 }
 
+### mtbqs in each decade ####################################################
+
+df$Decade <- df$Year - df$Year %% 10 
+mtbqSummary <- ddply(df,.(MTB_Q),summarise,nuDecades = length(unique(Decade)))
+nrow(mtbqSummary)#10072
+nrow(subset(mtbqSummary,nuDecades==4))#1335
+df <- subset(df, MTB_Q %in% mtbqSummary$MTB_Q[mtbqSummary$nuDecades==4])
+
 #####################################################################################
 
 #getSpeciesDF for each species
