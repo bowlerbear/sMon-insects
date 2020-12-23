@@ -9,10 +9,7 @@ suppressMessages(library(plyr))
 
 
 #load the relational table of task ids and species
-#speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult.txt"),as.is=T)
-
-speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/problemspeciesTaskID_adult.txt"),as.is=T)
-
+speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult.txt"),as.is=T)
 
 #get task id
 task.id = as.integer(Sys.getenv("SGE_TASK_ID", "1")) 
@@ -26,7 +23,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 5000
+niterations = 75000
 
 Sys.time()
 
@@ -63,8 +60,8 @@ nrow(adultData)#1023689
 ##########################################################################################
 
 #add gbif data to fill gaps
-#gbifdata <- readRDS("derived-data/datafile_GBIF.rds")
-gbifdata <- readRDS("/data/idiv_ess/Odonata/datafile_GBIF.rds")
+#gbifdata <- readRDS("derived-data/datafile_iNaturalist.rds")
+gbifdata <- readRDS("/data/idiv_ess/Odonata/datafile_iNaturalist.rds")
 #nrow(gbifdata)#38191
 
 #combine the two
@@ -146,49 +143,6 @@ mtbqsDF$CoarseNatur[is.na(mtbqsDF$CoarseNatur)] <- mtbqsDF$MTB_CoarseNatur[is.na
 df$CoarseNatur <- mtbqsDF$CoarseNatur[match(df$MTB_Q,mtbqsDF$MTB_Q)]
 sum(is.na(df$CoarseNatur))
 
-##########################################################################################
-
-#subset to phenology by regions
-
-#read in and combine all phenology files
-#phenolFiles<-list.files()[grepl("speciesDays",list.files())]
-#phenolData <- ldply(phenolFiles,function(x){
-#  out<-read.delim(x)
-#  out$File <- x
-#  return(out)
-#})
-
-# phenolFiles<-list.files("/data/idiv_ess/Odonata")[grepl("speciesDays",list.files("/data/idiv_ess/Odonata"))]
-# phenolData <- ldply(phenolFiles,function(x){
-#   out<-read.delim(paste("/data/idiv_ess/Odonata",x,sep="/"))
-#   out$File <- x
-#   return(out)
-# })
-# 
-# #extract state from file name
-# phenolData$State <- sapply(phenolData$File,function(x)strsplit(x,"\\.txt")[[1]][1])
-# phenolData$State <- sapply(phenolData$State,function(x)strsplit(x,"_")[[1]][3])
-# phenolData <- subset(phenolData, Species==myspecies)
-
-#if no phenolData for a given state, use max and min phenoldays
-# dfS <- subset(df, Species==myspecies)
-# obsPhenolData <- ddply(dfS,.(State),summarise,
-#                        minDay = round(quantile(yday,0.05)),
-#                        maxDay = round(quantile(yday,0.95)))
-# 
-# #expand to list all days between these days
-# obsPhenolData <- ddply(obsPhenolData,.(State),function(x){
-#                   data.frame(Species=myspecies,
-#                              day=as.numeric(x["minDay"]):as.numeric(x["maxDay"]),
-#                              fits=NA,
-#                              File=NA,
-#                              State=x["State"])})
-# 
-# #remove any states already in the phenolData file
-# #then rbind them
-# #or just use these estimates??yes
-# 
-# df <- subset(df,interaction(yday,State) %in% interaction(obsPhenolData$day,obsPhenolData$State))
 # ####################################################################################
 
 #subset by average phenology across whole germany
@@ -306,54 +260,19 @@ listlengthDF <- arrange(listlengthDF,visit)
 all(row.names(occMatrix)==listlengthDF$visit)
 siteInfo <- arrange(siteInfo,siteIndex)
 
-raumInfo <- unique(siteInfo[,c("nnIndex","cnIndex")])
-
-########################################################################################
-
-# #get matrix of site versus state
-# 
-siteInfo$dummy <- 1
-siteStates <- acast(siteInfo,siteIndex~stateIndex,value.var="dummy")
-siteStates[is.na(siteStates)] <- 0
-
-#get number of sites for each state
-statesSiteNu <- as.numeric(colSums(siteStates))
-# 
-#get number of sites per
-nsite_cr <- table(siteInfo$cnIndex)
-
-# #########################################################################################
-# #get matrix of site versus raum
-# 
-siteInfo$dummy <- 1
-siteRaums <- acast(siteInfo,siteIndex~cnIndex,value.var="dummy")
-siteRaums[is.na(siteRaums)] <- 0
-
-#get number of sites for each state
-raumSiteNu <- as.numeric(colSums(siteRaums))
-
-########################################################################################
-
-#fit nation-wide model with random slopes to each box
-
 ########################################################################################
 
 #organise data for BUGS model
 bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   nyear = length(unique(listlengthDF$yearIndex)),
-                  nstate = length(unique(siteInfo$stateIndex)),
                   nraum = length(unique(siteInfo$nnIndex)),
                   ncraum = length(unique(siteInfo$cnIndex)),
                   nvisit = nrow(listlengthDF),
                   site = listlengthDF$siteIndex,
-                  state = listlengthDF$stateIndex,
                   raum = listlengthDF$nnIndex,
                   craum = listlengthDF$cnIndex,
                   year = listlengthDF$yearIndex,
-                  stateS = siteInfo$stateIndex,
                   craumS = siteInfo$cnIndex,
-                  craumR = raumInfo$cnIndex,
-                  nsite_cr = as.numeric(nsite_cr),
                   raumS = siteInfo$nnIndex,
                   yday = listlengthDF$yday - median(listlengthDF$yday),
                   yday2 = listlengthDF$yday^2 - median(listlengthDF$yday^2),
@@ -374,8 +293,12 @@ bugs.data$sumX <- sum(1:bugs.data$nyear)
 bugs.data$sumX2 <- sum((1:bugs.data$nyear)^2)
 
 #add on number of annual visits each year
-annualVisits <- ddply(listlengthDF,.(yearIndex),summarise,nuVisits=length(unique(visit)))
+annualVisits <- ddply(listlengthDF,.(yearIndex),summarise,
+                      nuVisits=length(unique(visit)),
+                      nuObs = sum(Species))
+
 bugs.data$annualVisits <- annualVisits$nuVisits
+bugs.data$obsDets <- annualVisits$nuObs
 
 #########################################################################
 
@@ -449,11 +372,11 @@ effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
 
 #specify parameters to monitor
-params <- c("psi.fs","regres.psi","mean.p","mup","annual.p")
+params <- c("psi.fs","regres.psi","mean.p","mup","annual.p","bpv")
 
 Sys.time()
 #run model
-out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=10,
+out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=20,
             n.chains=n.cores, n.burnin=round(niterations/2),
             n.iter=niterations,parallel=T)
 
