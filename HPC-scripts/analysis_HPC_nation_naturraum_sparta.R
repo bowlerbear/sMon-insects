@@ -143,6 +143,10 @@ mtbqsDF$CoarseNatur[is.na(mtbqsDF$CoarseNatur)] <- mtbqsDF$MTB_CoarseNatur[is.na
 df$CoarseNatur <- mtbqsDF$CoarseNatur[match(df$MTB_Q,mtbqsDF$MTB_Q)]
 sum(is.na(df$CoarseNatur))
 
+mtbqsDF$MTB_MidNatur <- gdata::trim(mtbqsDF$MTB_MidNatur)
+df$MidNatur <- mtbqsDF$MTB_MidNatur[match(df$MTB_Q,mtbqsDF$MTB_Q)]
+sum(is.na(df$MidNatur))
+
 # ####################################################################################
 
 #subset by average phenology across whole germany
@@ -241,6 +245,10 @@ listlengthDF$Naturraum <- mtbqsDF$Natur[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
 listlengthDF$nnIndex <- as.numeric(factor(listlengthDF$Naturraum))
 #subset(listlengthDF,is.na(Naturraum))
 
+listlengthDF$MidNaturraum <- mtbqsDF$MTB_MidNatur[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
+listlengthDF$mnIndex <- as.numeric(factor(listlengthDF$MidNaturraum))
+#subset(listlengthDF,is.na(MidNaturraum))
+
 #get other effort variables
 listlengthDF$singleList <- ifelse(listlengthDF$nuSpecies==1,1,0)
 listlengthDF$shortList <- ifelse(listlengthDF$nuSpecies%in%2:3,1,0)
@@ -249,8 +257,7 @@ listlengthDF$longList <- ifelse(listlengthDF$nuSpecies>3,1,0)
 #######################################################################################
 #get summary site info data
 
-siteInfo <- unique(listlengthDF[,c("stateIndex","mtbIndex","siteIndex",
-                                   "MTB_Q","nnIndex","cnIndex")])
+siteInfo <- unique(listlengthDF[,c("mtbIndex","siteIndex","MTB_Q","nnIndex","cnIndex","mnIndex")])
 head(siteInfo)
 
 #######################################################################################
@@ -266,13 +273,16 @@ siteInfo <- arrange(siteInfo,siteIndex)
 bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   nyear = length(unique(listlengthDF$yearIndex)),
                   nraum = length(unique(siteInfo$nnIndex)),
+                  nmraum = length(unique(siteInfo$mnIndex)),
                   ncraum = length(unique(siteInfo$cnIndex)),
                   nvisit = nrow(listlengthDF),
                   site = listlengthDF$siteIndex,
                   raum = listlengthDF$nnIndex,
+                  mraum = listlengthDF$mnIndex,
                   craum = listlengthDF$cnIndex,
                   year = listlengthDF$yearIndex,
                   craumS = siteInfo$cnIndex,
+                  mraumS = siteInfo$mnIndex,
                   raumS = siteInfo$nnIndex,
                   yday = listlengthDF$yday - median(listlengthDF$yday),
                   yday2 = listlengthDF$yday^2 - median(listlengthDF$yday^2),
