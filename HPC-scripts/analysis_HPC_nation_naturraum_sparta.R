@@ -182,7 +182,7 @@ df <- subset(df, yday > obsPhenolData$minDay & yday < obsPhenolData$maxDay)
 #remove sites visited once
 siteSummary <- ddply(df,.(MTB_Q),summarise,nuYears=length(unique(Year)))
 df <- subset(df, MTB_Q %in% siteSummary$MTB_Q[siteSummary$nuYears>1])
-
+nrow(df)
 #####################################################################################
 
 #define a visit
@@ -192,7 +192,7 @@ df$visit <- paste(df$MTB_Q,df$Date,df$Beobachter,sep="_")
 #get occurence matrix  - detection and non-detection
 getOccurrenceMatrix<-function(df){
   require(reshape2)
-  out<-acast(df,visit~Species,value.var="Anzahl_min",fun=function(x)length(x[x!=0]))
+  out <- reshape2::acast(df,visit~Species,value.var="Anzahl_min",fun=function(x)length(x[x!=0]))
   out[out>0]<-1
   return(out)
 }
@@ -338,7 +338,7 @@ bugs.data$StrIdx <- StrIdx
 
 #specify initial values
 
-zst <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=max)
+zst <- reshape2::acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=max)
 zst [is.infinite(zst)] <- NA
 
 #fill in the blanks more cleverly
