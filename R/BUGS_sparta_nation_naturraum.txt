@@ -10,7 +10,7 @@
       z[i,t] ~ dbern(muZ[i,t]) 
 
     #model
-      logit(muZ[i,t]) <- mu.t[t] + cr.a[craumS[i]] + r.a[raumS[i]] + eta[i]
+      logit(muZ[i,t]) <- mu.t[t] + cr.a[craumS[i]] + r.a[mraumS[i]] + eta[i]
       
       }
     }   
@@ -106,7 +106,7 @@
     sd.cr.a ~ dt(0, pow(2.5,-2), 1)T(0,)
     
     #r.a random effects for naturraum
-    for (s in 1:nraum) {
+    for (s in 1:nmraum) {
       r.a[s] ~ dnorm(0, tau.r.a)       
     } 
     tau.r.a <- 1/(sd.r.a * sd.r.a)
