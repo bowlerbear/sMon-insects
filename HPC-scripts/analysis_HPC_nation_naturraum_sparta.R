@@ -9,7 +9,7 @@ suppressMessages(library(plyr))
 
 
 #load the relational table of task ids and species
-speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult.txt"),as.is=T)
+speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/problemspeciesTaskID_adult.txt"),as.is=T)
 
 #get task id
 task.id = as.integer(Sys.getenv("SGE_TASK_ID", "1")) 
@@ -23,7 +23,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 75000
+niterations = 5000
 
 Sys.time()
 
