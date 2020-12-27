@@ -459,15 +459,24 @@ mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects
 
 #updated data with revised files for Hessen and BW
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7469396"
-
-#do we have the models for all species?
-speciesFiles <- list.files(mdir)
-mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
 #"Coenagrion armatum"      "Coenagrion ornatum"      "Cordulegaster bidentata" "Sympetrum flaveolum"     "Sympetrum fonscolombii" 
 problemSpecies <- c("Coenagrion armatum","Coenagrion ornatum","Cordulegaster bidentata","Sympetrum flaveolum","Sympetrum fonscolombii")
 
 #error message is:
 #Non-finite boundary in truncated normal
+
+
+#updated data - with unbounded priors
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7479651"
+#[1] "Aeshna viridis"             "Boyeria irene"             
+#[3] "Cordulegaster bidentata"    "Cordulegaster boltonii"    
+#[5] "Gomphus pulchellus"         "Lestes sponsa"             
+#[7] "Leucorrhinia pectoralis"    "Libellula depressa"        
+#[9] "Libellula quadrimaculata"   "Somatochlora flavomaculata"
+
+#do we have the models for all species?
+speciesFiles <- list.files(mdir)
+mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
 
 #read in model summaries
 modelDF <- getModelSummaries(mdir)
