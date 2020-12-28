@@ -23,7 +23,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 5000
+niterations = 50000
 
 Sys.time()
 
@@ -386,7 +386,7 @@ params <- c("psi.fs","regres.psi","mean.p","mup","annual.p","bpv")
 
 Sys.time()
 #run model
-out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=20,
+out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=10,
             n.chains=n.cores, n.burnin=round(niterations/2),
             n.iter=niterations,parallel=T)
 
