@@ -474,6 +474,13 @@ mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects
 #[7] "Leucorrhinia pectoralis"    "Libellula depressa"        
 #[9] "Libellula quadrimaculata"   "Somatochlora flavomaculata"
 
+#updated with more bounded priors, dnorm(0,0.25) and midraum #instead of raum
+
+
+
+#updated with uniform priors on sd
+
+
 #do we have the models for all species?
 speciesFiles <- list.files(mdir)
 mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
