@@ -23,7 +23,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 50000
+niterations = 30000
 
 Sys.time()
 
@@ -180,9 +180,19 @@ df <- subset(df, yday > obsPhenolData$minDay & yday < obsPhenolData$maxDay)
 ######################################################################################
 
 #remove sites visited once
-siteSummary <- ddply(df,.(MTB_Q),summarise,nuYears=length(unique(Year)))
-df <- subset(df, MTB_Q %in% siteSummary$MTB_Q[siteSummary$nuYears>1])
+#siteSummary <- ddply(df,.(MTB_Q),summarise,nuYears=length(unique(Year)))
+#df <- subset(df, MTB_Q %in% siteSummary$MTB_Q[siteSummary$nuYears>1])
+#nrow(df)
+
+### mtbqs in each decade ####################################################
+
+df$Decade <- df$Year - df$Year %% 10 
+mtbqSummary <- ddply(df,.(MTB_Q),summarise,nuDecades = length(unique(Decade)))
+nrow(mtbqSummary)#10072
+nrow(subset(mtbqSummary,nuDecades==4))#1335
+df <- subset(df, MTB_Q %in% mtbqSummary$MTB_Q[mtbqSummary$nuDecades==4])
 nrow(df)
+
 #####################################################################################
 
 #define a visit
@@ -393,7 +403,7 @@ out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=10,
 Sys.time()
 
 #save as output file - for regional/dynamic model
-saveRDS(out,file=paste0("out_sparta_nation_naturraum_",stage,"_",myspecies,".rds"))
+saveRDS(out,file=paste0("out_sparta_nation_naturraum_MTBQ_eachDecade",stage,"_",myspecies,".rds"))
 
 #saveRDS(out,file=paste0("out_sparta_nation_naturraum_phenologyChange_",stage,"_",myspecies,".rds"))
 
