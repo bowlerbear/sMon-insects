@@ -3,6 +3,7 @@ library(rgdal)
 library(ggplot2)
 library(plyr)
 library(reshape2)
+
 source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
 ###Species list#################################################################################################
@@ -444,14 +445,10 @@ trendsDF$Rhat[trendsDF$Rhat>1.1]
 
 source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6417285"
-#fixed subsetting code, with eta, ecoregion 1 and ecoregion 2 - but only works for a subset
-
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6441706"
-#fixed subsetting code, with eta, ecoregion 1 - but only works for a subset
-
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6466710"
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6466710"
 #fixed subsetting code, with eta, ecoregion 1, simple initial values - works for all!!
+#fixed effects are dnorm(0, 0.001)
+#intercepts are dnorm(0, 0.001)
 
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6474342" 
 #fixed subsetting code, with eta, ecoregion 1, ecoregion 2,
@@ -461,25 +458,19 @@ mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7469396"
 #"Coenagrion armatum"      "Coenagrion ornatum"      "Cordulegaster bidentata" "Sympetrum flaveolum"     "Sympetrum fonscolombii" 
 problemSpecies <- c("Coenagrion armatum","Coenagrion ornatum","Cordulegaster bidentata","Sympetrum flaveolum","Sympetrum fonscolombii")
-
 #error message is:
 #Non-finite boundary in truncated normal
 
-
 #updated data - with unbounded priors
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7479651"
-#[1] "Aeshna viridis"             "Boyeria irene"             
-#[3] "Cordulegaster bidentata"    "Cordulegaster boltonii"    
-#[5] "Gomphus pulchellus"         "Lestes sponsa"             
-#[7] "Leucorrhinia pectoralis"    "Libellula depressa"        
-#[9] "Libellula quadrimaculata"   "Somatochlora flavomaculata"
+#mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7479651"
+#10 missing
 
 #updated with more bounded priors, dnorm(0,0.25) and midraum #instead of raum
-
-
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7495806"
+problemSpecies <- c("Erythromma lindenii","Ischnura elegans","Lestes sponsa","Orthetrum albistylum","Sympetrum striolatum")
 
 #updated with uniform priors on sd
-
+#mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7502229"
 
 #do we have the models for all species?
 speciesFiles <- list.files(mdir)
@@ -490,11 +481,22 @@ modelDF <- getModelSummaries(mdir)
 modelDF <- getCodeFromFile(modelDF,
                            myfile="out_sparta_nation_naturraum_adult_")
 
+
+#combine files to get data for all species (temporary fix)
+#take 72 species from 7495806
+modelDF1 <- modelDF
+#5 species from 6466710
+modelDF2 <- modelDF
+modelDF2 <- subset(modelDF2, Species %in% problemSpecies)
+modelDF <- rbind(modelDF1,modelDF2)
+length(unique(modelDF$Species))
+
 #annual time series in occupancy
 annualDF <- getBUGSfits(modelDF,param="psi.fs")
 annualDF$Year <- annualDF$ParamNu + 1979
 plotTS(annualDF)
 table(annualDF$Rhat<1.1)
+summary(annualDF$Rhat[annualDF$Rhat>1.1])
 #FALSE  TRUE 
 #46  2803
 
@@ -515,6 +517,7 @@ detprobDF <- getBUGSfits(modelDF,param="mean.p")
 table(detprobDF$Rhat<1.1)
 detprobDF$Rhat[detprobDF$Rhat>1.1]
 detprobDF$Species[detprobDF$Rhat>1.1]
+summary(detprobDF$mean)
 
 ### plotting ##################################
 
@@ -541,11 +544,11 @@ ggsave("plots/ts_rugged_group1_scaled.png",height=10,width=7)
 #next 40
 species1 <- sort(unique(annualDF$Species))[41:77]
 plotTSwithRugs(subset(annualDF,Species %in% species1),subset(speciesAnnualObs,Species %in% species1)) 
-ggsave("plots/ts_rugged_group2_scaled.png",height=10,width=7)
+ggsave("plots/ts_rugged_group2_scaled.png",height=9,width=9)
 
 #annual detection model
 plotDetections(annualDF)
-ggsave("plots/ts_detection.png",height=10,width=7)
+ggsave("plots/ts_detection.png",height=8,width=7)
 
 #mean detection probability plot
 detprobDF <- arrange(detprobDF,desc(mean))
@@ -703,36 +706,6 @@ ggplot(richnessDF)+
 #save as the random matrix...or keep with original?
 
 ### sensitivity analysis #############################################################
-
-### phenology change #################################################################
-
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta_phenologyChange/7464688" 
-#two species are missing: "Coenagrion ornatum"      "Cordulegaster bidentata"
-
-#do we have the models for all species?
-speciesFiles <- list.files(mdir)
-mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
-
-#read in model summaries
-modelDF <- getModelSummaries(mdir)
-modelDF <- getCodeFromFile(modelDF,
-                           myfile="out_sparta_nation_naturraum_phenologyChange_adult_")
-
-#annual tims series
-annualDF <- getBUGSfits(modelDF,param="psi.fs")
-annualDF$Year <- annualDF$ParamNu + 1979
-plotTS(annualDF)
-table(annualDF$Rhat<1.1)
-#FALSE  TRUE 
-#78  2697
-
-#trends
-trendsDF <- getBUGSfits(modelDF,param="regres.psi")
-table(trendsDF$Rhat<1.1)
-trendsDF$Rhat[trendsDF$Rhat>1.1]
-#FALSE  TRUE 
-#6    69 
-
 
 ### ppc ################################################################################
 
