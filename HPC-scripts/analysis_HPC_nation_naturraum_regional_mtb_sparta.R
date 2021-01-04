@@ -53,7 +53,7 @@ adultData <- ldply(adultFiles,function(x){
 #extract state from file name
 adultData$State <- sapply(adultData$File,function(x)strsplit(x,"\\.rds")[[1]][1])
 adultData$State <- sapply(adultData$State,function(x)strsplit(x,"_")[[1]][3])
-nrow(adultData)#1023689
+nrow(adultData)#1147558
 
 ##########################################################################################
 
@@ -222,6 +222,7 @@ listlengthDF$longList <- ifelse(listlengthDF$nuSpecies>3,1,0)
 
 siteInfo <- unique(listlengthDF[,c("mtbIndex","siteIndex","MTB","nnIndex","cnIndex","mnIndex","MidNaturraum")])
 head(siteInfo)
+#saveRDS(siteInfo,file="siteInfo_midnaturraum.rds")
 
 #######################################################################################
 
