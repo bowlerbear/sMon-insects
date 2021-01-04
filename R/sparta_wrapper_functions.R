@@ -81,7 +81,7 @@ plotDetections <- function(x){
   g1 <- ggplot(x)+
     geom_line(aes(x=Year,y=mean))+
     geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
-    facet_wrap(~Species)+
+    facet_wrap(~Code,ncol=6)+
     theme_bw()+
     theme(axis.text = element_text(size =rel(0.55))) +
     ylab("Detection probability")
