@@ -82,12 +82,13 @@ adultData <- ldply(adultFiles,function(x){
 #extract state from file name
 adultData$State <- sapply(adultData$File,function(x)strsplit(x,"\\.rds")[[1]][1])
 adultData$State <- sapply(adultData$State,function(x)strsplit(x,"_")[[1]][3])
-nrow(adultData)#1023689
+nrow(adultData)#1147558
 
-#add gbif data to fill gaps
-gbifdata <- readRDS("derived-data/datafile_GBIF.rds")
+#add iNaturalist data to fill gaps
+gbifdata <- readRDS("derived-data/datafile_iNaturalist.rds")
 #combine the two
 adultData <- rbind(adultData,gbifdata)
+nrow(adultData)
 
 #change state labels
 adultData$State <- as.factor(adultData$State)
@@ -115,16 +116,13 @@ adultSpecies[!adultSpecies%in%species$Species]
 
 #how often is each site visited
 out <- ddply(adultData,.(Year,MTB_Q),summarise,nu = length(unique(yday)))
-summary(out$nu)
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#1.000   1.000   2.000   2.958   3.000 106.000
+#1.000   1.000   2.000   3.107   3.000 125.000
 
 #how many sites is a species usually present at
 out <- ddply(adultData,.(Species),summarise,nu = length(unique(MTB_Q)))
 length(unique(adultData$MTB_Q))#8231
 summary(out$nu/8231)
-#Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
-#0.0001215 0.0297048 0.1132305 0.1974859 0.3422427 0.7307739
 
 #on how many visits is a species usually detected
 out <- ddply(adultData,.(MTB_Q,Year),summarise,nuVisits=length(unique(yday)))
@@ -133,13 +131,8 @@ out <- merge(out,out2,by=c("MTB_Q","Year"))
 out$p <- out$nuDets/out$nuVisits
 summary(out$p)
 
-#Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
-#0.009434 0.250000 0.500000 0.522878 1.000000 1.000000
-
 out <- ddply(out,.(Species),summarise,meanp=mean(p))
 summary(out$meanp)
-#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#0.3789  0.4509  0.4941  0.5140  0.5519  0.7560
 
 ####Flight period###########################################################################################
 
@@ -228,7 +221,7 @@ ggplot(subset(adultData,Year>1979 & Year <2016))+
 
 #plot number of records per MTB
 
-adultDataS <- subset(adultData,Year>=1980)
+adultDataS <- subset(adultData,Year>=1980 & Year <=2016)
 
 #extract MTB from Q
 adultDataS$MTB_Q <- gsub("/","",adultDataS$MTB_Q)
@@ -261,7 +254,7 @@ adultDataS$Q[which(adultDataS$MTB_Q==9164)]<-"4"
 
 
 #work out records per quadrant and quadrant
-nuRecs <- ddply(subset(adultDataS,Year>1979),.(MTB,Q),
+nuRecs <- ddply(adultDataS,.(MTB,Q),
                 summarise,nuRecs = length(Species),
                           nuYears = length(unique(Year)))
 
@@ -270,7 +263,7 @@ nuRecs <- ddply(subset(adultDataS,Year>1979),.(MTB,Q),
 allDF <- merge(mtbqDF,nuRecs,by.x=c("Value","Q"),by.y=c("MTB","Q"))
 nrow(mtbqDF)
 nrow(allDF)
-#data from 9833/12024
+#data from 9992/12024
 
 #plot map of germany
 library(ggplot2)
@@ -293,11 +286,11 @@ ggsave(filename="plots/Adult_map_effort.png")
 ggsave(filename="plots/Juv_map_effort.png",width=8,height=7)
 
 #exclude sites visited once
-ggplot()+ geom_polygon(data=AG, aes(long, lat, group = group), 
+gMap <- ggplot()+ geom_polygon(data=AG, aes(long, lat, group = group), 
                        colour = "grey", fill=NA)+
   geom_point(data=subset(allDF,nuYears>1),
              aes(x=x,y=y,colour=nuRecs),
-             shape=15,size=rel(0.45))+
+             shape=15,size=rel(1.2))+
   scale_colour_viridis_c("Number of records",trans="log",
                          breaks=c(1,20,400,8000),
                          labels=c(1,20,400,8000),
@@ -305,9 +298,12 @@ ggplot()+ geom_polygon(data=AG, aes(long, lat, group = group),
                          direction=-1)+
   xlab("X")+ylab("Y")+
   coord_equal()+
-  theme_void()
+  theme_void()+
+  theme(legend.position = "top")
 
-ggsave(filename="plots/Adult_map_effort_sitesubset.png")
+gMap
+ggsave(filename="plots/Adult_map_effort_sitesubset.png",width=8,height=7)
+sum(nuRecs$nuRecs[nuRecs$nuYears>1])
 
 #do we have data for all naturraums?
 load("mtbqsDF.RData")
@@ -326,11 +322,10 @@ subset(temp, nuRecs<10)#only one with zero!!!
 timeSummary <- ddply(adultData,.(Year),summarise,
                      nuRecs=length(Species),
                      nuSpecies=length(unique(Species)),
-                     nuPlots=length(unique(MTB_Q)),
-                     nuVisits=length(unique(interaction(Beobachter,Date,MTB_Q))))
+                     nuPlots=length(unique(MTB_Q)))
 
 g1 <- ggplot(subset(timeSummary,Year>1950 & Year <2017))+
-  geom_bar(aes(x=Year,y=nuRecs),stat="identity")+
+  geom_bar(aes(x=Year,y=nuRecs),stat="identity",width=0.75)+
   theme_classic()+
   xlab("Year")+
   scale_x_continuous(breaks=c(1950,1960,1970,1980,1990,2000,2010),
@@ -339,19 +334,21 @@ g1 <- ggplot(subset(timeSummary,Year>1950 & Year <2017))+
   ylab("Total number of records")
 
 g2 <- ggplot(subset(timeSummary,Year>1950 & Year <2017))+
-  geom_bar(aes(x=Year,y=nuPlots),stat="identity")+
+  geom_bar(aes(x=Year,y=nuPlots),stat="identity",width=0.75)+
   theme_classic()+
   xlab("Year")+
   scale_x_continuous(breaks=c(1950,1960,1970,1980,1990,2000,2010),
                      labels=c(1950,1960,1970,1980,1990,2000,2010))+
   geom_vline(xintercept=1980,colour="red",linetype="dashed")+
-  ylab("Total number of grids")
+  ylab("Total number of survey quadrants")
 
 library(cowplot)
-plot_grid(g1,g2)
+grid2 <- plot_grid(g1,g2,ncol=1)
+plot_grid(gMap,grid2,
+          labels = c("a)","b)"),
+          rel_heights = c(2,1))
 
-#subset to plots visited once each decade??
-
+ggsave(filename="plots/Fig1.png",width=6,height=5)
 
 #Time series over time for each state
 
@@ -408,20 +405,25 @@ ggpairs(timeSummary[,3:6])
 
 #Coenagrion hylas, Gomphus simillimus, Lestes macrostigma, Onychogomphus uncatus were excluded
 
-adultData <- subset(adultData,!Species %in% c("Coenagrion hylas", "Gomphus simillimus", "Lestes macrostigma", "Onychogomphus uncatus"))
+adultDataS <- subset(adultDataS,!Species %in% c("Coenagrion hylas", "Gomphus simillimus", "Lestes macrostigma", 
+                                                "Onychogomphus uncatus"))
 
-speciesSummary <- ddply(subset(adultData,Year>1980 & Year <2017),
+nuRecs$MTB_Q <- paste0(nuRecs$MTB,nuRecs$Q)
+adultDataS <- subset(adultDataS, MTB_Q %in% nuRecs$MTB_Q)
+
+speciesSummary <- ddply(adultDataS,
                         .(Species),summarise,
                         nuRecs=length(Date),
                         nuGrids=length(unique(MTB_Q)),
                         nuYears=length(unique(Year)))
 
-speciesSummary <- arrange(speciesSummary,nuRecs)
+speciesSummary <- arrange(speciesSummary,desc(nuRecs))
 speciesSummary
 
 subset(speciesSummary,nuYears<20)
 median(speciesSummary$nuYears)
 summary(speciesSummary$nuYears)
+write.csv(speciesSummary,file="derived-data/SpeciesSummaries.csv",row.names=FALSE)
 
 speciesDetectionYears <- ddply(subset(adultData,Year>1980 & Year <2017),.(Species,Year),
                                summarise,
@@ -432,7 +434,6 @@ newgrid <- expand.grid(Species = unique(adultData$Species),
                        Year = 1980:2016)
 
 speciesDetectionYears <- merge(speciesDetectionYears,newgrid,all=T)
-saveRDS(speciesDetectionYear,file="SpeciesDetecionYears.rds")
 
 ### geographic statistics ###################################################################################
 
