@@ -13,16 +13,8 @@ setwd("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects")
 #get traits data
 load("alltraits.RData")
 
-#get original trends data
-# trendEstimates <- readRDS("model-outputs/modelTrends_nation_state_trends.rds")#trends from draft 1
-# trendEstimates <- readRDS("model-outputs/modelTrends_trends.rds")
-# #trendEstimates <- subset(trendEstimates,Param=="regres.psi")
-# trendEstimates$Species <- gsub("out_dynamic_nation_state_adult_","",trendEstimates$file)
-# trendEstimates$Species <- gsub(".rds","",trendEstimates$Species)
-
-#from models directly
+#get trends data
 trendEstimates <- trendsDF
-#compare the two - highly correlated with trends from last time....
 
 ###missing data##############################################
 
@@ -87,6 +79,12 @@ table(trendEstimates$Trend)
 #habitats of decreasing species - cols 50 -65
 subset(trendEstimates,Trend=="significant decrease")[,50:65]
 #all standing or slow-flowing species - pond species
+
+#median increase
+summary(trendEstimates$trend[trendEstimates$Trend=="significant increase"])
+
+summary(trendEstimates$trend[trendEstimates$Trend=="significant decrease"])
+
 
 ###red list################################################################
 
@@ -283,7 +281,10 @@ allTraits <- c(mytraits,myhabitats,"running")
 
 ###save file#############################################
 
-write.csv(trendEstimates,file="traits_trends_Odonata.csv",
+write.csv(trendEstimates,file="traits_trends_Odonata_Jan2020.csv",
+          row.names=FALSE)
+
+write.csv(annualDF,file="annualDF_Jan2020.csv",
           row.names=FALSE)
 
 ###scale traits##############################################
@@ -341,7 +342,8 @@ summary(lm(change ~ river + bog,data=trendEstimates))
 #more marginal        
 
 ### range size effects ##############################################################
-
+summary(lm(trend ~ log(nuEuroGrids),data=trendEstimates))
+summary(lm(trend ~ nuEuroGrids,data=trendEstimates))
 
 
 ###trend models######################################################################
@@ -392,9 +394,11 @@ ggplot(coefDF)+
   geom_hline(yintercept=0,color="red",linetype="dashed")+
   ylab("Effect on trend")+xlab("")
 
+
 ggsave("plots/Trait_effect_sizes.png",width=5,height=4)
 
 #save as csv file
+write.csv(coefDF,file="plots/Traits_effects.csv",row.names=FALSE)
 
 #as mixed models including genus
 library(lme4)
@@ -466,8 +470,8 @@ table(trendEstimates$Suborder,trendEstimates$Trend)
 
 chisq.test(table(trendEstimates$Suborder,trendEstimates$Trend))
 #ns
-prop.test(c(23,12),c(50,27))
-prop.test(c(9,9),c(50,27))
+prop.test(c(23,10),c(50,27))
+prop.test(c(14,11),c(50,27))
 
 #family
 sum(is.na(trendEstimates$Family))
