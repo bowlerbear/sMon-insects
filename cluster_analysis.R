@@ -1,5 +1,5 @@
 #run first 2 boxes of trait_trend analysis
-####get time series############################################################################################
+####get time series###########################################################################################
 
 library(boot)
 
@@ -181,6 +181,55 @@ table(clusterDF$cluster)
 
 plotCluster(annualDFS)
 
+### mean correlation ####################################
+
+#get pair-wise correlation of all species in each cluster
+
+annualDFS_cluster1 <- subset(annualDFS,cluster==1)
+temp <- acast(annualDFS_cluster1,Year~Species,value.var="mean")
+temp <- cor(temp)
+temp[lower.tri(temp,diag=FALSE)] <- NA
+allCors <- reshape2::melt(temp,na.rm=T)
+summary(allCors$value)
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#-0.1070  0.5708  0.7298  0.6884  0.8700  1.0000
+
+annualDFS_cluster1 <- subset(annualDFS,cluster==2)
+temp <- acast(annualDFS_cluster1,Year~Species,value.var="mean")
+temp <- cor(temp)
+temp[lower.tri(temp,diag=FALSE)] <- NA
+allCors <- reshape2::melt(temp,na.rm=T)
+summary(allCors$value)
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#0.04329 0.48514 0.65383 0.63497 0.82774 1.00000
+
+annualDFS_cluster1 <- subset(annualDFS,cluster==3)
+temp <- acast(annualDFS_cluster1,Year~Species,value.var="mean")
+temp <- cor(temp)
+temp[lower.tri(temp,diag=FALSE)] <- NA
+allCors <- reshape2::melt(temp,na.rm=T)
+summary(allCors$value)
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#-0.1923  0.2714  0.5644  0.5533  1.0000  1.0000
+
+annualDFS_cluster1 <- subset(annualDFS,cluster==4)
+temp <- acast(annualDFS_cluster1,Year~Species,value.var="mean")
+temp <- cor(temp)
+temp[lower.tri(temp,diag=FALSE)] <- NA
+allCors <- reshape2::melt(temp,na.rm=T)
+summary(allCors$value)
+#Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#-0.02838  0.27940  0.47627  0.50858  0.85965  1.00000 
+
+annualDFS_cluster1 <- subset(annualDFS,cluster==5)
+temp <- acast(annualDFS_cluster1,Year~Species,value.var="mean")
+temp <- cor(temp)
+temp[lower.tri(temp,diag=FALSE)] <- NA
+allCors <- reshape2::melt(temp,na.rm=T)
+summary(allCors$value)
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#0.4398  0.6178  0.7621  0.7507  0.8791  1.0000
+
 ###plot each cluster#######################################################
 
 #order cluster by numbers of species
@@ -213,6 +262,26 @@ ggplot(subset(annualDFS,cluster==6))+
   facet_wrap(~Species,scales="free")
 
 
+#rescale each to units of standard deviation
+
+annualDFS_scaled <- ddply(annualDFS,.(Species),function(x){
+  x$mean_scaled <- as.numeric(scale(x$mean))
+  return(x)
+})
+
+annualDFS_scaled$cluster[annualDFS_scaled$cluster==2]<-9
+annualDFS_scaled$cluster[annualDFS_scaled$cluster==5]<-2
+annualDFS_scaled$cluster[annualDFS_scaled$cluster==9]<-5
+
+ggplot(annualDFS_scaled)+
+  geom_line(aes(x=Year,y=mean_scaled,colour=Species),
+            alpha=0.7)+
+  facet_wrap(~cluster)+
+  scale_color_discrete()+
+  theme_classic()+
+  ylab("Scaled occupancy probability")+
+  theme(legend.position = "none")
+
 ###cluster panel####################################
 
 #rescale indicies to 1
@@ -228,78 +297,105 @@ annualDFS <- ddply(annualDFS,.(Species,Code),function(x){
   return(x)
 })
 
+### outliers ##########################################
+
+annualDFS$Cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
+
 ggplot(annualDFS)+
   geom_line(aes(x=Year,y=mean/mean1,colour=Species))+
   facet_wrap(~cluster,scales="free")+
   theme(legend.position = "none")
   
 #identify outliers
+#need formal way to identify outliers
+#(1)get standard deviation of occupancies of species in each group 
+speciesSD <- ddply(annualDFS,.(Cluster,Species),summarise,
+                   speciesSD = sd(mean),
+                   speciesCOV=sd(mean)/mean(mean))
+hist(speciesSD$speciesCOV[speciesSD$Cluster==2])
+
+library(StatMeasures)
+outliers(speciesSD$speciesCOV[speciesSD$Cluster==1])
+speciesSD$Species[speciesSD$Cluster==1][c(1,13)]
+
+#get list of outlier species
+probSpecies <- as.character(unlist(dlply(speciesSD,.(Cluster),function(x){
+  ids <- outliers(x$speciesCOV)$idxOutliers
+  return(x$Species[ids])
+})))
+
+#original outliers (first submission)
 #cluster 1 - Aeshna affinis, Crocothermis erth
 #cluster 2 - Sympecma paedisca, Sympecma flav, Sym pedemonatuns
 #cluster 3 - Somatochlora arctica, Lestes barbarus
 #cluster 4 - Leucorrhinia pectoralis
 #cluster 5 - Coengarion scitilim, Symp meridonale
+# probSpecies <- c("Aeshna affinis","Crocothemis erythraea",
+#                  "Sympecma paedisca","Sympetrum flaveolum","Sympetrum pedemontanum",
+#                  "Somatochlora arctica","Lestes barbarus",
+#                  "Leucorrhinia pectoralis","Sympetrum meridionale",
+#                  "Coenagrion scitulum")
 
-probSpecies <- c("Aeshna affinis","Crocothemis erythraea",
-                 "Sympecma paedisca","Sympetrum flaveolum","Sympetrum pedemontanum",
-                 "Somatochlora arctica","Lestes barbarus",
-                 "Leucorrhinia pectoralis","Sympetrum meridionale",
-                 "Coenagrion scitulum")
 
 annualDFS <- subset(annualDFS,!Species %in% probSpecies)
+
 ####bootstrap#############################################################
 
-#add cluster to original data frame
-annualDFS$Cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
-
-gm_mean = function(x, na.rm=TRUE){
-  exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-}
-
-#bootstrap original values within each cluster at each step
-library(boot)
-
-myMean <- function(data, indices) {
-  
-  #randomly pick number
-  data$rMean <- apply(data,1,function(x)rnorm(1,
-                                              as.numeric(x["mean"]),
-                                              as.numeric(x["sd"])))
-  
-  #rescale number 
-  data$srMean <- data$rMean/data$mean1
-  
-  #pick bootstrp selection
-  d <- data[indices,] 
-  temp <-  gm_mean(d$srMean)
-  
-  return(temp)
-}
-
-# bootstrapping with 1000 replications
-applyBoot <- function(mydata){
-  results <- boot(data=mydata, statistic=myMean,
-                  R=5000)
-  out <- boot.ci(results, type="bca")
-  data.frame(lowerQ = out$bca[1,4],
-             upperQ = out$bca[1,5])
-}
-
-#applyBoot(annualDFS)
-
-mybootCI <- ddply(annualDFS,.(Year,Cluster),function(x)applyBoot(x))
-
-
-#plot
-ggplot(mybootCI)+
-  geom_ribbon(aes(x=Year,ymin=lowerQ,ymax=upperQ))+
-  facet_wrap(~Cluster,scales="free")
+# #add cluster to original data frame
+# annualDFS$Cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
+# 
+# gm_mean = function(x, na.rm=TRUE){
+#   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+# }
+# 
+# #bootstrap original values within each cluster at each step
+# library(boot)
+# 
+# myMean <- function(data, indices) {
+#   
+#   #randomly pick number
+#   data$rMean <- apply(data,1,function(x)rnorm(1,
+#                                               as.numeric(x["mean"]),
+#                                               as.numeric(x["sd"])))
+#   
+#   #rescale number 
+#   data$srMean <- data$rMean/data$mean1
+#   
+#   #pick bootstrp selection
+#   d <- data[indices,] 
+#   temp <-  gm_mean(d$srMean)
+#   
+#   return(temp)
+# }
+# 
+# # bootstrapping with 1000 replications
+# applyBoot <- function(mydata){
+#   results <- boot(data=mydata, statistic=myMean,
+#                   R=5000)
+#   out <- boot.ci(results, type="bca")
+#   data.frame(lowerQ = out$bca[1,4],
+#              upperQ = out$bca[1,5])
+# }
+# 
+# #applyBoot(annualDFS)
+# 
+# mybootCI <- ddply(annualDFS,.(Year,Cluster),function(x)applyBoot(x))
+# 
+# 
+# #plot
+# ggplot(mybootCI)+
+#   geom_ribbon(aes(x=Year,ymin=lowerQ,ymax=upperQ))+
+#   facet_wrap(~Cluster,scales="free")
 
 ###random scale####################################################################
 
 #add cluster to original data frame
 annualDFS$Cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
 
+gm_mean = function(x, na.rm=TRUE){
+     exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+  }
+  
 myMean <- function(mydata) {
   
   mydata$rMean <- apply(mydata,1,function(x)rnorm(1,
@@ -331,15 +427,45 @@ applyRandomCI <- function(mydata,n.sim=1000){
 #
 myrandomCI <- ddply(annualDFS,.(Year,Cluster),function(x)applyRandomCI(x))
 
+require(wesanderson)
+
+#5 clusters
 myorder <- c("1","5","3","4","2")
 myrandomCI$Cluster <- factor(myrandomCI$Cluster,levels=myorder)
 myrandomCI$ClusterF <- myrandomCI$Cluster
 mylabels <- c("(1) increasing","(2) increasing late","(3) mixed","(4) decreasing early","(5) decreasing")
+
+mylabels <- c("(1) increasing","(2) increasing late","(3) mixed","(4) decreasing early","(5) decreasing")
 levels(myrandomCI$ClusterF) <- mylabels
-require(wesanderson)
+
 mycols <- wes_palette("Zissou1", 
                       n=10,
                       type="continuous")[c(1,4,5,8,10)]
+
+#4 clusters
+myorder <- c("1","4","3","2")
+myrandomCI$Cluster <- factor(myrandomCI$Cluster,levels=myorder)
+myrandomCI$ClusterF <- myrandomCI$Cluster
+mylabels <- c("(1) increasing","(2) increasing late","(4) decreasing early","(5) decreasing")
+
+mylabels <- c("(1) increasing","(2) increasing late","(3) decreasing early","(4) decreasing")
+levels(myrandomCI$ClusterF) <- mylabels
+
+mycols <- wes_palette("Zissou1", 
+                      n=10,
+                      type="continuous")[c(1,4,8,10)]
+
+#6 clusters
+myorder <- c("1","6","3","5","4","2")
+myrandomCI$Cluster <- factor(myrandomCI$Cluster,levels=myorder)
+myrandomCI$ClusterF <- myrandomCI$Cluster
+mylabels <- c("(1) increasing","(2) increasing late","(3) mixed","(4) decreasing middle","(5) decreasing early","(6) decreasing")
+
+levels(myrandomCI$ClusterF) <- mylabels
+
+mycols <- wes_palette("Zissou1", 
+                      n=10,
+                      type="continuous")[c(1,4,5,7,8,10)]
 
 #plot
 gA <- ggplot(myrandomCI)+
@@ -369,10 +495,7 @@ gA <- ggplot(myrandomCI)+
 
 ggsave("plots/RandomCI_5_wo_outliers.png",width=7,height=4)
 
-### plot timeseries of each cluster ####################################
-
-
-###GAM on fits###########################################################
+###GAM on fits############################################
 
 #https://stats.stackexchange.com/questions/84325/calculating-bootstrap-confidence-intervals-on-second-derivatives-of-a-gam-object
 library(gratia)
@@ -409,7 +532,7 @@ clusterDeriv$Signif <- "insig"
 clusterDeriv$Signif[clusterDeriv$lower>0 & clusterDeriv$upper>0] <- "Positive"
 clusterDeriv$Signif[clusterDeriv$lower<0 & clusterDeriv$upper<0] <- "Negative"
 
-###GAM on data#################################################################
+###GAM on data############################################
 
 library(gratia)
 library(mgcv)
@@ -453,7 +576,7 @@ clusterDeriv$Signif <- "Signif"
 clusterDeriv$Signif[clusterDeriv$lower<0 & clusterDeriv$upper>0] <- "Insignif"
 
 
-###traits cluster test########################################################
+###traits cluster test###################################
 
 #merge clusters with traits
 clusterDF$Species[!clusterDF$Species %in% trendEstimates$Species]
@@ -709,7 +832,7 @@ annualDFS$cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species
 
 plotCluster(annualDFS)
 
-###plot clusters##############################################################
+###other plots############################################
 
 myCentroids <- data.frame(Year=rep(sort(unique(annualDFS$Year)),length(hc_sbd@centroids)),
                           Cluster=rep(1:length(hc_sbd@centroids),each=length(unique(annualDFS$Year))),
@@ -730,8 +853,6 @@ ggplot(data=temp2)+
   facet_wrap(~Cluster,ncol=1)+
   theme_bw()+
   theme(legend.position = "none")
-
-###bootstrap + smooth###########################################################
 
 library(boot)
 
@@ -774,7 +895,6 @@ applyBoot(annualDFS)
 
 mybootCI <- dlply(annualDFS,.(Cluster),function(x)applyBoot(x))
 
-###other plots##################################################################
 
 myOrder <- c(2,1,4,3)
 mylabels <- c("increasing","increasing-decreasing",
