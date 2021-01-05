@@ -481,16 +481,6 @@ modelDF <- getModelSummaries(mdir)
 modelDF <- getCodeFromFile(modelDF,
                            myfile="out_sparta_nation_naturraum_adult_")
 
-
-#combine files to get data for all species (temporary fix)
-#take 72 species from 7495806
-modelDF1 <- modelDF
-#5 species from 6466710
-modelDF2 <- modelDF
-modelDF2 <- subset(modelDF2, Species %in% problemSpecies)
-modelDF <- rbind(modelDF1,modelDF2)
-length(unique(modelDF$Species))
-
 #annual time series in occupancy
 annualDF <- getBUGSfits(modelDF,param="psi.fs")
 annualDF$Year <- annualDF$ParamNu + 1979
@@ -544,7 +534,7 @@ ggsave("plots/ts_rugged_group1_scaled.png",height=10,width=7)
 #next 40
 species1 <- sort(unique(annualDF$Species))[41:77]
 plotTSwithRugs(subset(annualDF,Species %in% species1),subset(speciesAnnualObs,Species %in% species1)) 
-ggsave("plots/ts_rugged_group2_scaled.png",height=9,width=9)
+ggsave("plots/ts_rugged_group2_scaled.png",height=10,width=7)
 
 #annual detection model
 plotDetections(annualDF)
@@ -559,8 +549,9 @@ ggplot(detprobDF)+
   theme_classic()+
   theme(axis.text.x = element_text(angle=90,hjust=1))+
   ylab("Mean detection probability")+
-  xlab("")
-ggsave("plots/mean_detection.png",height=7,width=3)
+  xlab("")+
+  coord_flip()
+ggsave("plots/mean_detection.png",height=10,width=5)
   
 ###Posterior draws############################################
 
@@ -704,36 +695,3 @@ ggplot(richnessDF)+
   geom_ribbon(aes(x=Year,ymin=lowerQRichness,ymax=upperQRichness))
 #almost the same as before....
 #save as the random matrix...or keep with original?
-
-### sensitivity analysis #############################################################
-
-### ppc ################################################################################
-
-mdir <- c("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta_ppc/7464694")
-
-modelDF <- getModelSummaries(mdir)
-
-modelDF <- getCodeFromFile(modelDF,
-                           myfile="out_sparta_nation_naturraum_ppc_adult_")
-
-#extract prediction number of annual detections for each species
-unique(modelDF$Param)
-annualDF <- getBUGSfits(modelDF,param="totP")
-annualDF$Year <- annualDF$ParamNu + 1979
-
-plotTS(annualDF)
-
-#save file
-saveRDS(annualDF,file="annualDF_ppc_first10.rds")
-
-
-mdir <- c("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta_ppc/7469394")
-
-#run lines above
-
-unique(modelDF$Param)
-bpvDF <- getBUGSfits(modelDF,param="bpv")
-
-hist(bpvDF$mean)#all look pretty good!
-
-### end ################################################################################
