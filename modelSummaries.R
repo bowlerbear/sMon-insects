@@ -472,6 +472,9 @@ problemSpecies <- c("Erythromma lindenii","Ischnura elegans","Lestes sponsa","Or
 #updated with uniform priors on sd
 #mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7502229"
 
+#with wide normal priors
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7503029"
+
 #do we have the models for all species?
 speciesFiles <- list.files(mdir)
 mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
