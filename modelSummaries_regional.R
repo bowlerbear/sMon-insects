@@ -50,8 +50,6 @@ CoarseRegions <- c("Alpen","Alpenvorland","Nordostdeutsches Tiefland","Nordwestd
                    "Oestliches Mittelgebirge","Suedwestdeutsches Mittelgebirge ",
                    "Westliches Mittelgebirge")
 
-### model summaries########################################
-
 ### ecoregion 1 (coarse) ##################################
 
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_sparta_regional/6869992"
@@ -235,6 +233,19 @@ tm_shape(nr_dissolved)+
 
 #no obvious pattern
 #no data from some midnaturraums
+
+#plot for a specific species
+speciesChange <- subset(annualtrendsDF,Species=="Crocothemis erythraea")
+nr_dissolved_sp  <- left_join(nr_dissolved,speciesChange,by="MidNaturraum")
+
+tm_shape(nr_dissolved_sp)+
+  tm_polygons("mean")
+
+speciesChange <- subset(annualtrendsDF,Species=="Sympetrum danae")
+nr_dissolved_sp  <- left_join(nr_dissolved,speciesChange,by="MidNaturraum")
+
+tm_shape(nr_dissolved_sp)+
+  tm_polygons("mean")
 
 ### spline model ##########################################
 
