@@ -526,8 +526,9 @@ trendEstimates$Genus    <- factor(trendEstimates$Genus)
 trendEstimates$Species  <- factor(trendEstimates$Species)
 
 frm <- ~Suborder/Family/Genus/Species
-tr <- as.phylo(frm, data = trendEstimates)
+tr <- as.phylo.formula(frm, data = trendEstimates)
 plot(tr)
+cophenetic.phylo(tr)#see assumed distances among species
 
 library(nlme)
 row.names(trendEstimates) <- trendEstimates$Species
@@ -535,7 +536,7 @@ trendEstimates <- trendEstimates[order(match(trendEstimates$Species,tr$tip.label
 all(row.names(trendEstimates)==tr$tip.label)
 out2 <- compute.brlen(tr,1)
 gls1 <- gls(trend ~ smeanTemp + sriver + smedHw + sFlight_start,
-            correlation=corPagel(1,out2,fixed=FALSE),data=trendEstimates)
+            correlation=corPagel(1,tr,fixed=FALSE),data=trendEstimates)
 summary(gls1)
 
 
