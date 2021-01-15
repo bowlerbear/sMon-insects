@@ -1,13 +1,18 @@
 #load data
+#run analysis_HPC_nation_spline_mtb
+
+myfolder <- "/data/idiv_ess/Odonata/"
+#myfolder <- "splines"
+
 #need to load in y
-bugs.data <- readRDS("/data/idiv_ess/Odonata/bugs.data_NAs.rds")
+bugs.data <- readRDS(paste(myfolder,"bugs.data.rds",sep="/"))
 
 #set model parameters
-ni <- 40000   ;   nb <- 20000   ;   nt <- 20   ;   nc <- 3
+#ni <- 40   ;   nb <- 20  ;   nt <- 20   ;   nc <- 3
+ni <- 40000   ;   nb <- 20000   ;   nt <- 10   ;   nc <- 3
 
 #fit model
 library(rjags)
-library(R2WinBUGS)
 library(jagsUI)
 
 #JAGS setting b/c otherwise JAGS cannot build a sampler, rec. by M. Plummer
@@ -17,10 +22,10 @@ library(jagsUI)
 n.cores = as.integer(Sys.getenv("NSLOTS", "1")) 
 #n.cores = 3
 
-modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum_spline.txt"
+modelfile=paste(myfolder,"BUGS_sparta_nation_naturraum_spline.txt",sep="/")
 
 #get inits
-zst <- readRDS("/data/idiv_ess/Odonata/zst.rds")
+zst <- readRDS(paste(myfolder,"zst.rds",sep="/"))
 inits <- function(){list(z = zst)}
 
 #specifiy effort

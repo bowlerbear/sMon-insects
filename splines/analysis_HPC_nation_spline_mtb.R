@@ -34,6 +34,15 @@ myfiles <- list.files("derived-data")
 adultFiles <- myfiles[grepl("adult_datafile",myfiles)]
 adultFiles <- adultFiles[grepl("rds",adultFiles)]
 
+#exclude MTB64 files
+adultFiles <- adultFiles[!grepl("MTB64",adultFiles)]
+
+#exclude original files if an updated file is available
+updatedFiles <- adultFiles[grepl("updated",adultFiles)]
+updatedFiles <- gsub("_updated","",updatedFiles)
+adultFiles <- adultFiles[!adultFiles %in% updatedFiles]
+
+
 #combine these files
 adultData <- ldply(adultFiles,function(x){
   out<-readRDS(paste("derived-data",x,sep="/"))
@@ -51,7 +60,7 @@ nrow(adultData)#1023689
 ##########################################################################################
 
 #add gbif data to fill gaps
-gbifdata <- readRDS("derived-data/datafile_GBIF.rds")
+gbifdata <- readRDS("derived-data/datafile_iNaturalist.rds")
 #gbifdata <- readRDS("/data/idiv_ess/Odonata/datafile_GBIF.rds")
 #nrow(gbifdata)#38191
 
@@ -76,35 +85,13 @@ adultData$MTB_Q <- gsub("/","",adultData$MTB_Q)
 
 df <- subset(adultData, Year>=1990  & Year<2017)
 
-###remove baden wuttemberg #########################################################
+### mtb #########################################################
 
-#df <- subset(df,State!="Baden-Württemberg")
-#df <- subset(df,!is.na(State))
-
-#get MTB
 df$MTB <- sapply(as.character(df$MTB_Q),function(x){
   len <- nchar(x)
   substr(x,1,len-1)})
 
-df <- subset(df, !MTB %in% c("6301","5548","5156","5056","4956",
-                             "6644","8525","8144","4602","6204","4455","5840"))
-
-#write list of species###############################################################
-
-#summaryInfo <- ddply(df, .(Species), summarise, nuRecs=length(Species)) 
-#run model for species with at least 50 records
-#subset(summaryInfo,nuRecs<50)
-#Species nuRecs
-#38    Gomphus simillimus     17
-#44    Lestes macrostigma      3
-#57 Onychogomphus uncatus      1
-
-#speciesList <- summaryInfo$Species[summaryInfo$nuRecs>=50]
-#speciesDF <- data.frame(Species=speciesList,
-#                        TaskID=1:length(speciesList))
-
-#write.table(speciesDF,file=paste0("speciesTaskID_","adult",".txt"),
-#            sep="\t",row.names=FALSE)
+df <- subset(df,!MTB %in% c("6301","5548","5156","5056","4956","4455"))
 
 ######################################################################################
 
@@ -194,12 +181,6 @@ all(listlengthDF$visit==row.names(occMatrix))
 #######################################################################################
 
 #add on some indices
-
-#add on box info to listlength
-listlengthDF$km50 <- mtbqsDF$km50[match(listlengthDF$MTB,mtbqsDF$MTB)]
-summary(listlengthDF$km50)
-
-#other vars
 listlengthDF$State <- mtbqsDF$Counties[match(listlengthDF$MTB,mtbqsDF$MTB)]
 listlengthDF$Date <- as.Date(listlengthDF$Date)
 listlengthDF$Year <- year(listlengthDF$Date)
@@ -228,23 +209,8 @@ listlengthDF$longList <- ifelse(listlengthDF$nuSpecies>3,1,0)
 #######################################################################################
 #get summary site info data
 
-siteInfo <- unique(listlengthDF[,c("siteIndex","MTB",
-                                   "nnIndex","cnIndex")])
+siteInfo <- unique(listlengthDF[,c("siteIndex","MTB","nnIndex","cnIndex")])
 head(siteInfo)
-
-#######################################################################################
-
-#get matrix of site versus state
-siteInfo$dummy <- 1
-siteRaums <- acast(siteInfo,siteIndex~cnIndex,value.var="dummy")
-siteRaums[is.na(siteRaums)] <- 0
-
-#get number of sites for each state
-raumSiteNu <- as.numeric(colSums(siteRaums))
-
-########################################################################################
-
-#fit nation-wide model with random slopes to each box
 
 ########################################################################################
 
@@ -284,12 +250,12 @@ siteInfo$x <- mtbqsDF$x[match(siteInfo$MTB,mtbqsDF$MTB)]
 siteInfo$y <- mtbqsDF$y[match(siteInfo$MTB,mtbqsDF$MTB)]
 
 #centre and scale them?
-medX <- median(siteInfo$x)
-medY <- median(siteInfo$y)
-siteInfo$x <- (siteInfo$x - medX)/10000
-siteInfo$y <- (siteInfo$y - medY)/10000
-summary(siteInfo$x)
-summary(siteInfo$y)  
+#medX <- median(siteInfo$x)
+#medY <- median(siteInfo$y)
+#siteInfo$x <- (siteInfo$x - medX)/10000
+#siteInfo$y <- (siteInfo$y - medY)/10000
+#summary(siteInfo$x)
+#summary(siteInfo$y)  
 #save(siteInfo,file="siteInfo.RData") 
 
 # #get info on whether species was seen at each site
@@ -306,40 +272,40 @@ siteInfo$obs <- speciesSite$PA[match(siteInfo$siteIndex,speciesSite$siteIndex)]
 # 
 # ##########################################################################################
 # 
-# #set up space-time-spline info
-siteInfo <- unique(listlengthDF[,c("MTB","stateIndex","siteIndex","yearIndex")])
-siteInfo$x <- mtbqsDF$x_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
-siteInfo$y <- mtbqsDF$y_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
-speciesSite <- ddply(listlengthDF,.(siteIndex,yearIndex),summarise,PA=max(Species,na.rm=T))
-siteInfo$obs <- speciesSite$PA[match(interaction(siteInfo$siteIndex,siteInfo$yearIndex),
-                                     interaction(speciesSite$siteIndex,speciesSite$yearIndex))]
-siteInfo <- subset(siteInfo,!is.na(obs))
-siteInfo <- subset(siteInfo,!is.na(x))
-
-#fit normal gam
-library(mgcv)
-gam1 <- gam(obs ~ s(yearIndex) + s(x,y,yearIndex,k=20), data=siteInfo, family=binomial)
-siteInfo$fits <- gam1$fitted.values
-library(ggplot2)
-qplot(x,y,data=siteInfo,colour=fits)+
-  scale_colour_gradient(low="blue",high="red")+
-  facet_wrap(~yearIndex)
-
-#predict model to whole range - get siteInfo_Nas below
-siteInfo_NAs$yearIndex <- siteInfo_NAs$Year
-siteInfo_NAs$preds <- predict(gam1,siteInfo_NAs,type="response")
-
-qplot(x,y,data=siteInfo_NAs,colour=preds)+
-  facet_wrap(~yearIndex)+
-  scale_colour_viridis_c()
-
-for(i in 1:27){
-qplot(x,y,data=subset(siteInfo_NAs,Year==i),colour=preds)+
-  scale_colour_viridis_c(limits=c(0,0.32))+
-  theme_void()+
-  theme(legend.position = "none")
-ggsave(paste0("gifs/year",i,".png"),width=2.6,height=2.6)
-}
+# # #set up space-time-spline info
+# siteInfo <- unique(listlengthDF[,c("MTB","stateIndex","siteIndex","yearIndex")])
+# siteInfo$x <- mtbqsDF$x_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
+# siteInfo$y <- mtbqsDF$y_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
+# speciesSite <- ddply(listlengthDF,.(siteIndex,yearIndex),summarise,PA=max(Species,na.rm=T))
+# siteInfo$obs <- speciesSite$PA[match(interaction(siteInfo$siteIndex,siteInfo$yearIndex),
+#                                      interaction(speciesSite$siteIndex,speciesSite$yearIndex))]
+# siteInfo <- subset(siteInfo,!is.na(obs))
+# siteInfo <- subset(siteInfo,!is.na(x))
+# 
+# #fit normal gam
+# library(mgcv)
+# gam1 <- gam(obs ~ s(yearIndex) + s(x,y,yearIndex,k=20), data=siteInfo, family=binomial)
+# siteInfo$fits <- gam1$fitted.values
+# library(ggplot2)
+# qplot(x,y,data=siteInfo,colour=fits)+
+#   scale_colour_gradient(low="blue",high="red")+
+#   facet_wrap(~yearIndex)
+# 
+# #predict model to whole range - get siteInfo_Nas below
+# siteInfo_NAs$yearIndex <- siteInfo_NAs$Year
+# siteInfo_NAs$preds <- predict(gam1,siteInfo_NAs,type="response")
+# 
+# qplot(x,y,data=siteInfo_NAs,colour=preds)+
+#   facet_wrap(~yearIndex)+
+#   scale_colour_viridis_c()
+# 
+# for(i in 1:27){
+# qplot(x,y,data=subset(siteInfo_NAs,Year==i),colour=preds)+
+#   scale_colour_viridis_c(limits=c(0,0.32))+
+#   theme_void()+
+#   theme(legend.position = "none")
+# ggsave(paste0("gifs/year",i,".png"),width=2.6,height=2.6)
+# }
 
 #######################################################################################
 
@@ -348,12 +314,14 @@ library(mgcv)
 jags.ready <- jagam(obs ~ 1 + s(x,y,k=15), data=siteInfo, family=binomial,file="splines/jagam.txt")
 
 #extract bits for the model
-bugs.data$X = jags.ready$jags.data$X#[,-1]
+bugs.data$X = jags.ready$jags.data$X
 bugs.data$S1 = jags.ready$jags.data$S1
-bugs.data$zero = jags.ready$jags.data$zero#[-1]
+bugs.data$zero = jags.ready$jags.data$zero
 bugs.data$nspline = length(bugs.data$zero)
 bugs.data$nspline1 = length(bugs.data$zero)+1
 bugs.data$nspline2 = (length(bugs.data$zero))*2
+
+saveRDS(bugs.data,file="splines/bugs.data.rds")
 
 #expand to include NA values ##########################################################
 
@@ -403,25 +371,25 @@ saveRDS(bugs.data,file="splines/bugs.data_NAs.rds")
 
 ### with time dimension as well#########################################################
 
-#not ran
-
-# #replicate siteInfo to include values for each year
-library(tidyverse)
-siteInfo_NAs <- mtbqsDF
-siteInfo_NAs <- subset(siteInfo_NAs,!duplicated(MTB))
-siteInfo_NAs <- subset(siteInfo_NAs,!is.na(Counties))
-nuSites <- nrow(siteInfo_NAs)
-siteInfo_NAs <- siteInfo_NAs %>% slice(rep(1:n(), each = length(unique(df$Year))))
-siteInfo_NAs$Year <- rep(1:length(unique(df$Year)),nuSites)
-
-#add on species observations
-speciesSite <- ddply(listlengthDF,.(MTB,yearIndex),summarise,PA=max(Species,na.rm=T))
-siteInfo_NAs$obs <- speciesSite$PA[match(interaction(siteInfo_NAs$MTB,siteInfo_NAs$Year),
-                                         interaction(speciesSite$MTB,speciesSite$yearIndex))]
-
-library(mgcv)
-jags.ready <- jagam(obs ~ 1 + s(x,y,Year,k=10),
-                    data=siteInfo_NAs, family=binomial,file="jagam.txt")
+# #not ran
+# 
+# # #replicate siteInfo to include values for each year
+# library(tidyverse)
+# siteInfo_NAs <- mtbqsDF
+# siteInfo_NAs <- subset(siteInfo_NAs,!duplicated(MTB))
+# siteInfo_NAs <- subset(siteInfo_NAs,!is.na(Counties))
+# nuSites <- nrow(siteInfo_NAs)
+# siteInfo_NAs <- siteInfo_NAs %>% slice(rep(1:n(), each = length(unique(df$Year))))
+# siteInfo_NAs$Year <- rep(1:length(unique(df$Year)),nuSites)
+# 
+# #add on species observations
+# speciesSite <- ddply(listlengthDF,.(MTB,yearIndex),summarise,PA=max(Species,na.rm=T))
+# siteInfo_NAs$obs <- speciesSite$PA[match(interaction(siteInfo_NAs$MTB,siteInfo_NAs$Year),
+#                                          interaction(speciesSite$MTB,speciesSite$yearIndex))]
+# 
+# library(mgcv)
+# jags.ready <- jagam(obs ~ 1 + s(x,y,Year,k=10),
+#                     data=siteInfo_NAs, family=binomial,file="jagam.txt")
 
 ########################################################################################
 

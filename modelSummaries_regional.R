@@ -235,20 +235,19 @@ tm_shape(nr_dissolved)+
 #no data from some midnaturraums
 
 #plot for a specific species
-speciesChange <- subset(annualtrendsDF,Species=="Crocothemis erythraea")
+speciesChange <- subset(annualtrendsDF,Species=="Anax imperator")
 nr_dissolved_sp  <- left_join(nr_dissolved,speciesChange,by="MidNaturraum")
 
 tm_shape(nr_dissolved_sp)+
   tm_polygons("mean")
 
-speciesChange <- subset(annualtrendsDF,Species=="Sympetrum danae")
+speciesChange <- subset(annualtrendsDF,Species=="Coenagrion hastulatum")
 nr_dissolved_sp  <- left_join(nr_dissolved,speciesChange,by="MidNaturraum")
 
 tm_shape(nr_dissolved_sp)+
   tm_polygons("mean")
 
 ### spline model ##########################################
-
 
 
 ###end######################################################
