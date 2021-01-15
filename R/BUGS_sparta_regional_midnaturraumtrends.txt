@@ -10,7 +10,7 @@
       z[i,t] ~ dbern(muZ[i,t]) 
 
     # model
-      logit(muZ[i,t]) <- mu[mraumS[i]] + mraumtrend[mraumS[i]] * t # site effect in mu, year effect in trend
+      logit(muZ[i,t]) <- mu[mraumS[i]] + mraumtrend[mraumS[i]] * t
       
       }
     }   
@@ -22,7 +22,7 @@
     Py[j]<- z[site[j],year[j]]*p[j] 
     
     #detection model:
-    logit(p[j]) <-  mup[craum[j],year[j]] + 
+    logit(p[j]) <-  mup[mraum[j],year[j]] + 
                     mu.phenol * yday[j] + 
                     mu.phenol2 * yday2[j] +
                     effort.p * Effort[j] +
@@ -63,7 +63,7 @@
     #Observation model priors
 
     #year
-    for(i in 1:ncraum){
+    for(i in 1:nmraum){
       for(t in 1:nyear){
         mup[i,t] ~ dnorm(mu.p, tau.ap)
       }
