@@ -98,7 +98,7 @@ saveRDS(lateYearsDF,
         file = "environ-data/lateYearsDF_environData.rds")
 
 # 1992-2015 
-
+#run on RStudio server
 years <- c(1992:2015)
 
 #get urban land cover for each year and MTBQ
@@ -143,9 +143,21 @@ firstYearsDF <- years %>%
 
 ### combine land use data ####################################
 
-landUseDF <- rbind(firstYearsDF,lateYearsDF)
+#landUseDF <- rbind(firstYearsDF,lateYearsDF)
+df1 <- readRDS("environ-data/firstYearsDF_90s.rds")
+df2 <- readRDS("environ-data/firstYearsDF_00s.rds")
+df3 <- readRDS("environ-data/firstYearsDF_10s.rds")
+df4 <- readRDS("environ-data/lateYearsDF_environData.rds")[,-4]
+df <- rbind(df1,df2,df3,df4)
+
 #add mtbqs
-mtbqID <- data.frame(MTB_Q=mtbqs$MTB_Q,ID=1:length(mtbqs$MTB_Q))
-landUseDF$MTB_Q <- mtbqID$MTB_Q[match(landUseDF$ID,mtbqID$ID)]
+df <- cbind(df,mtbqsTrans)
+saveRDS(df,file="environ-data/esacci_MTBQ.rds")
 
+#check
+df$x <- coordinates(mtbqsTrans)[,1]
+df$y <- coordinates(mtbqsTrans)[,2]
+library(ggplot2)
+qplot(x,y,data=subset(df,Year==1992),colour=urban)
 
+###end ########################################################
