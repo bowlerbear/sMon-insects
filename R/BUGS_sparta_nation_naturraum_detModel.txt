@@ -1,0 +1,159 @@
+
+  model{
+    
+    # State model
+    
+    for (i in 1:nsite){ 
+      for (t in 1:nyear){
+    
+    #data distribution
+      z[i,t] ~ dbern(muZ[i,t]) 
+
+    #model
+      logit(muZ[i,t]) <- mu.t[t] + cr.a[craumS[i]] + r.a[mraumS[i]] + eta[i]
+      
+      }
+    }   
+    
+    ### Observation Model
+    for(j in 1:nvisit) {
+    
+    y[j] ~ dbern(Py[j]) #data is Y 
+    Py[j]<- z[site[j],year[j]]*p[j] 
+    
+    #detection model:
+    logit(p[j]) <-  mup[year[j]] + 
+                    mu.craum[craum[j]] + #random effect at coarse raum level
+                    mu.mraum[mraum[j]] + #random effect at mid raum level
+                    mu.phenol * yday[j] + 
+                    mu.phenol2 * yday2[j]+
+                    effort.p * Effort[j] +
+                    single.p * singleList[j]
+                    
+    #Create simulated dataset to calculate the Bayesian p-value
+    y.sim[j] ~ dbern(Py[j]) #data is Y 
+                    
+    } 
+    
+    # Derived parameters
+    
+    #metapopulation-level
+    for(t in 1:nyear){  
+      psi.fs[t] <- sum(z[1:nsite,t])/nsite  
+    } 
+
+    # overall trend in occpuancy
+    sumY <- sum(psi.fs[1:nyear])
+    for (t in 1:nyear) {
+      sumxy[t] <- psi.fs[t]*t
+    }
+    sumXY <- sum(sumxy[1:nyear])
+    regres.psi <- (sumXY - ((sumX*sumY)/nyear))/(sumX2 - ((sumX*sumX)/nyear))#trend
+
+    
+    #detection probability
+    mean.p <- mean(p)
+  
+    #get mean detection probability each year
+      for(t in 1:nyear){
+        for(j in 1:nvisit){
+          exp.idx[j,t] <- Py[j] * StrIdx[j,t]     
+          temp[j,t] <- y.sim[j] * StrIdx[j,t]
+          p.idx[j,t] <- p[j] * StrIdx[j,t]     
+        }
+        
+        e.count[t] <- sum(exp.idx[,t])
+        predDets[t] <- sum(temp[,t])
+        annual.p[t] <- sum(p.idx[,t])/annualVisits[t]
+      }
+    
+    e <- 0.0001# Add small value e to denominator to avoid division by zero
+    
+    for(t in 1:nyear){
+    
+    # Chi-square discrepancy for the actual data
+    chi2.actual[t] <- pow((obsDets[t]-e.count[t]),2) / (e.count[t]+e)
+    
+    # Chi-square discrepancy for the simulated ('perfect') data
+    chi2.sim[t] <- pow((predDets[t]-e.count[t]),2) / (e.count[t]+e)
+    
+    }
+    
+    # Add up individual chi2 values for overall fit statistic
+    fit.actual <- sum(chi2.actual)  # Fit statistic for actual data set
+    fit.sim <- sum(chi2.sim)        # Fit statistic for a fitting model
+    bpv <- step(fit.sim-fit.actual)    # Bayesian p-value
+    
+    #Priors 
+    
+    # State model priors
+    
+    #year
+    
+    #year 1
+    mu.t[1] ~ dnorm(0, 0.001)
+    
+    #other years
+    for(t in 2:nyear){
+      mu.t[t] ~ dnorm(mu.t[t-1], tau.a)
+    }
+    tau.a <- 1/(sd.a * sd.a)
+    sd.a ~ dt(0, 1, 1)T(0,) 
+
+    #cr.a random effects for coarse naturraum
+    for (s in 1:ncraum) {
+      cr.a[s] ~ dnorm(0, tau.cr.a)       
+    } 
+    tau.cr.a <- 1/(sd.cr.a * sd.cr.a)
+    sd.cr.a ~ dt(0, 1, 1)T(0,) 
+    
+    #r.a random effects for naturraum
+    for (s in 1:nmraum) {
+      r.a[s] ~ dnorm(0, tau.r.a)       
+    } 
+    tau.r.a <- 1/(sd.r.a * sd.r.a)
+    sd.r.a ~ dt(0, 1, 1)T(0,) 
+    
+    #site effects
+    for (i in 1:nsite) {
+      eta[i] ~ dnorm(0, tau.eta)       
+    } 
+    tau.eta <- 1/(sd.eta * sd.eta) 
+    sd.eta ~ dt(0, 1, 1)T(0,) 
+  
+    #####################################################
+    
+    #Observation model priors
+
+    #year
+    for(t in 1:nyear){
+      mup[t] ~ dnorm(mu.p, tau.ap)
+    }
+    mu.p ~ dnorm(0, 0.001)
+    tau.ap <- 1/(sd.ap * sd.ap)
+    sd.ap ~ dt(0, 1, 1)T(0,)  
+    
+    #effort effects
+    effort.p ~ dnorm(0, 0.001)
+    single.p ~ dnorm(0, 0.001)
+    
+    #phenology effects
+    mu.phenol ~ dnorm(0,0.001)
+    mu.phenol2 ~ dnorm(0,0.001)
+    
+    #cr.a random effects for coarse naturraum
+    for (s in 1:ncraum) {
+      mu.craum[s] ~ dnorm(0, tau.cr.det)       
+    } 
+    tau.cr.det <- 1/(sd.cr.det * sd.cr.det)
+    sd.cr.det ~ dt(0, 1, 1)T(0,) 
+    
+    #r.a random effects for naturraum
+    for (s in 1:nmraum) {
+      mu.mraum[s] ~ dnorm(0, tau.r.det)       
+    } 
+    tau.r.det <- 1/(sd.r.det * sd.r.det)
+    sd.r.det ~ dt(0, 1, 1)T(0,) 
+    
+  }
+    
