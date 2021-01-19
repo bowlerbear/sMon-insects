@@ -20,7 +20,7 @@ library(R2WinBUGS)
 library(jagsUI)
 
 #JAGS setting b/c otherwise JAGS cannot build a sampler, rec. by M. Plummer
-#set.factory("bugs::Conjugate", FALSE, type="sampler")
+set.factory("bugs::Conjugate", FALSE, type="sampler")
 
 #get core info
 n.cores = as.integer(Sys.getenv("NSLOTS", "1")) 
@@ -29,6 +29,7 @@ n.cores = as.integer(Sys.getenv("NSLOTS", "1"))
 modelfile="/data/idiv_ess/Odonata/jagam.txt"
 
 #specify parameters to monitor
+#params <- c("persistMean","colonizeMean")
 params <- c("mu")
 
 Sys.time()
