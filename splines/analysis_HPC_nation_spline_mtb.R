@@ -428,48 +428,17 @@ inits <- function(){list(z = zst)}
 
 saveRDS(zst_NAs,file="splines/zst_NAs.rds")
 
-########################################################################################
+### run model #########################################################################
 
-#define model params
-ni <- 10   ;   nb <- 5   ;   nt <- 1   ;   nc <- 3
-
-#fit model
-library(rjags)
-library(R2WinBUGS)
-library(jagsUI)
-
-#JAGS setting b/c otherwise JAGS cannot build a sampler, rec. by M. Plummer
-set.factory("bugs::Conjugate", FALSE, type="sampler")
-
-#get core info
-n.cores = as.integer(Sys.getenv("NSLOTS", "1")) 
-#n.cores = 3
-
-###########################################################################################
-
-#modelfile="R/BUGS_dynamic_nation_spline.txt"
-#modelfile="/data/idiv_ess/Odonata/BUGS_dynamic_nation_spline_year.txt"
-modelfile="splines/BUGS_sparta_nation_naturraum_spline.txt"
-
-effort = "nuSpecies"
-bugs.data$Effort <- bugs.data[[effort]]
-
-#specify parameters to monitor
-params <- c("z","psi_Full")
-
-Sys.time()
-#run model
-out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=nt,
-            n.chains=n.cores, n.burnin=nb,n.iter=ni,parallel=T)
-Sys.time()
-
-#save as output file
-saveRDS(out$summary,file=paste0("outSummary_dynamicspline_",stage,"_", myspecies,".rds"))
+#see HPC_static_jagam or
+#HPC_tempcorr_jagam
 
 ########################################################################################
 
 #get nationwide boxes
 load("mtbqsDF.RData")
+
+### static model #######################################################################
 
 #running HPC_static_jagam 
 out <- readRDS("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Static_spline/6992005/outSummary_static_spline.rds")
@@ -497,6 +466,8 @@ ggplot(siteInfo)+
   geom_point(aes(x=x,y=y,color=preds))+
   scale_color_viridis_c()
 #looks nice!!!
+
+### dynamic model #################################################################
 
 #temp corr model
 out <- readRDS("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/splines/outSummary_tempcorr_spline_NAs.rds")
