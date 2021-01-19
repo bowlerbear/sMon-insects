@@ -29,3 +29,5 @@ environ-data/*
 splines/zst.rds
 splines/jagam.txt
 splines/bugs.data.rds
+siteInfo_midnaturraum.rds
+traits_trends_Odonata_Jan2020.csv
