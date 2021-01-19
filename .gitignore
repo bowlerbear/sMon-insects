@@ -26,3 +26,6 @@ vert.txt
 old/*
 occMatrix.RData
 environ-data/*
+splines/zst.rds
+splines/jagam.txt
+splines/bugs.data.rds
