@@ -455,9 +455,9 @@ mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects
 #simple initial values - works for all!!
 
 #updated data with revised files for Hessen and BW
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7469396"
-#"Coenagrion armatum"      "Coenagrion ornatum"      "Cordulegaster bidentata" "Sympetrum flaveolum"     "Sympetrum fonscolombii" 
-problemSpecies <- c("Coenagrion armatum","Coenagrion ornatum","Cordulegaster bidentata","Sympetrum flaveolum","Sympetrum fonscolombii")
+#mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7469396"
+#"Coenagrion armatum"      "Coenagrion ornatum"      "Cordulegaster bidentata" "Sympetrum flaveolum"     "Sympetrum fonscolombii"
+#problemSpecies <- c("Coenagrion armatum","Coenagrion ornatum","Cordulegaster bidentata","Sympetrum flaveolum","Sympetrum fonscolombii")
 #error message is:
 #Non-finite boundary in truncated normal
 
@@ -466,8 +466,8 @@ problemSpecies <- c("Coenagrion armatum","Coenagrion ornatum","Cordulegaster bid
 #10 missing
 
 #updated with more bounded priors, dnorm(0,0.25) and midraum #instead of raum
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7495806"
-problemSpecies <- c("Erythromma lindenii","Ischnura elegans","Lestes sponsa","Orthetrum albistylum","Sympetrum striolatum")
+#mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7495806"
+#problemSpecies <- c("Erythromma lindenii","Ischnura elegans","Lestes sponsa","Orthetrum albistylum","Sympetrum striolatum")
 
 #updated with uniform priors on sd
 #mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7502229"
