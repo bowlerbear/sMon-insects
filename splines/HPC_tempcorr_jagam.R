@@ -8,8 +8,7 @@ myfolder <- "/data/idiv_ess/Odonata/"
 bugs.data <- readRDS(paste(myfolder,"bugs.data.rds",sep="/"))
 
 #set model parameters
-#ni <- 40   ;   nb <- 20  ;   nt <- 20   ;   nc <- 3
-ni <- 40000   ;   nb <- 20000   ;   nt <- 10   ;   nc <- 3
+ni <- 4000   ;   nb <- 2000   ;   nt <- 2   ;   nc <- 3
 
 #fit model
 library(rjags)
