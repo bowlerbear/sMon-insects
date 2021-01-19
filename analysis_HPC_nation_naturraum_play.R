@@ -61,7 +61,7 @@ saveRDS(adultData,file="derived-data/adultData_allStates_Dec2020.rds")
 ##########################################################################################
 
 #add gbif data to fill gaps
-gbifdata <- readRDS("derived-data/datafile_GBIF.rds")
+gbifdata <- readRDS("derived-data/datafile_iNaturalist.rds")
 #gbifdata <- readRDS("/data/idiv_ess/Odonata/datafile_GBIF.rds")
 #nrow(gbifdata)#38191
 
