@@ -445,12 +445,12 @@ trendsDF$Rhat[trendsDF$Rhat>1.1]
 
 source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6466710"
-#fixed subsetting code, with eta, ecoregion 1, simple initial values - works for all!!
-#fixed effects are dnorm(0, 0.001)
-#intercepts are dnorm(0, 0.001)
-
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6474342" 
+# mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6466710"
+# #fixed subsetting code, with eta, ecoregion 1, simple initial values - works for all!!
+# #fixed effects are dnorm(0, 0.001)
+# #intercepts are dnorm(0, 0.001)
+# 
+# mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6474342" 
 #fixed subsetting code, with eta, ecoregion 1, ecoregion 2,
 #simple initial values - works for all!!
 
@@ -472,8 +472,14 @@ mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects
 #updated with uniform priors on sd
 #mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7502229"
 
-#with wide normal priors
+#with wide normal priors dnorm(0,0.001)
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7503029"
+
+
+#with wide normal priors dnorm(0,0.001) and 50,000 iter
+
+#with normal priors dnorm(0,0.01) and 50,000 iter
+
 
 #do we have the models for all species?
 speciesFiles <- list.files(mdir)
@@ -511,6 +517,14 @@ table(detprobDF$Rhat<1.1)
 detprobDF$Rhat[detprobDF$Rhat>1.1]
 detprobDF$Species[detprobDF$Rhat>1.1]
 summary(detprobDF$mean)
+
+#bpv
+bpvDF <- getBUGSfits(modelDF,param="bpv")
+summary(bpvDF$mean)
+sort(bpvDF$mean)
+#which ones are at the extreme
+subset(bpvDF,mean<0.15)#Orthetrum albistylum
+subset(bpvDF,mean>0.85)#Oxygastra curtisii 
 
 ### plotting ##################################
 
