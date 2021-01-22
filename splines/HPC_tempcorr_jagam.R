@@ -14,11 +14,8 @@ ni <- 4000   ;   nb <- 2000   ;   nt <- 2   ;   nc <- 3
 library(rjags)
 library(jagsUI)
 
-#JAGS setting b/c otherwise JAGS cannot build a sampler, rec. by M. Plummer
-#set.factory("bugs::Conjugate", FALSE, type="sampler")
-
 #get core info
-n.cores = as.integer(Sys.getenv("NSLOTS", "1")) 
+n.cores = as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1")) 
 #n.cores = 3
 
 modelfile=paste(myfolder,"BUGS_sparta_nation_naturraum_spline.txt",sep="/")
@@ -41,4 +38,8 @@ out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=nt,
 Sys.time()
 
 #save as output file
-saveRDS(out$summary,file="outSummary_tempcorr_spline_NAs.rds")
+if(class(out)=="jagsUI"){
+  saveRDS(out$summary,file="outSummary_tempcorr_spline.rds")
+}else{
+  saveRDS(out,file="out_tempcorr_spline.rds")
+}
