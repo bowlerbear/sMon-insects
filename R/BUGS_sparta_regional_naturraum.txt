@@ -22,21 +22,42 @@
     Py[j]<- z[site[j],year[j]]*p[j] 
     
     #detection model:
-    logit(p[j]) <-  mup[craum[j],year[j]] + 
+    logit(p[j]) <-  mup[year[j]] + 
                     mu.phenol * yday[j] + 
-                    mu.phenol2 * yday2[j]+
+                    mu.phenol2 * yday2[j] +
                     effort.p * Effort[j] +
                     single.p * singleList[j]
     } 
     
     # Derived parameters
     
-    #get mean
-    for(s in 1:ncraum){
+    #get mean per coarseraum
+    for(j in 1:ncraum){
       for(t in 1:nyear){
-        psi.fs[s,t] <- sum(z[craumS[s],t])
+        for(i in 1:nsite){
+            sum.idx[i,t,j] <- sum(z[i,t]) * crIdx[i,t,j]     
+        }
+        muZ.cra[j,t] <- sum(sum.idx[,t,j])/nsite_cr[j]
       }
     }
+    
+    # overall trends in occpuancy
+    for(j in 1:ncraum){
+    
+    sumY[j] <- sum(muZ.cra[j,1:nyear])
+    
+      for (t in 1:nyear) {
+      
+        sumxy[j,t] <- muZ.cra[j,t]*t
+      }
+
+    sumXY[j] <- sum(sumxy[j,1:nyear])
+    
+    regres.psi[j] <- (sumXY[j] - ((sumX*sumY[j])/nyear))/(sumX2 - ((sumX*sumX)/nyear))
+    
+    }
+
+
     
     #detection probability
     mean.p <- mean(p)
@@ -49,8 +70,7 @@
     
     #year 1
     for(i in 1:ncraum){
-      prob.mu[i,1] ~ dunif(0,1)
-      cr.a[i,1] <- logit(prob.mu[i,1]) 
+      cr.a[i,1] ~ dnorm(0,0.001)
     }
     
     #other years
@@ -81,10 +101,8 @@
     #Observation model priors
 
     #year
-    for(i in 1:ncraum){
-      for(t in 1:nyear){
-        mup[i,t] ~ dnorm(mu.p, tau.ap)
-      }
+    for(t in 1:nyear){
+        mup[t] ~ dnorm(mu.p, tau.ap)
     }
     mu.p ~ dnorm(0, 0.001)
     tau.ap <- 1/(sd.ap * sd.ap)
