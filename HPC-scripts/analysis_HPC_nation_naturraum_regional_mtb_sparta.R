@@ -11,9 +11,10 @@ suppressMessages(library(gdata))
 #load the relational table of task ids and species
 speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult.txt"),as.is=T)
 #get task id
-task.id = as.integer(Sys.getenv("SGE_TASK_ID", "1"))
+task.id = as.integer(Sys.getenv("SLURM_ARRAY_TASK_ID", "1"))
 #get species for this task
 myspecies <- speciesTaskID$Species[which(speciesTaskID$TaskID==task.id)]
+#myspecies <- "Crocothemis erythraea"
 
 #set stage
 stage="adult"
@@ -58,8 +59,8 @@ nrow(adultData)#1147558
 ##########################################################################################
 
 #add gbif data to fill gaps
-#gbifdata <- readRDS("derived-data/datafile_GBIF.rds")
-gbifdata <- readRDS("/data/idiv_ess/Odonata/datafile_GBIF.rds")
+#gbifdata <- readRDS("derived-data/datafile_iNaturalist.rds")
+gbifdata <- readRDS("/data/idiv_ess/Odonata/datafile_iNaturalist.rds")
 #nrow(gbifdata)#38191
 
 #combine the two
@@ -81,7 +82,7 @@ adultData$MTB_Q <- gsub("/","",adultData$MTB_Q)
 ###################################################################################
 #filter to 1990 onwards
 
-df <- subset(adultData, Year>=1990  & Year<2017)
+df <- subset(adultData, Year>=1990  & Year<2018)
 
 ### sort MTBs #########################################################
 
@@ -121,8 +122,9 @@ sum(is.na(df$MidNatur))
 ##########################################################################################
 
 #check we have data for all midnatur
-
+length(unique(mtbqsDF$MTB_MidNatur))#85
 summaryDF <- ddply(df,.(MidNatur),summarise,nuRecs=length(MidNatur),nuYears=length(unique(Year)))
+nrow(summaryDF)
 #we have data from all 85
 #and pretty good time frames
 
@@ -266,16 +268,37 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
 listlengthDF$Species <- bugs.data$y
 all(row.names(occMatrix)==listlengthDF$visit)
 
+#the below are used the linear regression model in the model file -see below
+bugs.data$sumX <- sum(1:bugs.data$nyear)
+bugs.data$sumX2 <- sum((1:bugs.data$nyear)^2)
+
 #########################################################################
 
 #index each MTB to naturraum
+StrIdx <- array(data=0, dim = c(bugs.data$nsite,
+                                bugs.data$nyear,
+                                bugs.data$ncraum))
+for(i in 1:bugs.data$nsite){
+  StrIdx[i,,bugs.data$craumS[i]] <- 1
+}
+bugs.data$crIdx <- StrIdx
 
-# #for each i, sum into t 
-# StrIdx <- array(data=0, dim = c(bugs.data$nsite,bugs.data$nmraum))
-# for(i in 1:bugs.data$nsite){
-#   StrIdx[i,bugs.data$mraumS[i]] <- 1
-# }
-# bugs.data$StrIdx <- StrIdx
+#number of sites per coarseroam
+nsite_cr <- ddply(siteInfo,.(cnIndex),summarise,nuSites = length(unique(siteIndex)))
+bugs.data$nsite_cr <- nsite_cr$nuSites         
+
+#index each MTB to midnaturraum
+StrIdx <- array(data=0, dim = c(bugs.data$nsite,
+                                bugs.data$nyear,
+                                bugs.data$nmraum))
+for(i in 1:bugs.data$nsite){
+  StrIdx[i,,bugs.data$mraumS[i]] <- 1
+}
+bugs.data$mrIdx <- StrIdx
+
+#number of sites per coarseroam
+nsite_mr <- ddply(siteInfo,.(mnIndex),summarise,nuSites = length(unique(siteIndex)))
+bugs.data$nsite_mr <- nsite_mr$nuSites  
 
 #########################################################################
 
@@ -309,30 +332,32 @@ set.factory("bugs::Conjugate", FALSE, type="sampler")
 
 #get core info
 #n.cores = 3
-n.cores = as.integer(Sys.getenv("NSLOTS", "1")) 
+n.cores = as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1")) 
 
 #############################################################################
 
 #choose model file
 #modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum.txt"
 #modelfile="/data/idiv_ess/Odonata/BUGS_sparta_regional_midnaturraum.txt"
-modelfile="/data/idiv_ess/Odonata/BUGS_sparta_regional_midnaturraumtrends.txt"
+#modelfile="/data/idiv_ess/Odonata/BUGS_sparta_regional_midnaturraumtrends.txt"
+modelfile="/data/idiv_ess/Odonata/BUGS_sparta_regional_naturraum.txt"
 
 effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
 
 #specify parameters to monitor
-params <- c("mean.p","mup","mraumtrend")
+params <- c("mean.p","mup","cr.a","muZ.cra","regres.psi")
 
 Sys.time()
 #run model
-out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=10,
+out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=20,
             n.chains=n.cores, n.burnin=round(niterations/2),
             n.iter=niterations,parallel=T)
 Sys.time()
 
 #save as output file - for regional/dynamic model
-saveRDS(out,file=paste0("out_sparta_regional_nation_midnaturraumtrends_",stage,"_",myspecies,".rds"))
+saveRDS(out,file=paste0("out_sparta_regional_nation_naturraum_",stage,"_",myspecies,".rds"))
+#saveRDS(out,file=paste0("out_sparta_regional_nation_midnaturraumtrends_",stage,"_",myspecies,".rds"))
 #saveRDS(out,file=paste0("out_sparta_regional_nation_finenaturraum_",stage,"_",myspecies,".rds"))
 
 ########################################################################################
