@@ -374,19 +374,19 @@ inits <- function(){list(z = zst)}
 ########################################################################################
 
 #JAGS setting b/c otherwise JAGS cannot build a sampler, rec. by M. Plummer
-set.factory("bugs::Conjugate", FALSE, type="sampler")
+#set.factory("bugs::Conjugate", FALSE, type="sampler")
 
 #get core info
 #n.cores = 3
-n.cores = as.integer(Sys.getenv("NSLOTS", "1")) 
+n.cores = as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1")) 
 
 ###########################################################################################
 
 #choose model file
 #modelfile="/data/idiv_ess/Odonata/BUGS_sparta_regional_nation_naturraum.txt"
 #modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum_phenologyChange.txt"
-#modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum.txt"
-modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum_detModel.txt"
+#modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum_detModel.txt"
+modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum_0.01.txt"
 
 effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
@@ -397,16 +397,16 @@ params <- c("psi.fs","regres.psi","mean.p","mup","annual.p","bpv")
 Sys.time()
 #run model
 out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=20,
-            n.chains=n.cores, n.burnin=round(niterations/2),
+            n.chains=n.cores, n.burnin=round(niterations*3/5),
             n.iter=niterations,parallel=T)
 
 Sys.time()
 
-#save as output file - for regional/dynamic model
-saveRDS(out,file=paste0("out_sparta_nation_naturraum_detModel_",stage,"_",myspecies,".rds"))
+#save as output file
+saveRDS(out,file=paste0("out_sparta_nation_naturraum_",stage,"_",myspecies,".rds"))
 
+#saveRDS(out,file=paste0("out_sparta_nation_naturraum_detModel_",stage,"_",myspecies,".rds"))
 #saveRDS(out,file=paste0("out_sparta_nation_naturraum_statesOnly_",stage,"_",myspecies,".rds"))
-#saveRDS(out,file=paste0("out_dynamic_nation_naturraum_",stage,"_",myspecies,".rds"))
 #saveRDS(out,file=paste0("out_sparta_nation_naturraum_phenologyChange_",stage,"_",myspecies,".rds"))
 #saveRDS(out,file=paste0("out_sparta_nation_naturraum_ppc_",stage,"_",myspecies,".rds"))
 
