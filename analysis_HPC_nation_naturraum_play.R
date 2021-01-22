@@ -56,7 +56,7 @@ adultData$State <- sapply(adultData$File,function(x)strsplit(x,"\\.rds")[[1]][1]
 adultData$State <- sapply(adultData$State,function(x)strsplit(x,"_")[[1]][3])
 nrow(adultData)#1023689
 
-saveRDS(adultData,file="derived-data/adultData_allStates_Dec2020.rds")
+#saveRDS(adultData,file="derived-data/adultData_allStates_Dec2020.rds")
 
 ##########################################################################################
 
