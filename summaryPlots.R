@@ -88,7 +88,7 @@ nrow(adultData)#1147558
 gbifdata <- readRDS("derived-data/datafile_iNaturalist.rds")
 #combine the two
 adultData <- rbind(adultData,gbifdata)
-nrow(adultData)
+nrow(adultData)#1198708
 
 #change state labels
 adultData$State <- as.factor(adultData$State)
@@ -409,7 +409,7 @@ adultDataS <- subset(adultDataS,!Species %in% c("Coenagrion hylas", "Gomphus sim
                                                 "Onychogomphus uncatus"))
 
 nuRecs$MTB_Q <- paste0(nuRecs$MTB,nuRecs$Q)
-adultDataS <- subset(adultDataS, MTB_Q %in% nuRecs$MTB_Q)
+adultDataS <- subset(adultDataS, MTB_Q %in% nuRecs$MTB_Q[nuRecs$nuYears>1])
 
 speciesSummary <- ddply(adultDataS,
                         .(Species),summarise,
@@ -444,7 +444,7 @@ speciesDetectionYears <- merge(speciesDetectionYears,newgrid,all=T)
 
 #how many dates are there per MTBQ and per Year
 
-reVisits <- ddply(subset(adultData,Year>1980 & Year <2017),.(MTB_Q,Year),
+reVisits <- ddply(subset(adultDataS,Year>1980 & Year <2017),.(MTB_Q,Year),
                                summarise,nuVisits=length(unique(Date)))
 
 #how many sites are revisied at least once
