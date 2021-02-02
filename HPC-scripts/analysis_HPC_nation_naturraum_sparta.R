@@ -12,7 +12,7 @@ suppressMessages(library(plyr))
 speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult.txt"),as.is=T)
 
 #get task id
-task.id = as.integer(Sys.getenv("SGE_TASK_ID", "1")) 
+task.id = as.integer(Sys.getenv("SLURM_ARRAY_TASK_ID", "1")) 
 #get species for this task
 myspecies <- speciesTaskID$Species[which(speciesTaskID$TaskID==task.id)] 
 
@@ -386,7 +386,7 @@ n.cores = as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1"))
 #modelfile="/data/idiv_ess/Odonata/BUGS_sparta_regional_nation_naturraum.txt"
 #modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum_phenologyChange.txt"
 #modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum_detModel.txt"
-modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum_0.01.txt"
+modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum.txt"
 
 effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
