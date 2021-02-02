@@ -345,7 +345,7 @@ g2 <- ggplot(subset(timeSummary,Year>1950 & Year <2017))+
 library(cowplot)
 grid2 <- plot_grid(g1,g2,ncol=1)
 plot_grid(gMap,grid2,
-          labels = c("a)","b)"),
+          labels = c("A","B"),
           rel_heights = c(2,1))
 
 ggsave(filename="plots/Fig1.png",width=6,height=5)
