@@ -6,6 +6,7 @@ library(boot)
 #convert time series into a list
 annualDFS <- subset(annualDF,Year>1979)
 
+#also remove Anax ephippiger, Boyeria irene and Oxygastra curtisii??
 myTS <- dlply(annualDFS,.(Species),
               function(x){x[,"mean"]})
 
@@ -19,9 +20,9 @@ myTSlogit <- lapply(myTS,function(x){
   logit(x)
 })
 
-myTSlogit <- lapply(myTS,function(x){
-  logit(x)-logit(x)[1]
-})
+#myTSlogit <- lapply(myTS,function(x){
+#  logit(x)-logit(x)[1]
+#})
 
 
 myTSlgr <- lapply(myTS,function(x){
@@ -76,8 +77,9 @@ library(TSclust)
 
 #direct values
 #try dCORT and dCOR:1
-IP.dis <- diss(myTS, "CORT")#doesnt work well
+IP.dis <- diss(myTSlogit, "CORT")
 IP.dis <- diss(myTSm, "COR")
+IP.dis <- diss(myTS, "COR")
 IP.dis <- diss(myTSlogit, "COR")
 IP.dis <- diss(myTSgr, "COR")
 IP.dis <- diss(myTSlgr, "COR")
@@ -93,14 +95,6 @@ IP.dis <- diss(myTSrr, "AR.PIC")#performs badly
 fit <- hclust(IP.dis)
 plot(fit)
 IP.clus <- pam(IP.dis, k = 6)$clustering
-
-#DTWARP
-IP.dis <- diss(myTSz, "DTWARP")
-IP.dis <- diss(myTSgr, "DTWARP")
-IP.dis <- diss(myTSlgr, "DTWARP")#quite good
-IP.dis <- diss(myTSm, "DTWARP")
-IP.dis <- diss(myTSrr, "DTWARP")
-IP.dis <- diss(myTSly, "DTWARP")
 
 IP.clus <- pam(IP.dis, k = 4)$clustering
 table(IP.clus)
@@ -129,46 +123,28 @@ lapply(IP.clusList[,2:6],findStationary)
 
 getClusterStats(mydiss=IP.dis,myclustering=IP.clus)
 cluster.stats(IP.dis,IP.clus)
-#gr  
-#0.17384667 -0.03020397  0.11443949  0.19468101  0.09407528
-#logit          
-#0.19365092 0.27279460 0.06787094 0.03443074 0.24283877
-#lgr
-#0.20464290 -0.02920447  0.27307027  0.05001922  0.23158873 
-#m
-#0.17384667 -0.03020397  0.11443949  0.19468101  0.09407528 
-#z-score
-#0.17384667 -0.03020397  0.11443949  0.19468101  0.09407528
 
-getClusterStats(mydiss=hc_sbd@distmat,myclustering=hc_sbd@cluster)
+#myTSgr 
+#minCluster avBetween  avWithin  silWidth      dunn  sepIndex
+#8  1.468354 0.8608622 0.1717292 0.2336572 0.4113406
 
-#CORT on z-score - doesnt look good
-# minCluster avBetween avWithin  silWidth       dunn sepIndex
-#         11  7.940109 4.507487 0.1023252 0.08102215 1.009833
+#myTSlogit - this is the best!!!
+#minCluster avBetween  avWithin  silWidth      dunn  sepIndex
+#9  1.494418 0.8232091 0.2224314 0.2829076 0.45848822
 
-#COR
-# minCluster avBetween  avWithin  silWidth      dunn  sepIndex
-#1          3  1.406097 0.8118402 0.1210716 0.1695446 0.2936277
+#myTSlgr
+#minCluster avBetween  avWithin silWidth      dunn  sepIndex
+#6  1.469914 0.8133375 0.239221 0.2396137 0.3960618
 
-#AR - performs very badly
-# minCluster avBetween  avWithin   silWidth      dunn  sepIndex
-#1          5  1.028538 0.8882733 0.06031895 0.3715577 0.6093931
+#myTSm
+#minCluster avBetween  avWithin  silWidth      dunn  sepIndex
+#8  1.468354 0.8608622 0.1717292 0.2336572 0.4113406
 
-#DTWATP - zscore
-# minCluster avBetween avWithin  silWidth      dunn sepIndex
-#1          7  38.58589  18.2266 0.1439504 0.1889464 7.848157
+#myTSz
+#minCluster avBetween  avWithin  silWidth      dunn  sepIndex
+#8  1.468354 0.8608622 0.1717292 0.2336572 0.4113406
 
-#DTWATP - gr
-#minCluster avBetween avWithin  silWidth       dunn sepIndex
-#1          1  172.3791 22.63299 0.5693198 0.02529658 6.667753
-
-#DTWATP - median
-# minCluster avBetween avWithin  silWidth       dunn sepIndex
-#1          2  17.80759 6.907323 0.2696385 0.04732345 1.767357
-
-#dwtclust package - dtw/pam
-# minCluster avBetween avWithin  silWidth     dunn sepIndex
-#1          8  38.72974  18.7916 0.1095486 0.135089 5.634908
+#getClusterStats(mydiss=hc_sbd@distmat,myclustering=hc_sbd@cluster)
 
 ###cluster data frame#################################################
 
@@ -178,6 +154,8 @@ clusterDF <- data.frame(Species=names(IP.clus),
 annualDFS$cluster <- clusterDF$cluster[match(annualDFS$Species,clusterDF$Species)]
 
 table(clusterDF$cluster)
+#1  2  3  4  5 
+#35  9 12 10 11
 
 plotCluster(annualDFS)
 
@@ -191,8 +169,8 @@ temp <- cor(temp)
 temp[lower.tri(temp,diag=FALSE)] <- NA
 allCors <- reshape2::melt(temp,na.rm=T)
 summary(allCors$value)
-#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#-0.1070  0.5708  0.7298  0.6884  0.8700  1.0000
+#Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#-0.05851  0.54236  0.72422  0.69127  0.85944  1.00000
 
 annualDFS_cluster1 <- subset(annualDFS,cluster==2)
 temp <- acast(annualDFS_cluster1,Year~Species,value.var="mean")
@@ -201,7 +179,7 @@ temp[lower.tri(temp,diag=FALSE)] <- NA
 allCors <- reshape2::melt(temp,na.rm=T)
 summary(allCors$value)
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#0.04329 0.48514 0.65383 0.63497 0.82774 1.00000
+#-0.1449  0.3027  0.5157  0.5133  0.5909  1.0000 
 
 annualDFS_cluster1 <- subset(annualDFS,cluster==3)
 temp <- acast(annualDFS_cluster1,Year~Species,value.var="mean")
@@ -210,7 +188,7 @@ temp[lower.tri(temp,diag=FALSE)] <- NA
 allCors <- reshape2::melt(temp,na.rm=T)
 summary(allCors$value)
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#-0.1923  0.2714  0.5644  0.5533  1.0000  1.0000
+#0.1940  0.5553  0.6653  0.6780  0.8000  1.0000 
 
 annualDFS_cluster1 <- subset(annualDFS,cluster==4)
 temp <- acast(annualDFS_cluster1,Year~Species,value.var="mean")
@@ -218,8 +196,8 @@ temp <- cor(temp)
 temp[lower.tri(temp,diag=FALSE)] <- NA
 allCors <- reshape2::melt(temp,na.rm=T)
 summary(allCors$value)
-#Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
-#-0.02838  0.27940  0.47627  0.50858  0.85965  1.00000 
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#-0.1193  0.2535  0.3935  0.4757  0.7217  1.0000 
 
 annualDFS_cluster1 <- subset(annualDFS,cluster==5)
 temp <- acast(annualDFS_cluster1,Year~Species,value.var="mean")
@@ -228,7 +206,16 @@ temp[lower.tri(temp,diag=FALSE)] <- NA
 allCors <- reshape2::melt(temp,na.rm=T)
 summary(allCors$value)
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#0.4398  0.6178  0.7621  0.7507  0.8791  1.0000
+#0.4180  0.7210  0.8570  0.8157  0.9198  1.0000 
+
+#across all
+temp <- acast(annualDFS,Year~Species,value.var="mean")
+temp <- cor(temp)
+temp[lower.tri(temp,diag=FALSE)] <- NA
+allCors <- reshape2::melt(temp,na.rm=T)
+summary(allCors$value)
+#Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#-0.95250 -0.43898  0.07889  0.06906  0.57334  1.00000
 
 ###plot each cluster#######################################################
 
@@ -240,22 +227,27 @@ summary(allCors$value)
 ggplot(subset(annualDFS,cluster==1))+
   geom_line(aes(x=Year,y=mean))+
   facet_wrap(~Species,scales="free")
+#general increase
 
 ggplot(subset(annualDFS,cluster==2))+
   geom_line(aes(x=Year,y=mean))+
   facet_wrap(~Species,scales="free")
+#mostly low high low
 
 ggplot(subset(annualDFS,cluster==3))+
   geom_line(aes(x=Year,y=mean))+
   facet_wrap(~Species,scales="free")
+#decrease
 
 ggplot(subset(annualDFS,cluster==4))+
   geom_line(aes(x=Year,y=mean))+
   facet_wrap(~Species,scales="free")
+#decrease then increase
 
 ggplot(subset(annualDFS,cluster==5))+
   geom_line(aes(x=Year,y=mean))+
   facet_wrap(~Species,scales="free")
+#decline at start 
 
 ggplot(subset(annualDFS,cluster==6))+
   geom_line(aes(x=Year,y=mean))+
@@ -263,15 +255,14 @@ ggplot(subset(annualDFS,cluster==6))+
 
 
 #rescale each to units of standard deviation
-
 annualDFS_scaled <- ddply(annualDFS,.(Species),function(x){
   x$mean_scaled <- as.numeric(scale(x$mean))
   return(x)
 })
 
-annualDFS_scaled$cluster[annualDFS_scaled$cluster==2]<-9
-annualDFS_scaled$cluster[annualDFS_scaled$cluster==5]<-2
-annualDFS_scaled$cluster[annualDFS_scaled$cluster==9]<-5
+#change order
+annualDFS_scaled$cluster <- factor(annualDFS$cluster,levels=c(1,4,2,3,5))
+levels(annualDFS_scaled$cluster) <- c(1,2,3,4,5)
 
 ggplot(annualDFS_scaled)+
   geom_line(aes(x=Year,y=mean_scaled,colour=Species),
@@ -281,6 +272,8 @@ ggplot(annualDFS_scaled)+
   theme_classic()+
   ylab("Scaled occupancy probability")+
   theme(legend.position = "none")
+
+ggsave("plots/Cluster_species_ts.png",width=7,height=5)
 
 ###cluster panel####################################
 
@@ -313,6 +306,7 @@ speciesSD <- ddply(annualDFS,.(Cluster,Species),summarise,
                    speciesSD = sd(mean),
                    speciesCOV=sd(mean)/mean(mean))
 hist(speciesSD$speciesCOV[speciesSD$Cluster==2])
+speciesSD <- arrange(speciesSD,speciesCOV)
 
 library(StatMeasures)
 outliers(speciesSD$speciesCOV[speciesSD$Cluster==1])
@@ -324,21 +318,27 @@ probSpecies <- as.character(unlist(dlply(speciesSD,.(Cluster),function(x){
   return(x$Species[ids])
 })))
 
-#original outliers (first submission)
-#cluster 1 - Aeshna affinis, Crocothermis erth
-#cluster 2 - Sympecma paedisca, Sympecma flav, Sym pedemonatuns
-#cluster 3 - Somatochlora arctica, Lestes barbarus
-#cluster 4 - Leucorrhinia pectoralis
-#cluster 5 - Coengarion scitilim, Symp meridonale
-# probSpecies <- c("Aeshna affinis","Crocothemis erythraea",
-#                  "Sympecma paedisca","Sympetrum flaveolum","Sympetrum pedemontanum",
-#                  "Somatochlora arctica","Lestes barbarus",
-#                  "Leucorrhinia pectoralis","Sympetrum meridionale",
-#                  "Coenagrion scitulum")
-
+probSpecies <- c(probSpecies,"Anax ephippiger","Boyeria irene","Oxygastra curtisii")
+#"Sympetrum meridionale" "Lestes barbarus"       "Sympetrum flaveolum"   "Coenagrion scitulum"   "Anax ephippiger"      
+#[6] "Boyeria irene"         "Oxygastra curtisii" 
 
 annualDFS <- subset(annualDFS,!Species %in% probSpecies)
 
+myorder <- c("1","4","2","3","5")
+myrandomCI$Cluster <- factor(myrandomCI$Cluster,levels=myorder)
+myrandomCI$ClusterF <- myrandomCI$Cluster
+mylabels <- c("(1) increasing","(2) increasing late","(3) mixed","(4) decreasing late","(5) decreasing early")
+
+levels(myrandomCI$ClusterF) <- mylabels
+
+mycols <- wes_palette("Zissou1", 
+                      n=10,
+                      type="continuous")[c(1,4,5,8,10)]
+
+#run code below to get graph
+
+ggsave("plots/RandomCI_5_wo_outliers.png",width=7,height=4)
+ggsave("plots/RandomCI_5_wo_outliers_reclusters.png",width=7,height=4)
 ####bootstrap#############################################################
 
 # #add cluster to original data frame
@@ -430,12 +430,11 @@ myrandomCI <- ddply(annualDFS,.(Year,Cluster),function(x)applyRandomCI(x))
 require(wesanderson)
 
 #5 clusters
-myorder <- c("1","5","3","4","2")
+myorder <- c("1","4","2","3","5")
 myrandomCI$Cluster <- factor(myrandomCI$Cluster,levels=myorder)
 myrandomCI$ClusterF <- myrandomCI$Cluster
-mylabels <- c("(1) increasing","(2) increasing late","(3) mixed","(4) decreasing early","(5) decreasing")
+mylabels <- c("(1) increasing","(2) increasing late","(3) mixed","(4) decreasing late","(5) decreasing early")
 
-mylabels <- c("(1) increasing","(2) increasing late","(3) mixed","(4) decreasing early","(5) decreasing")
 levels(myrandomCI$ClusterF) <- mylabels
 
 mycols <- wes_palette("Zissou1", 
@@ -443,29 +442,30 @@ mycols <- wes_palette("Zissou1",
                       type="continuous")[c(1,4,5,8,10)]
 
 #4 clusters
-myorder <- c("1","4","3","2")
+myorder <- c("1","4","2","3")
 myrandomCI$Cluster <- factor(myrandomCI$Cluster,levels=myorder)
 myrandomCI$ClusterF <- myrandomCI$Cluster
-mylabels <- c("(1) increasing","(2) increasing late","(4) decreasing early","(5) decreasing")
-
-mylabels <- c("(1) increasing","(2) increasing late","(3) decreasing early","(4) decreasing")
+mylabels <- c("(1) increasing","(2) increasing late","(4) mixed","(5) decreasing")
 levels(myrandomCI$ClusterF) <- mylabels
 
 mycols <- wes_palette("Zissou1", 
                       n=10,
                       type="continuous")[c(1,4,8,10)]
+ggsave("plots/RandomCI_4clusters.png",width=7,height=4)
 
 #6 clusters
-myorder <- c("1","6","3","5","4","2")
+myorder <- c("1","5","4","2","3","6")
 myrandomCI$Cluster <- factor(myrandomCI$Cluster,levels=myorder)
 myrandomCI$ClusterF <- myrandomCI$Cluster
-mylabels <- c("(1) increasing","(2) increasing late","(3) mixed","(4) decreasing middle","(5) decreasing early","(6) decreasing")
+mylabels <- c("(1) increasing","(2) increasing late","(3) increasing early","(4) mixed","(5) decreasing late","(6) decreasing early")
 
 levels(myrandomCI$ClusterF) <- mylabels
 
 mycols <- wes_palette("Zissou1", 
                       n=10,
                       type="continuous")[c(1,4,5,7,8,10)]
+
+ggsave("plots/RandomCI_6clusters.png",width=7,height=4)
 
 #plot
 gA <- ggplot(myrandomCI)+
@@ -476,6 +476,7 @@ gA <- ggplot(myrandomCI)+
   theme_classic()+
   theme(legend.position = "none")
   
+gA
 # #plus GAM derivatives
 # myrandomCI$Signif <- clusterDeriv$Signif[match(interaction(myrandomCI$Cluster,myrandomCI$Year),interaction(clusterDeriv$Cluster,clusterDeriv$data))]
 # 
@@ -493,91 +494,91 @@ gA <- ggplot(myrandomCI)+
 
 #add on geometric mean of the assemblage-level results
 
-ggsave("plots/RandomCI_5_wo_outliers.png",width=7,height=4)
-
-###GAM on fits############################################
-
-#https://stats.stackexchange.com/questions/84325/calculating-bootstrap-confidence-intervals-on-second-derivatives-of-a-gam-object
-library(gratia)
-library(mgcv)
-
-mod <- gam(medianQ ~ s(Year), data = subset(myrandomCI,Cluster==1), method = "REML")
-
-## first derivative
-firstD <- derivatives(mod, order=1,type = "central",interval="confidence")
-ggplot(firstD)+
-  geom_ribbon(aes(x=data,ymin=lower,ymax=upper))+
-  geom_hline(yintercept=0,slope=0,linetype="dashed")
-
-clusterDeriv <- ddply(myrandomCI,.(Cluster),function(x){
-  mod <- gam(medianQ ~ s(Year), data = x, method = "REML")
-  mydf <- expand.grid(Year=sort(unique(x$Year)))
-  derivatives(mod, order=1,type = "central",interval="confidence",newdata=mydf)
-})
-
-#second derivative
-secondD <- derivatives(mod, order=2,type = "central",interval="confidence",
-                       newdata=data.frame(Year=unique(annualDFS$Year)))
-ggplot(secondD)+
-  geom_ribbon(aes(x=data,ymin=lower,ymax=upper))+
-  geom_hline(yintercept=0,linetype="dashed")
-
-clusterDeriv <- ddply(myrandomCI,.(Cluster),function(x){
-  mod <- gam(medianQ ~ s(Year), data = x, method = "REML")
-  mydf <- expand.grid(Year=sort(unique(x$Year)))
-  derivatives(mod, order=2,type = "central",interval="confidence",newdata=mydf)
-})
-
-clusterDeriv$Signif <- "insig"
-clusterDeriv$Signif[clusterDeriv$lower>0 & clusterDeriv$upper>0] <- "Positive"
-clusterDeriv$Signif[clusterDeriv$lower<0 & clusterDeriv$upper<0] <- "Negative"
-
-###GAM on data############################################
-
-library(gratia)
-library(mgcv)
-library(gamm4)
-
-mod <- gamm4(mean ~ s(Year),random=~(1|Species),data = subset(annualDFS,Cluster==3), REML=T)
-
-## first derivative
-firstD <- derivatives(mod$gam, order=1,type = "central",interval="confidence",newdata=data.frame(Year=unique(annualDFS$Year)))
-
-ggplot(firstD)+
-  geom_ribbon(aes(x=data,ymin=lower,ymax=upper))+
-  geom_hline(yintercept=0,linetype="dashed")
-
-#fit to each cluster
-clusterDeriv <- ddply(annualDFS,.(Cluster),function(x){
-  #mod <- gam(mean ~ s(Year)+Species, data = x, method = "REML")
-  mod <- gamm4(mean ~ s(Year),random=~(1|Species), data = x,REML = TRUE)
-  mydf <- expand.grid(Year=sort(unique(x$Year)))
-  derivatives(mod$gam, order=1,type = "central",interval="confidence",newdata=mydf)
-})
-
-clusterDeriv$Signif <- "Signif"
-clusterDeriv$Signif[clusterDeriv$lower<0 & clusterDeriv$upper>0] <- "Insignif"
-
-#second derivative
-secondD <- derivatives(mod$gam, order=2,type = "central",interval="confidence",
-                       newdata=data.frame(Year=unique(annualDFS$Year)))
-ggplot(secondD)+
-  geom_ribbon(aes(x=data,ymin=lower,ymax=upper))+
-  geom_hline(yintercept=0,linetype="dashed")
-
-clusterDeriv <- ddply(annualDFS,.(Cluster),function(x){
-  #mod <- gam(mean ~ s(Year)+Species, data = x, method = "REML")
-  mod <- gamm4(mean ~ s(Year),random=~(1|Species), data = x,REML = TRUE)
-  mydf <- expand.grid(Year=sort(unique(x$Year)))
-  derivatives(mod$gam, order=2,type = "central",interval="confidence",newdata=mydf)
-})
-
-clusterDeriv$Signif <- "Signif"
-clusterDeriv$Signif[clusterDeriv$lower<0 & clusterDeriv$upper>0] <- "Insignif"
 
 
-###traits cluster test###################################
-
+# ###GAM on fits############################################
+# 
+# #https://stats.stackexchange.com/questions/84325/calculating-bootstrap-confidence-intervals-on-second-derivatives-of-a-gam-object
+# library(gratia)
+# library(mgcv)
+# 
+# mod <- gam(medianQ ~ s(Year), data = subset(myrandomCI,Cluster==1), method = "REML")
+# 
+# ## first derivative
+# firstD <- derivatives(mod, order=1,type = "central",interval="confidence")
+# ggplot(firstD)+
+#   geom_ribbon(aes(x=data,ymin=lower,ymax=upper))+
+#   geom_hline(yintercept=0,slope=0,linetype="dashed")
+# 
+# clusterDeriv <- ddply(myrandomCI,.(Cluster),function(x){
+#   mod <- gam(medianQ ~ s(Year), data = x, method = "REML")
+#   mydf <- expand.grid(Year=sort(unique(x$Year)))
+#   derivatives(mod, order=1,type = "central",interval="confidence",newdata=mydf)
+# })
+# 
+# #second derivative
+# secondD <- derivatives(mod, order=2,type = "central",interval="confidence",
+#                        newdata=data.frame(Year=unique(annualDFS$Year)))
+# ggplot(secondD)+
+#   geom_ribbon(aes(x=data,ymin=lower,ymax=upper))+
+#   geom_hline(yintercept=0,linetype="dashed")
+# 
+# clusterDeriv <- ddply(myrandomCI,.(Cluster),function(x){
+#   mod <- gam(medianQ ~ s(Year), data = x, method = "REML")
+#   mydf <- expand.grid(Year=sort(unique(x$Year)))
+#   derivatives(mod, order=2,type = "central",interval="confidence",newdata=mydf)
+# })
+# 
+# clusterDeriv$Signif <- "insig"
+# clusterDeriv$Signif[clusterDeriv$lower>0 & clusterDeriv$upper>0] <- "Positive"
+# clusterDeriv$Signif[clusterDeriv$lower<0 & clusterDeriv$upper<0] <- "Negative"
+# 
+# ###GAM on data############################################
+# 
+# library(gratia)
+# library(mgcv)
+# library(gamm4)
+# 
+# mod <- gamm4(mean ~ s(Year),random=~(1|Species),data = subset(annualDFS,Cluster==3), REML=T)
+# 
+# ## first derivative
+# firstD <- derivatives(mod$gam, order=1,type = "central",interval="confidence",newdata=data.frame(Year=unique(annualDFS$Year)))
+# 
+# ggplot(firstD)+
+#   geom_ribbon(aes(x=data,ymin=lower,ymax=upper))+
+#   geom_hline(yintercept=0,linetype="dashed")
+# 
+# #fit to each cluster
+# clusterDeriv <- ddply(annualDFS,.(Cluster),function(x){
+#   #mod <- gam(mean ~ s(Year)+Species, data = x, method = "REML")
+#   mod <- gamm4(mean ~ s(Year),random=~(1|Species), data = x,REML = TRUE)
+#   mydf <- expand.grid(Year=sort(unique(x$Year)))
+#   derivatives(mod$gam, order=1,type = "central",interval="confidence",newdata=mydf)
+# })
+# 
+# clusterDeriv$Signif <- "Signif"
+# clusterDeriv$Signif[clusterDeriv$lower<0 & clusterDeriv$upper>0] <- "Insignif"
+# 
+# #second derivative
+# secondD <- derivatives(mod$gam, order=2,type = "central",interval="confidence",
+#                        newdata=data.frame(Year=unique(annualDFS$Year)))
+# ggplot(secondD)+
+#   geom_ribbon(aes(x=data,ymin=lower,ymax=upper))+
+#   geom_hline(yintercept=0,linetype="dashed")
+# 
+# clusterDeriv <- ddply(annualDFS,.(Cluster),function(x){
+#   #mod <- gam(mean ~ s(Year)+Species, data = x, method = "REML")
+#   mod <- gamm4(mean ~ s(Year),random=~(1|Species), data = x,REML = TRUE)
+#   mydf <- expand.grid(Year=sort(unique(x$Year)))
+#   derivatives(mod$gam, order=2,type = "central",interval="confidence",newdata=mydf)
+# })
+# 
+# clusterDeriv$Signif <- "Signif"
+# clusterDeriv$Signif[clusterDeriv$lower<0 & clusterDeriv$upper>0] <- "Insignif"
+# 
+# 
+# ###traits cluster test###################################
+# 
 #merge clusters with traits
 clusterDF$Species[!clusterDF$Species %in% trendEstimates$Species]
 clusterDF <- merge(clusterDF,trendEstimates,by="Species",all.x=T)
@@ -596,15 +597,19 @@ clusterDF$cluster <- factor(clusterDF$cluster,levels=myorder)
 habitatSummary$cluster <- factor(habitatSummary$cluster,levels=myorder)
 levels(clusterDF$cluster) <- 1:5
 levels(habitatSummary$cluster) <- 1:5
-clusterDF$cluster <- factor(clusterDF$cluster,levels=5:1)
-habitatSummary$cluster <- factor(habitatSummary$cluster,levels=5:1)
+
 
 
 #how does cluster relate to population trends?
 trendEstimates$cluster <- clusterDF$cluster[match(trendEstimates$Species,clusterDF$Species)]
 summary(lm(trend~factor(cluster),data=trendEstimates))
+#Multiple R-squared:  0.5863,	Adjusted R-squared:  0.5634 
 
 ###trait cluster plots##########################################################
+
+#reverse the clusters
+clusterDF$cluster <- factor(clusterDF$cluster,levels=5:1)
+habitatSummary$cluster <- factor(habitatSummary$cluster,levels=5:1)
 
 #plot wing length for each cluster
 g1 <- ggplot(clusterDF)+
