@@ -80,21 +80,21 @@
       }
     }
     tau.a <- 1/(sd.a * sd.a)
-    sd.a ~ dt(0, 1, 1)T(0,) 
+    sd.a ~ dunif(0,5)
     
     #r.a random effects for naturraum
     for (s in 1:nraum) {
       r.a[s] ~ dnorm(0, tau.r.a)       
     } 
     tau.r.a <- 1/(sd.r.a * sd.r.a)
-    sd.r.a ~ dt(0, 1, 1)T(0,)
+    sd.r.a ~ dunif(0,5)
     
     #site effects
     for (i in 1:nsite) {
       eta[i] ~ dnorm(0, tau.eta)       
     } 
     tau.eta <- 1/(sd.eta * sd.eta) 
-    sd.eta ~ dt(0, 1, 1)T(0,)
+    sd.eta ~ dunif(0,5)
   
     #####################################################
     
@@ -106,7 +106,7 @@
     }
     mu.p ~ dnorm(0, 0.001)
     tau.ap <- 1/(sd.ap * sd.ap)
-    sd.ap ~ dt(0, 1, 1)T(0,)  
+    sd.ap ~ dunif(0,5)  
     
     #effort effects
     effort.p ~ dnorm(0, 0.001)
