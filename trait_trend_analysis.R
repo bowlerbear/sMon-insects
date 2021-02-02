@@ -75,6 +75,8 @@ trendEstimates$Trend[trendEstimates$X2.5.<0 & trendEstimates$X97.5.<0]<-"signifi
 
 #summary
 table(trendEstimates$Trend)
+#significant decrease significant increase               stable 
+#22                   35                   20
 
 #habitats of decreasing species - cols 50 -65
 subset(trendEstimates,Trend=="significant decrease")[,50:65]
@@ -82,9 +84,12 @@ subset(trendEstimates,Trend=="significant decrease")[,50:65]
 
 #median increase
 summary(trendEstimates$trend[trendEstimates$Trend=="significant increase"])
+#Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+#0.0003324 0.0014352 0.0037154 0.0041022 0.0064104 0.0110572
 
 summary(trendEstimates$trend[trendEstimates$Trend=="significant decrease"])
-
+#Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+#-0.012238 -0.005842 -0.003783 -0.004199 -0.001611 -0.000121
 
 ###red list################################################################
 
@@ -133,6 +138,7 @@ summary(lm(trend~RedList-1,data=subset(trendEstimates,RedList!="not listed")))
 #but all threatened groups have significantly lower trends
 
 ###winner, losers####################################################################
+
 trendEstimates$Species <- factor(trendEstimates$Species,levels=c(trendEstimates$Species[order(trendEstimates$trend)]))
 trendEstimates$Trend[trendEstimates$Trend=="stable"] <- "insignificant"
 trendEstimates$Trend <- factor(trendEstimates$Trend,levels=c("significant decrease","insignificant","significant increase")) 
@@ -147,9 +153,9 @@ g2 <- ggplot(trendEstimates)+
   ylab("Long-term trend")+xlab("Species")
 
 
-library(cowplot)
-plot_grid(g2,g1,nrow=1)
-ggsave("plots/Trend_summary.png",width=8,height=3)
+#library(cowplot)
+#plot_grid(g2,g1,nrow=1)
+#ggsave("plots/Trend_summary.png",width=8,height=3)
 
 
 #as interactive plot
@@ -281,10 +287,15 @@ allTraits <- c(mytraits,myhabitats,"running")
 
 ###save file#############################################
 
-write.csv(trendEstimates,file="traits_trends_Odonata_Jan2020.csv",
+#get species statistics
+spData <- read.csv("derived-data/SpeciesSummaries.csv")
+
+trendEstimates <- merge(trendEstimates,spData,by="Species")
+
+write.csv(trendEstimates,file="plots/traits_trends_Odonata_Jan2020.csv",
           row.names=FALSE)
 
-write.csv(annualDF,file="annualDF_Jan2020.csv",
+write.csv(annualDF,file="plots/annualDF_Jan2020.csv",
           row.names=FALSE)
 
 ###scale traits##############################################
@@ -342,9 +353,9 @@ summary(lm(change ~ river + bog,data=trendEstimates))
 #more marginal        
 
 ### range size effects ##############################################################
+
 summary(lm(trend ~ log(nuEuroGrids),data=trendEstimates))
 summary(lm(trend ~ nuEuroGrids,data=trendEstimates))
-
 
 ###trend models######################################################################
 
@@ -375,6 +386,7 @@ summary(lm1)
 mytraits <- c(mytraits,"sbog")
 lm1 <- lm(trend ~ smeanTemp + sriver + smedHw + sFlight_start, data=trendEstimates)
 summary(lm1)
+#Multiple R-squared:  0.2735,	Adjusted R-squared:  0.2331
 
 #extract and plot coefficients
 coefDF <- addBest(lm1)
@@ -393,7 +405,6 @@ ggplot(coefDF)+
   theme_classic()+
   geom_hline(yintercept=0,color="red",linetype="dashed")+
   ylab("Effect on trend")+xlab("")
-
 
 ggsave("plots/Trait_effect_sizes.png",width=5,height=4)
 
@@ -414,6 +425,22 @@ r.squaredGLMM(lme1)
 
 lme1 <- lmer(trend~  meanTemp + river + (1|Genus), data=trendEstimates)
 #river not significant after accounting for phylogeny as a random effect
+
+### without rare species ################################################
+
+rareSpecies <- c("Anax ephippiger", "Boyeria irene","Oxygastra curtisii")
+
+lm1 <- lm(trend ~ smeanTemp + sriver + smedHw + sFlight_start, data=subset(trendEstimates,
+                                                                           ! Species %in% rareSpecies))
+summary(lm1)
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+#   (Intercept)    0.0008987  0.0004468   2.011 0.048199 *  
+#   smeanTemp      0.0035864  0.0009668   3.709 0.000416 ***
+#   sriver         0.0020917  0.0010556   1.982 0.051515 .  
+#   smedHw         0.0031616  0.0009428   3.354 0.001299 ** 
+#   sFlight_start -0.0021236  0.0009096  -2.335 0.022480 * 
+
 
 ###change models#########################################################
 
@@ -470,8 +497,8 @@ table(trendEstimates$Suborder,trendEstimates$Trend)
 
 chisq.test(table(trendEstimates$Suborder,trendEstimates$Trend))
 #ns
-prop.test(c(23,10),c(50,27))
-prop.test(c(14,11),c(50,27))
+prop.test(c(24,11),c(50,27))
+prop.test(c(11,11),c(50,27))
 
 #family
 sum(is.na(trendEstimates$Family))
@@ -541,7 +568,7 @@ summary(gls1)
 
 
 gls1 <- gls(trend ~ smeanTemp + sriver + smedHw + sFlight_start,
-            correlation=corPagel(1,out2,fixed=FALSE),data=trendEstimates)
+            correlation=corPagel(1,tr,fixed=FALSE),data=trendEstimates)
 gls2 <- gls(trend ~ smeanTemp + sriver + smedHw + sFlight_start,data=trendEstimates)
 anova(gls1,gls2)
 #no difference
