@@ -445,7 +445,7 @@ trendsDF$Rhat[trendsDF$Rhat>1.1]
 
 source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
-# mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/6466710"
+# mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs#/Odonata_adult_nation_naturraum_sparta/6466710"
 # #fixed subsetting code, with eta, ecoregion 1, simple initial values - works for all!!
 # #fixed effects are dnorm(0, 0.001)
 # #intercepts are dnorm(0, 0.001)
@@ -472,14 +472,22 @@ source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/
 #updated with uniform priors on sd
 #mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7502229"
 
-#with wide normal priors dnorm(0,0.001)
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7503029"
+#with wide normal priors dnorm(0,0.001), 30,000
+#mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs#/Odonata_adult_nation_naturraum_sparta/7503029"
+#preds of Boyeria irene are quite different to last time...
+#updated another 20,000 iterations - used for revisions
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7503029/7578391"
 
 
-#with wide normal priors dnorm(0,0.001) and 50,000 iter
+#again with wide normal priors dnorm(0,0.001) and 50,000 iter (on slurm)
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/slurm/=Odonata_adult_nation_naturraum/55297"
+#"Erythromma lindenii" (33) "Ischnura elegans"  (39)   "Lestes sponsa"(43)        
+#"Orthetrum albistylum" (56) "Sympetrum striolatum" (76)
 
-#with normal priors dnorm(0,0.01) and 50,000 iter
-
+#Error in checkForRemoteErrors(val) : 
+#  3 nodes produced errors; first error: LOGIC ERROR:
+#  Non-finite boundary in truncated normal
+#Please send a bug report to martyn_plummer@users.sourceforge.net
 
 #do we have the models for all species?
 speciesFiles <- list.files(mdir)
@@ -496,8 +504,12 @@ annualDF$Year <- annualDF$ParamNu + 1979
 plotTS(annualDF)
 table(annualDF$Rhat<1.1)
 summary(annualDF$Rhat[annualDF$Rhat>1.1])
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#1.104   1.127   1.163   1.164   1.196   1.261
+
+annualDF$Species[annualDF$Rhat>1.1]
 #FALSE  TRUE 
-#46  2803
+#46  2803 
 
 #trends in occupancy
 trendsDF <- getBUGSfits(modelDF,param="regres.psi")
@@ -517,10 +529,14 @@ table(detprobDF$Rhat<1.1)
 detprobDF$Rhat[detprobDF$Rhat>1.1]
 detprobDF$Species[detprobDF$Rhat>1.1]
 summary(detprobDF$mean)
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#0.01379 0.19957 0.24247 0.25958 0.31237 0.48551
 
 #bpv
 bpvDF <- getBUGSfits(modelDF,param="bpv")
 summary(bpvDF$mean)
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#0.1267  0.4317  0.4788  0.4643  0.5018  0.9322
 sort(bpvDF$mean)
 #which ones are at the extreme
 subset(bpvDF,mean<0.15)#Orthetrum albistylum
@@ -555,7 +571,7 @@ ggsave("plots/ts_rugged_group2_scaled.png",height=10,width=7)
 
 #annual detection model
 plotDetections(annualDF)
-ggsave("plots/ts_detection.png",height=8,width=7)
+ggsave("plots/ts_detection.png",height=9,width=7)
 
 #mean detection probability plot
 detprobDF <- arrange(detprobDF,desc(mean))
@@ -594,7 +610,7 @@ quantile(growth,c(0.025,0.5,0.975))
 
 mymodel <- readRDS(paste(mdir,myfile,sep="/")) 
 getGrowth <- function(mymodel){
-  mymodel$sims.list$psi.fs[,37]/mymodel$sims.list$psi.fs[,1]
+  mymodel$sims.list$psi.fs[1:4500,37]/mymodel$sims.list$psi.fs[,1]
   quantile(growth,c(0.025,0.5,0.975))
 }
 
@@ -610,7 +626,7 @@ randomMatrix <- ldply(myfiles,function(myfile){
 mymodel <- readRDS(paste(mdir,myfile,sep="/"))
   
 out <- ldply(1:37,function(i){
-  sims <- mymodel$sims.list$psi.fs[sample(1:25002,1000),i]
+  sims <- mymodel$sims.list$psi.fs[sample(1:4500,1000),i]
   cbind(Year=i,sims,Run=1:1000)
 })  
 
