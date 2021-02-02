@@ -22,7 +22,7 @@ stage="adult"
 set.seed(3)
 
 #number of MCMC samples
-niterations = 1000
+#niterations = 1000
 
 Sys.time()
 
@@ -92,15 +92,6 @@ df$MTB <- sapply(as.character(df$MTB_Q),function(x){
   substr(x,1,len-1)})
 
 df <- subset(df,!MTB %in% c("6301","5548","5156","5056","4956","4455"))
-
-######################################################################################
-
-#pick species
-
-#practise species
-#myspecies="Aeshna cyanea"
-myspecies = "Crocothemis erythraea"
-#stage="adult"
 
 #####################################################################################
 
@@ -212,6 +203,16 @@ listlengthDF$longList <- ifelse(listlengthDF$nuSpecies>3,1,0)
 siteInfo <- unique(listlengthDF[,c("siteIndex","MTB","nnIndex","cnIndex")])
 head(siteInfo)
 
+######################################################################################
+
+#pick species
+
+#practise species
+#myspecies="Aeshna cyanea"
+#myspecies = "Crocothemis erythraea"
+myspecies = "Sympetrum danae"
+#stage="adult"
+
 ########################################################################################
 
 #organise data for BUGS model
@@ -272,40 +273,49 @@ siteInfo$obs <- speciesSite$PA[match(siteInfo$siteIndex,speciesSite$siteIndex)]
 # 
 # ##########################################################################################
 # 
-# # #set up space-time-spline info
-# siteInfo <- unique(listlengthDF[,c("MTB","stateIndex","siteIndex","yearIndex")])
-# siteInfo$x <- mtbqsDF$x_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
-# siteInfo$y <- mtbqsDF$y_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
-# speciesSite <- ddply(listlengthDF,.(siteIndex,yearIndex),summarise,PA=max(Species,na.rm=T))
-# siteInfo$obs <- speciesSite$PA[match(interaction(siteInfo$siteIndex,siteInfo$yearIndex),
-#                                      interaction(speciesSite$siteIndex,speciesSite$yearIndex))]
-# siteInfo <- subset(siteInfo,!is.na(obs))
-# siteInfo <- subset(siteInfo,!is.na(x))
-# 
-# #fit normal gam
-# library(mgcv)
-# gam1 <- gam(obs ~ s(yearIndex) + s(x,y,yearIndex,k=20), data=siteInfo, family=binomial)
-# siteInfo$fits <- gam1$fitted.values
-# library(ggplot2)
-# qplot(x,y,data=siteInfo,colour=fits)+
-#   scale_colour_gradient(low="blue",high="red")+
-#   facet_wrap(~yearIndex)
-# 
-# #predict model to whole range - get siteInfo_Nas below
-# siteInfo_NAs$yearIndex <- siteInfo_NAs$Year
-# siteInfo_NAs$preds <- predict(gam1,siteInfo_NAs,type="response")
-# 
-# qplot(x,y,data=siteInfo_NAs,colour=preds)+
-#   facet_wrap(~yearIndex)+
-#   scale_colour_viridis_c()
-# 
-# for(i in 1:27){
-# qplot(x,y,data=subset(siteInfo_NAs,Year==i),colour=preds)+
-#   scale_colour_viridis_c(limits=c(0,0.32))+
-#   theme_void()+
-#   theme(legend.position = "none")
-# ggsave(paste0("gifs/year",i,".png"),width=2.6,height=2.6)
-# }
+# #set up space-time-spline info
+siteInfo <- unique(listlengthDF[,c("MTB","siteIndex","yearIndex")])
+siteInfo$x <- mtbqsDF$x_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
+siteInfo$y <- mtbqsDF$y_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
+speciesSite <- ddply(listlengthDF,.(siteIndex,yearIndex),summarise,PA=max(Species,na.rm=T))
+siteInfo$obs <- speciesSite$PA[match(interaction(siteInfo$siteIndex,siteInfo$yearIndex),
+                                     interaction(speciesSite$siteIndex,speciesSite$yearIndex))]
+#siteInfo <- subset(siteInfo,!is.na(obs))
+#siteInfo <- subset(siteInfo,!is.na(x))
+
+#fit normal gam
+library(mgcv)
+gam1 <- gam(obs ~ s(yearIndex) + s(x,y,yearIndex,k=20), 
+            data=subset(siteInfo,!is.na(obs)), family=binomial)
+siteInfo$fits <- gam1$fitted.values
+library(ggplot2)
+qplot(x,y,data=siteInfo,colour=fits)+
+  scale_colour_gradient(low="blue",high="red")+
+  facet_wrap(~yearIndex)
+
+#predict model to whole range 
+library(tidyverse)
+siteInfo_NAs <- mtbqsDF
+siteInfo_NAs <- subset(siteInfo_NAs,!duplicated(MTB))
+nuSites <- nrow(siteInfo_NAs)
+siteInfo_NAs <- siteInfo_NAs %>% slice(rep(1:n(), each = length(unique(df$Year))))
+siteInfo_NAs$yearIndex <- rep(1:length(unique(df$Year)),nuSites)
+siteInfo_NAs$preds <- predict(gam1,siteInfo_NAs,type="response")
+
+qplot(x,y,data=siteInfo_NAs,colour=preds)+
+  facet_wrap(~yearIndex)+
+  scale_colour_viridis_c()
+
+myYears <- sort(unique(df$Year))
+for(i in 1:length(myYears)){
+  
+qplot(x,y,data=subset(siteInfo_NAs,yearIndex==i),colour=preds)+
+  scale_colour_viridis_c("Occupancy",option = "magma",limits=c(0,0.45))+
+  theme_void()+
+  ggtitle(myYears[i])
+  
+ggsave(paste0("gifs/year",i,".png"),width=3,height=2.6)
+}
 
 #######################################################################################
 
@@ -473,6 +483,7 @@ ggplot(siteInfo)+
 out <- readRDS("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/splines/outSummary_tempcorr_spline_NAs.rds")
 #get first siteInfo object in script
 
+#when it saved the summary
 source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 temp <- getBUGSfitsII(out,param="psi")
 temp$MTB <- siteInfo_NAs$MTB[match(temp$Site,siteInfo_NAs$siteIndex)]
@@ -483,5 +494,9 @@ ggplot(temp)+
   geom_point(aes(x=x,y=y,color=mean))+
   scale_color_viridis_c()+
   facet_wrap(~Year)
+
+
+#for jagsUI basic
+out <- readRDS("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/splines/outSummary_tempcorr_spline_NAs.rds")
 
 ########################################################################################
