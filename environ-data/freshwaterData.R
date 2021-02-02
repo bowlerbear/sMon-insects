@@ -3,37 +3,9 @@
 library(plyr)
 ############################################################################################
 
-#load in regional datasets
-myfiles <- list.files("derived-data")
-#myfiles <- list.files("/data/idiv_ess/Odonata")
+#read in dragonfly dataset
 
-#read in and combine all adult files
-adultFiles <- myfiles[grepl("adult_datafile",myfiles)]
-adultFiles <- adultFiles[grepl("rds",adultFiles)]
-
-#combine these files
-adultData <- ldply(adultFiles,function(x){
-  out<-readRDS(paste("derived-data",x,sep="/"))
-  #out<-readRDS(paste("/data/idiv_ess/Odonata",x,sep="/"))
-  out$File <- x
-  return(out)
-})
-
-
-#extract state from file name
-adultData$State <- sapply(adultData$File,function(x)strsplit(x,"\\.rds")[[1]][1])
-adultData$State <- sapply(adultData$State,function(x)strsplit(x,"_")[[1]][3])
-nrow(adultData)#1023689
-
-##########################################################################################
-
-#add gbif data to fill gaps
-gbifdata <- readRDS("derived-data/datafile_GBIF.rds")
-#gbifdata <- readRDS("/data/idiv_ess/Odonata/datafile_GBIF.rds")
-#nrow(gbifdata)#38191
-
-#combine the two
-adultData <- rbind(adultData,gbifdata)
+adultData <- readRDS("derived-data/adultData_allStates_Dec2020.rds")
 
 ##########################################################################################
 
@@ -53,17 +25,17 @@ df <- subset(adultData, Year>=1975)
 ##########################################################################################
 
 #get german county boundaries
-germanAdmin <- readRDS("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/AdminBoundaries/gadm36_DEU_1_sp.rds")
+germanAdmin <- readRDS("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Spatial_data/AdminBoundaries/gadm36_DEU_1_sp.rds")
 
 #get MTBQs
 library(rgdal)
-mtbqs <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",
+mtbqs <- readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",
                  layer="MTBQ_25833")
 
 ##################################################################################
 
 #read in data from ralf schafer
-tdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/WaterQuality/Data_monitoring/Data_monitoring"
+tdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Spatial_data/WaterQuality/Data_monitoring/Data_monitoring"
 samples <- read.csv(paste(tdir,"samples.csv",sep="/"))
 sites <- read.csv(paste(tdir,"sites.csv",sep="/"))
 head(samples)
@@ -135,10 +107,11 @@ nrow(samples)
 # length(unique(samples$MTB_Q))
 #[1] 1014
 write.table(samples,file="samplesforDragonflies.txt",sep="\t",row.names=FALSE)
+
 ########################################################################################
 
 #examine water quality patterns
-tdir <- "C:/Users/db40fysa/Nextcloud/sMon-Analyses/Spatial_data/WaterQuality/Data_monitoring/Data_monitoring"
+tdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Spatial_data/WaterQuality/Data_monitoring/Data_monitoring"
 sites <- read.csv(paste(tdir,"psm_sites.csv",sep="/"),sep=";")
 sites_info <- read.csv(paste(tdir,"psm_sites_info.csv",sep="/"),sep=";")
 maxtu <- read.csv(paste(tdir,"psm_maxtu.csv",sep="/"),sep=";")
