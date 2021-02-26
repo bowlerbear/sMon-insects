@@ -22,9 +22,6 @@ stage="adult"
 #set seed
 set.seed(3)
 
-#number of MCMC samples
-niterations = 50000
-
 Sys.time()
 
 #load in regional datasets
@@ -334,6 +331,9 @@ set.factory("bugs::Conjugate", FALSE, type="sampler")
 #n.cores = 3
 n.cores = as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1")) 
 
+#number of MCMC samples
+niterations = 30000
+
 #############################################################################
 
 #choose model file
@@ -350,13 +350,13 @@ params <- c("mean.p","mup","cr.a","muZ.cra","regres.psi")
 
 Sys.time()
 #run model
-out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=20,
+out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=15,
             n.chains=n.cores, n.burnin=round(niterations/2),
             n.iter=niterations,parallel=T)
 Sys.time()
 
 #save as output file - for regional/dynamic model
-saveRDS(out,file=paste0("out_sparta_regional_nation_naturraum_",stage,"_",myspecies,".rds"))
+saveRDS(out$summary,file=paste0("out_sparta_regional_nation_naturraum_",stage,"_",myspecies,".rds"))
 #saveRDS(out,file=paste0("out_sparta_regional_nation_midnaturraumtrends_",stage,"_",myspecies,".rds"))
 #saveRDS(out,file=paste0("out_sparta_regional_nation_finenaturraum_",stage,"_",myspecies,".rds"))
 
