@@ -41,7 +41,7 @@
       }
     }
     
-    # overall trends in occpuancy
+    # overall trends in occpuancy for each craum
     for(j in 1:ncraum){
     
     sumY[j] <- sum(muZ.cra[j,1:nyear])
@@ -70,7 +70,7 @@
     
     #year 1
     for(i in 1:ncraum){
-      cr.a[i,1] ~ dnorm(0,0.001)
+      cr.a[i,1] ~ dnorm(0,0.01)
     }
     
     #other years
@@ -109,12 +109,12 @@
     sd.ap ~ dunif(0,5)  
     
     #effort effects
-    effort.p ~ dnorm(0, 0.001)
-    single.p ~ dnorm(0, 0.001)
+    effort.p ~ dnorm(0, 0.01)
+    single.p ~ dnorm(0, 0.01)
     
     #phenology effects
-    mu.phenol ~ dnorm(0,0.001)
-    mu.phenol2 ~ dnorm(0,0.001)
+    mu.phenol ~ dnorm(0,0.01)
+    mu.phenol2 ~ dnorm(0,0.01)
  
     
   }
