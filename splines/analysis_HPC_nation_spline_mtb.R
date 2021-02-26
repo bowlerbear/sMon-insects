@@ -83,7 +83,7 @@ adultData$MTB_Q <- gsub("/","",adultData$MTB_Q)
 ###################################################################################
 #filter to 1980 onwards
 
-df <- subset(adultData, Year>=1990  & Year<2017)
+df <- subset(adultData, Year>=1990  & Year<=2016)
 
 ### mtb #########################################################
 
@@ -260,7 +260,8 @@ siteInfo$y <- mtbqsDF$y[match(siteInfo$MTB,mtbqsDF$MTB)]
 #save(siteInfo,file="siteInfo.RData") 
 
 # #get info on whether species was seen at each site
-speciesSite <- ddply(listlengthDF,.(siteIndex),summarise,PA=max(Species,na.rm=T))
+speciesSite <- ddply(listlengthDF,.(siteIndex),summarise,
+                     PA=max(Species,na.rm=T))
 siteInfo$obs <- speciesSite$PA[match(siteInfo$siteIndex,speciesSite$siteIndex)]
 
 # #fit normal gam
@@ -271,65 +272,19 @@ siteInfo$obs <- speciesSite$PA[match(siteInfo$siteIndex,speciesSite$siteIndex)]
 # qplot(x,y,data=siteInfo,colour=fits)+
 #   scale_colour_gradient(low="blue",high="red")
 # 
-# ##########################################################################################
-# 
-# #set up space-time-spline info
-siteInfo <- unique(listlengthDF[,c("MTB","siteIndex","yearIndex")])
-siteInfo$x <- mtbqsDF$x_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
-siteInfo$y <- mtbqsDF$y_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
-speciesSite <- ddply(listlengthDF,.(siteIndex,yearIndex),summarise,PA=max(Species,na.rm=T))
-siteInfo$obs <- speciesSite$PA[match(interaction(siteInfo$siteIndex,siteInfo$yearIndex),
-                                     interaction(speciesSite$siteIndex,speciesSite$yearIndex))]
-#siteInfo <- subset(siteInfo,!is.na(obs))
-#siteInfo <- subset(siteInfo,!is.na(x))
-
-#fit normal gam
-library(mgcv)
-gam1 <- gam(obs ~ s(yearIndex) + s(x,y,yearIndex,k=20), 
-            data=subset(siteInfo,!is.na(obs)), family=binomial)
-siteInfo$fits <- gam1$fitted.values
-library(ggplot2)
-qplot(x,y,data=siteInfo,colour=fits)+
-  scale_colour_gradient(low="blue",high="red")+
-  facet_wrap(~yearIndex)
-
-#predict model to whole range 
-library(tidyverse)
-siteInfo_NAs <- mtbqsDF
-siteInfo_NAs <- subset(siteInfo_NAs,!duplicated(MTB))
-nuSites <- nrow(siteInfo_NAs)
-siteInfo_NAs <- siteInfo_NAs %>% slice(rep(1:n(), each = length(unique(df$Year))))
-siteInfo_NAs$yearIndex <- rep(1:length(unique(df$Year)),nuSites)
-siteInfo_NAs$preds <- predict(gam1,siteInfo_NAs,type="response")
-
-qplot(x,y,data=siteInfo_NAs,colour=preds)+
-  facet_wrap(~yearIndex)+
-  scale_colour_viridis_c()
-
-myYears <- sort(unique(df$Year))
-for(i in 1:length(myYears)){
-  
-qplot(x,y,data=subset(siteInfo_NAs,yearIndex==i),colour=preds)+
-  scale_colour_viridis_c("Occupancy",option = "magma",limits=c(0,0.45))+
-  theme_void()+
-  ggtitle(myYears[i])
-  
-ggsave(paste0("gifs/year",i,".png"),width=3,height=2.6)
-}
-
 #######################################################################################
 
 #get BUGS code using jagam
 library(mgcv)
-jags.ready <- jagam(obs ~ 1 + s(x,y,k=15), data=siteInfo, family=binomial,file="splines/jagam.txt")
+jags.ready <- jagam(obs ~ 1 + s(x,y,k=8), data=siteInfo, family=binomial,file="splines/jagam.txt")
 
 #extract bits for the model
 bugs.data$X = jags.ready$jags.data$X
 bugs.data$S1 = jags.ready$jags.data$S1
 bugs.data$zero = jags.ready$jags.data$zero
-bugs.data$nspline = length(bugs.data$zero)
-bugs.data$nspline1 = length(bugs.data$zero)+1
-bugs.data$nspline2 = (length(bugs.data$zero))*2
+#bugs.data$nspline = length(bugs.data$zero)
+#bugs.data$nspline1 = length(bugs.data$zero)+1
+#bugs.data$nspline2 = (length(bugs.data$zero))*2
 
 saveRDS(bugs.data,file="splines/bugs.data.rds")
 
@@ -379,27 +334,115 @@ bugs.data$zero_Full = jags.ready$jags.data$zero
 
 saveRDS(bugs.data,file="splines/bugs.data_NAs.rds")
 
-### with time dimension as well#########################################################
+# ##########################################################################################
+# 
+# set up space-time-spline info
+siteInfo <- unique(listlengthDF[,c("MTB","siteIndex","yearIndex")])
+siteInfo$x <- mtbqsDF$x_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
+siteInfo$y <- mtbqsDF$y_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
 
-# #not ran
-# 
-# # #replicate siteInfo to include values for each year
-# library(tidyverse)
-# siteInfo_NAs <- mtbqsDF
-# siteInfo_NAs <- subset(siteInfo_NAs,!duplicated(MTB))
-# siteInfo_NAs <- subset(siteInfo_NAs,!is.na(Counties))
-# nuSites <- nrow(siteInfo_NAs)
-# siteInfo_NAs <- siteInfo_NAs %>% slice(rep(1:n(), each = length(unique(df$Year))))
-# siteInfo_NAs$Year <- rep(1:length(unique(df$Year)),nuSites)
-# 
-# #add on species observations
-# speciesSite <- ddply(listlengthDF,.(MTB,yearIndex),summarise,PA=max(Species,na.rm=T))
-# siteInfo_NAs$obs <- speciesSite$PA[match(interaction(siteInfo_NAs$MTB,siteInfo_NAs$Year),
-#                                          interaction(speciesSite$MTB,speciesSite$yearIndex))]
-# 
-# library(mgcv)
-# jags.ready <- jagam(obs ~ 1 + s(x,y,Year,k=10),
-#                     data=siteInfo_NAs, family=binomial,file="jagam.txt")
+
+#add species data
+listlengthDF$Species <- as.numeric(occMatrix[,myspecies])
+
+speciesSite <- ddply(listlengthDF,.(siteIndex,yearIndex),summarise,
+                     obs = max(Species,na.rm=T),
+                     nuVisits = length(visit),
+                     nuSingles = sum(singleList))
+
+siteInfo <- merge(siteInfo,speciesSite,by=c("siteIndex","yearIndex")) 
+
+#fit normal gam
+library(mgcv)
+gam1 <- gam(obs ~ s(yearIndex) + s(x,y,yearIndex,k=50), #s(nuVisits,k=4) + s(nuSingles,k=4),
+            data=siteInfo, family=binomial)
+siteInfo$fits <- gam1$fitted.values
+
+# library(ggplot2)
+# qplot(x,y,data=siteInfo,colour=fits)+
+#   scale_colour_viridis_c(option = "magma",direction = -1)+
+#   facet_wrap(~yearIndex)+
+#   theme_bw()
+
+#predict model to whole range
+library(tidyverse)
+siteInfo_NAs <- mtbqsDF
+siteInfo_NAs <- subset(siteInfo_NAs,!duplicated(MTB))
+nuSites <- nrow(siteInfo_NAs)
+siteInfo_NAs <- siteInfo_NAs %>% slice(rep(1:n(), each = length(unique(df$Year))))
+siteInfo_NAs$yearIndex <- rep(1:length(unique(df$Year)),nuSites)
+siteInfo_NAs$nuVisits <- 5
+siteInfo_NAs$nuSingles <- 2
+siteInfo_NAs$preds <- predict(gam1,siteInfo_NAs,type="response")
+
+# qplot(x,y,data=siteInfo_NAs,colour=preds)+
+#   facet_wrap(~yearIndex)+
+#   scale_colour_viridis_c(option = "magma", direction = -1)+
+#   theme_void()
+
+#loop over all years
+myYears <- sort(unique(df$Year))
+for(i in 1:length(myYears)){
+  
+  qplot(x,y,data=subset(siteInfo_NAs,yearIndex==i),colour=preds)+
+    scale_colour_viridis_c("Occupancy",
+                           option = "magma",
+                           limits=c(0,0.8),
+                           #limits=c(0,0.45),
+                           direction = -1)+
+    theme_void()+
+    ggtitle(myYears[i])
+  
+  ggsave(paste0("gifs/year",i,".png"),width=3,height=2.6)
+}
+
+### space time function ###############################################################
+
+#for each species, predict 4 times
+library(mgcv)
+library(tidyverse)
+
+fitSpeciesGAM <- function(myspecies){
+
+# set up space-time-spline info
+siteInfo <- unique(listlengthDF[,c("MTB","siteIndex","yearIndex")])
+siteInfo$x <- mtbqsDF$x_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
+siteInfo$y <- mtbqsDF$y_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
+  
+#add species data
+listlengthDF$Species <- as.numeric(occMatrix[,myspecies])
+
+speciesSite <- ddply(listlengthDF,.(siteIndex,yearIndex),summarise,
+                     obs = max(Species,na.rm=T),
+                     nuVisits = length(visit),
+                     nuSingles = sum(singleList))
+siteInfo <- merge(siteInfo,speciesSite,by=c("siteIndex","yearIndex")) 
+
+#fit normal gam
+gam1 <- gam(obs ~ s(yearIndex) + s(x,y,yearIndex) + 
+              s(nuVisits,k=4) + 
+              s(nuSingles,k=4),
+            data=siteInfo, family=binomial)
+
+#predict model to whole range
+siteInfo_NAs <- mtbqsDF
+siteInfo_NAs <- subset(siteInfo_NAs,!duplicated(MTB))
+nuSites <- nrow(siteInfo_NAs)
+siteInfo_NAs <- siteInfo_NAs %>% slice(rep(1:n(), each = length(unique(df$Year))))
+siteInfo_NAs$yearIndex <- rep(1:length(unique(df$Year)),nuSites)
+siteInfo_NAs$nuVisits <- 5
+siteInfo_NAs$nuSingles <- 2
+siteInfo_NAs$Species <- myspecies
+siteInfo_NAs$preds <- predict(gam1,siteInfo_NAs,type="response")
+return(siteInfo_NAs)
+
+}
+
+
+#run for all species
+specieslist = read.delim("model-auxfiles/speciesTaskID_adult.txt")
+output <- ldply(specieslist$Species,function(x)fitSpeciesGAM(x))
+saveRDS(output,file="model-outputs/simpleGAMS_1990_2017.rds")
 
 ########################################################################################
 

@@ -12,8 +12,8 @@
     }
     
     ## prior for s(x,y)
-    K1 <- S1[1:14,1:14] * lambda[1]  + S1[1:14,15:28] * lambda[2]
-    b[2:15,1] ~ dmnorm(zero[2:15],K1) 
+    K1 <- S1[1:7,1:7] * lambda[1]  + S1[1:7,8:14] * lambda[2]
+    b[2:8,1] ~ dmnorm(zero[2:8],K1) 
     
     ## smoothing parameter priors
     for(i in 1:2) {
