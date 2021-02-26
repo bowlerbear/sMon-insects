@@ -475,12 +475,13 @@ source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/
 #with wide normal priors dnorm(0,0.001), 30,000
 #mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs#/Odonata_adult_nation_naturraum_sparta/7503029"
 #preds of Boyeria irene are quite different to last time...
+
 #updated another 20,000 iterations - used for revisions
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7503029/7578391"
 
 
 #again with wide normal priors dnorm(0,0.001) and 50,000 iter (on slurm)
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/slurm/=Odonata_adult_nation_naturraum/55297"
+#mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs#/Odonata_adult_nation_naturraum_sparta/slurm/=Odonata_adult_nation_naturraum/55297"
 #"Erythromma lindenii" (33) "Ischnura elegans"  (39)   "Lestes sponsa"(43)        
 #"Orthetrum albistylum" (56) "Sympetrum striolatum" (76)
 
@@ -728,3 +729,38 @@ ggplot(richnessDF)+
   geom_ribbon(aes(x=Year,ymin=lowerQRichness,ymax=upperQRichness))
 #almost the same as before....
 #save as the random matrix...or keep with original?
+
+
+### for iDiv defense ####
+library(ggthemes)
+
+myspecies <- "Sympetrum danae"
+myspecies <- "Crocothemis erythraea"
+year <- 1990:2016
+
+#year 1
+ggplot(subset(annualDF,Species==myspecies & Year == 1990))+
+  ylim(0,0.65) +
+  scale_x_continuous(breaks = c(1990,2000,2010),labels= c(1990,2000,2010),limits=c(1990,2016))+
+  geom_linerange(aes(x=Year,y=mean,ymin=X2.5.,ymax=X97.5.))+
+  theme_few()+
+  xlab("Year")+ylab("Mean occupancy")
+ggsave(paste0("gifs/time-series/CE/timeseries_year",1990,".png"),width=4,height=3)
+
+#next years
+for(i in 2:length(year)){
+  
+ggplot(subset(annualDF,Species==myspecies & Year >= 1990 & Year <= year[i]))+
+  ylim(0,0.65) +
+  scale_x_continuous(breaks = c(1990,2000,2010),labels= c(1990,2000,2010),limits=c(1990,2016))+
+  geom_line(aes(x = Year, y = mean))+
+  geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
+  theme_few()+
+  xlab("Year")+ylab("Mean occupancy")
+
+ggsave(paste0("gifs/time-series/CE/timeseries_year",year[i],".png"),width=4,height=3)
+}
+  
+  
+  
+
