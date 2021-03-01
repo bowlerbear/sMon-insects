@@ -715,3 +715,31 @@ as.phylo.formula<-function (x, data = parent.frame(), ...){
   return(phy)
 }
 
+
+simpleCap <- function(x) {
+  s <- strsplit(x, " ")[[1]]
+  paste(toupper(substring(s, 1,1)), substring(s, 2),
+        sep="", collapse=" ")
+}
+
+
+addMTBQ <- function(mtbqs){
+  
+  mtbqs$MTB_Q= ifelse(mtbqs$Quadrant == "NW",paste(mtbqs$Value, 1, sep = ""),
+                      ifelse(mtbqs$Quadrant == "NO", paste(mtbqs$Value, 2, sep = ""),
+                             ifelse(mtbqs$Quadrant == "SW", paste(mtbqs$Value, 3, sep = ""),
+                                    paste(mtbqs$Value, 4, sep = ""))))
+  return(mtbqs)
+}
+
+#general functions
+logit <- function(x){
+  l <- log(x/(1-x))
+  return(l)
+}
+
+expit <- function(x){
+  e <- exp(x)/(1+exp(x))
+  return(e)
+}
+
