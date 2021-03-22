@@ -34,6 +34,15 @@ myfiles <- list.files("/data/idiv_ess/Odonata")
 adultFiles <- myfiles[grepl("adult_datafile",myfiles)]
 adultFiles <- adultFiles[grepl("rds",adultFiles)]
 
+#exclude MTB64 files
+adultFiles <- adultFiles[!grepl("MTB64",adultFiles)]
+
+#exclude original files if an updated file is available
+updatedFiles <- adultFiles[grepl("updated",adultFiles)]
+updatedFiles <- gsub("_updated","",updatedFiles)
+adultFiles <- adultFiles[!adultFiles %in% updatedFiles]
+
+
 #combine these files
 adultData <- ldply(adultFiles,function(x){
   #out<-readRDS(paste("derived-data",x,sep="/"))
