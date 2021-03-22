@@ -79,7 +79,7 @@ adultData$MTB_Q <- gsub("/","",adultData$MTB_Q)
 ###################################################################################
 #filter to 1990 onwards
 
-df <- subset(adultData, Year>=1990  & Year<2018)
+df <- subset(adultData, Year>=1990  & Year<=2016)
 
 ### sort MTBs #########################################################
 
@@ -219,9 +219,9 @@ listlengthDF$longList <- ifelse(listlengthDF$nuSpecies>3,1,0)
 #######################################################################################
 #get summary site info data
 
-siteInfo <- unique(listlengthDF[,c("mtbIndex","siteIndex","MTB","nnIndex","cnIndex","mnIndex","MidNaturraum","stateIndex")])
+siteInfo <- unique(listlengthDF[,c("mtbIndex","siteIndex","MTB","nnIndex","cnIndex","mnIndex","MidNaturraum","stateIndex","State")])
 head(siteInfo)
-#saveRDS(siteInfo,file="siteInfo_midnaturraum.rds")
+#saveRDS(siteInfo,file="siteInfo_mtb.rds")
 
 #order of states
 myStates <- c("Baden-Württemberg","Bayern","Brandenburg","Hessen","Mecklenburg-Vorpommern", "Niedersachsen","Nordrhein-Westfalen","Rheinland-Pfalz","Saarland","Sachsen","Sachsen-Anhalt", "Schleswig-Holstein", "Thüringen") 
