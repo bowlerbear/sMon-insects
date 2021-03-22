@@ -1,0 +1,115 @@
+
+  model{
+    
+    # State model
+    
+    for (i in 1:nsite){ 
+      for (t in 1:nyear){
+    
+    #data distribution
+      z[i,t] ~ dbern(muZ[i,t]) 
+
+    # model
+      logit(muZ[i,t]) <- state.a[stateS[i],t] + eta[i]
+      
+      }
+    }   
+    
+    ### Observation Model
+    for(j in 1:nvisit) {
+    
+    y[j] ~ dbern(Py[j]) #data is Y 
+    Py[j]<- z[site[j],year[j]]*p[j] 
+    
+    #detection model:
+    logit(p[j]) <-  mup[state[j],year[j]] + 
+                    mu.phenol * yday[j] + 
+                    mu.phenol2 * yday2[j] +
+                    effort.p * Effort[j] +
+                    single.p * singleList[j]
+    } 
+    
+    # Derived parameters
+    
+    #get mean per coarseraum
+    for(j in 1:nstate){
+      for(t in 1:nyear){
+        for(i in 1:nsite){
+            sum.idx[i,t,j] <- sum(z[i,t]) * stateIdx[i,t,j]     
+        }
+        muZ.state[j,t] <- sum(sum.idx[,t,j])/nsite_states[j]
+      }
+    }
+    
+    # overall trends in occpuancy for each state
+    for(j in 1:nstate){
+    
+    sumY[j] <- sum(muZ.state[j,1:nyear])
+    
+      for (t in 1:nyear) {
+      
+        sumxy[j,t] <- muZ.state[j,t]*t
+      }
+
+    sumXY[j] <- sum(sumxy[j,1:nyear])
+    
+    regres.psi[j] <- (sumXY[j] - ((sumX*sumY[j])/nyear))/(sumX2 - ((sumX*sumX)/nyear))
+    
+    }
+
+
+    
+    #detection probability
+    mean.p <- mean(p)
+    
+    #Priors 
+    
+    # State model priors
+    
+    #year
+    
+    #year 1
+    for(i in 1:nstate){
+      state.a[i,1] ~ dnorm(0,0.1)
+    }
+    
+    #other years
+    for(i in 1:nstate){
+      for(t in 2:nyear){
+        state.a[i,t] ~ dnorm(state.a[i,t-1], tau.a)
+      }
+    }
+    tau.a <- 1/(sd.a * sd.a)
+    sd.a ~ dunif(0,5)
+    
+    
+    #site effects
+    for (i in 1:nsite) {
+      eta[i] ~ dnorm(0, tau.eta)       
+    } 
+    tau.eta <- 1/(sd.eta * sd.eta) 
+    sd.eta ~ dunif(0,5)
+  
+    #####################################################
+    
+    #Observation model priors
+
+    #year
+    for(s in 1:nstate){
+      for(t in 1:nyear){
+        mup[s,t] ~ dnorm(mu.p, tau.ap)
+      }
+    }
+    mu.p ~ dnorm(0, 0.1)
+    tau.ap <- 1/(sd.ap * sd.ap)
+    sd.ap ~ dunif(0,5)  
+    
+    #effort effects
+    effort.p ~ dnorm(0, 0.01)
+    single.p ~ dnorm(0, 0.01)
+    
+    #phenology effects
+    mu.phenol ~ dnorm(0,0.01)
+    mu.phenol2 ~ dnorm(0,0.01)
+ 
+  }
