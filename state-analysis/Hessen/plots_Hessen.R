@@ -358,26 +358,43 @@ speciesList <- sort(unique(species_MTB64,species_RF))
 
 for(i in 1:length(speciesList)){
   
+
 mySpecies <- speciesList[i]
-  
+
+#same scale for the occupancy models 
+
+#find the min 
+temp <- rbind(subset(annualDF_MTBQ,Species==mySpecies),
+              subset(annualDF_MTB64,Species==mySpecies))
+minY <- min(temp$X2.5.)*100
+maxY <- max(temp$X97.5.)*100
+
 g1 <- ggplot(subset(annualDF_MTBQ,Species==mySpecies),aes(x=Year,y=mean*100))+
   geom_line()+
   geom_ribbon(aes(x=Year,ymin=X2.5.*100,ymax=X97.5.*100),alpha=0.15)+
   stat_smooth(method="lm",se=F,linetype="dashed")+
-  theme_few()+ylim(0,100)+ylab("Besetzungsgrad (MTB-Q) %")+xlab("Jahr")+
+  theme_few()+
+  ylim(minY,maxY)+
+  #ylim(0,100)+
+  ylab("Besetzungsgrad (MTB-Q) %")+xlab("Jahr")+
   ggtitle(mySpecies)
 
 g2 <- ggplot(subset(annualDF_MTB64,Species==mySpecies),aes(x=Year,y=mean*100))+
   geom_line()+
   geom_ribbon(aes(x=Year,ymin=X2.5.*100,ymax=X97.5.*100),alpha=0.15)+
   stat_smooth(method="lm",se=F,linetype="dashed")+
-  theme_few()+ylim(0,100)+ylab("Besetzungsgrad (MTB/64) %")+xlab("Jahr")+
+  theme_few()+
+  ylim(minY,maxY)+
+  #ylim(0,100)+
+  ylab("Besetzungsgrad (MTB/64) %")+xlab("Jahr")+
   scale_x_continuous(breaks=c(2005,2010,2015,2020),labels=c(2005,2010,2015,2020),limits=c(2005,2020))+
   ggtitle("")
 
 g3 <- ggplot(subset(annualDF_RF,Species==mySpecies),aes(x=Year,y=RF))+
   geom_line()+
-  theme_few()+ylim(0,100)+ylab("Rasterfrequenz (MTB/64) %")+xlab("Jahr")+
+  theme_few()+
+  #ylim(0,100)+
+  ylab("Rasterfrequenz (MTB/64) %")+xlab("Jahr")+
   stat_smooth(method="lm",se=F,linetype="dashed")+
   scale_x_continuous(breaks=c(2005,2010,2015,2020),labels=c(2005,2010,2015,2020),limits=c(2005,2020))+
   ggtitle("")
