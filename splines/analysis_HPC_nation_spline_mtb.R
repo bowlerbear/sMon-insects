@@ -240,6 +240,7 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
 
 #add species data
 listlengthDF$Species <- bugs.data$y
+saveRDS(listlengthDF,file="splines/listlengthDF_MTB_Sdanae.rds")
 
 #check this is TRUE
 all(row.names(occMatrix)==listlengthDF$visit)
@@ -419,11 +420,21 @@ speciesSite <- ddply(listlengthDF,.(siteIndex,yearIndex),summarise,
 siteInfo <- merge(siteInfo,speciesSite,by=c("siteIndex","yearIndex")) 
 
 #fit normal gam
-gam1 <- gam(obs ~ s(yearIndex) + s(x,y,yearIndex) + 
-              s(nuVisits,k=4) + 
-              s(nuSingles,k=4),
-            data=siteInfo, family=binomial)
+#gam1 <- gam(obs ~ s(yearIndex) + s(x,y,yearIndex) + 
+#              s(nuVisits,k=4) + 
+#              s(nuSingles,k=4),
+#            data=siteInfo, family=binomial)
 
+
+#gam1 <- gam(obs ~ s(yearIndex) + s(x,y,yearIndex, k = 30) + 
+#                            log(nuVisits),
+#                          data=siteInfo, family=binomial(link="cloglog"))
+
+gam1 <- gam(obs ~ s(x,y,k=30) + s(x,y,yearIndex, k = 20) + 
+              log(nuVisits),
+            data=siteInfo, family=binomial(link="cloglog"))
+
+            
 #predict model to whole range
 siteInfo_NAs <- mtbqsDF
 siteInfo_NAs <- subset(siteInfo_NAs,!duplicated(MTB))
@@ -442,7 +453,11 @@ return(siteInfo_NAs)
 #run for all species
 specieslist = read.delim("model-auxfiles/speciesTaskID_adult.txt")
 output <- ldply(specieslist$Species,function(x)fitSpeciesGAM(x))
-saveRDS(output,file="model-outputs/simpleGAMS_1990_2017.rds")
+
+saveRDS(output,file="model-outputs/simpleGAMS_1990_2017.rds")#free gam and splines on Visits/Singles
+saveRDS(output,file="model-outputs/simpleGAMS_1990_2017_k10.rds")
+saveRDS(output,file="model-outputs/simpleGAMS_1990_2017_k30.rds")
+saveRDS(output,file="model-outputs/simpleGAMS_1990_2017_k30-20.rds")
 
 ########################################################################################
 
