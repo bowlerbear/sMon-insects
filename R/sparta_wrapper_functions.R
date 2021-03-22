@@ -50,6 +50,7 @@ getModelSummaries <- function(dir){
 }
 
 
+
 getModels <- function(dir){
   myFiles <- list.files(dir)
   require(plyr)
@@ -112,6 +113,24 @@ plotTSwithRugs <- function(x,y){
     theme_bw()+
     facet_wrap(~Code,ncol=4,scale="free")+
     theme(legend.position = "top")
+  print(g1)
+}
+
+
+plotTS_regional <- function(x){
+  require(ggplot2)
+  if(!"Naturraum" %in%  names(x)){
+    g1 <- ggplot(data=x,aes(x=Year,y=mean,group=factor(Site)))+
+      geom_line(aes(x=Year,y=mean,colour=factor(Site)))+
+      geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.,fill=factor(Site)),alpha=0.5)+
+      facet_wrap(~Species)
+  }else{
+    g1 <- ggplot(data=x,aes(x=Year,y=mean,group=Naturraum))+
+      geom_line(aes(x=Year,y=mean,colour=Naturraum))+
+      geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.,fill=Naturraum),alpha=0.5)+
+      facet_wrap(~Species)
+  }
+  
   print(g1)
 }
 
@@ -618,8 +637,6 @@ plotTSclust <- function(mylist){
 }
 
 
-###asc#####################################################################################
-
 #from defunct SDMTools package
 
 read.asc <-
@@ -741,5 +758,12 @@ logit <- function(x){
 expit <- function(x){
   e <- exp(x)/(1+exp(x))
   return(e)
+}
+
+addTrendClassification <- function(x){
+  x$Trend <- "stable"
+  x$Trend[x$X2.5.>0 & x$X97.5.>0] <- "increasing"
+  x$Trend[x$X2.5.<0 & x$X97.5.<0] <- "decreasing"
+  return(x)
 }
 
