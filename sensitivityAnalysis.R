@@ -224,4 +224,51 @@ qplot(mean.x,mean.y,data=trendsDFcomparison)
 
 #almost the same
 
+
+#### slurm comparison ###############################
+
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/test/1188889" 
+
+#do we have the models for all species?
+speciesFiles <- list.files(mdir)
+mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
+#10 missing
+
+#read in model summaries
+modelDF <- getModelSummaries(mdir)
+modelDF <- getCodeFromFile(modelDF,myfile="out_sparta_nation_naturraum_adult_")
+
+#annual tims series
+annualDFpc <- getBUGSfits(modelDF,param="psi.fs")
+annualDFpc$Year <- annualDFpc$ParamNu + 1979
+plotTS(annualDFpc)
+table(annualDFpc$Rhat<1.1)
+#FALSE  TRUE 
+#43  2436
+
+#trends
+trendsDFpc <- getBUGSfits(modelDF,param="regres.psi")
+table(trendsDFpc$Rhat<1.1)
+trendsDFpc$Rhat[trendsDFpc$Rhat>1.1]
+#FALSE  TRUE 
+#1    66 
+trendsDFpc$Species[trendsDFpc$Rhat>1.1]#Aeshna caerulea
+
+### comparison #########################################
+
+trendsDFcomparison <- merge(trendsDF,trendsDFpc,by="Species")
+qplot(mean.x,mean.y,data=trendsDFcomparison)#perfectly related!!!
+cor.test(trendsDFcomparison$mean.x,trendsDFcomparison$mean.y)
+cor.test(trendsDFcomparison$sd.x,trendsDFcomparison$sd.y)
+
+annualDFcomparison <- merge(annualDF,annualDFpc,by=c("Species","Year"))
+qplot(mean.x,mean.y,data=annualDFcomparison)+
+  facet_wrap(~Species)+
+  geom_abline(intercept=0,slope=1,color='red')
+
+temp <- ddply(annualDFcomparison,.(Species),function(x){
+  cor(x$mean.x,x$mean.y)
+})
+median(temp$V1)
+
 ### end ###########################################
