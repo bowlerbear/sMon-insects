@@ -89,7 +89,7 @@
     #year
     
     #year 1
-    mu.t[1] ~ dnorm(0, 0.001)
+    mu.t[1] ~ dnorm(0, 0.01)
     
     #other years
     for(t in 2:nyear){
@@ -127,17 +127,17 @@
     for(t in 1:nyear){
       mup[t] ~ dnorm(mu.p, tau.ap)
     }
-    mu.p ~ dnorm(0, 0.001)
+    mu.p ~ dnorm(0, 0.01)
     tau.ap <- 1/(sd.ap * sd.ap)
     sd.ap ~ dt(0, 1, 1)T(0,)  
     
     #effort effects
-    effort.p ~ dnorm(0, 0.001)
-    single.p ~ dnorm(0, 0.001)
+    effort.p ~ dnorm(0, 0.01)
+    single.p ~ dnorm(0, 0.01)
     
     #phenology effects
-    mu.phenol ~ dnorm(0,0.001)
-    mu.phenol2 ~ dnorm(0,0.001)
+    mu.phenol ~ dnorm(0,0.01)
+    mu.phenol2 ~ dnorm(0,0.01)
     
   }
     
