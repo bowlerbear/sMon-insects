@@ -219,11 +219,14 @@ listlengthDF$longList <- ifelse(listlengthDF$nuSpecies>3,1,0)
 #######################################################################################
 #get summary site info data
 
-siteInfo <- unique(listlengthDF[,c("mtbIndex","siteIndex","MTB","nnIndex","cnIndex","mnIndex","MidNaturraum")])
+siteInfo <- unique(listlengthDF[,c("mtbIndex","siteIndex","MTB","nnIndex","cnIndex","mnIndex","MidNaturraum","stateIndex")])
 head(siteInfo)
 #saveRDS(siteInfo,file="siteInfo_midnaturraum.rds")
 
-#######################################################################################
+#order of states
+myStates <- c("Baden-Württemberg","Bayern","Brandenburg","Hessen","Mecklenburg-Vorpommern", "Niedersachsen","Nordrhein-Westfalen","Rheinland-Pfalz","Saarland","Sachsen","Sachsen-Anhalt", "Schleswig-Holstein", "Thüringen") 
+
+#####################################################################
 
 #order data
 listlengthDF <- arrange(listlengthDF,visit)
@@ -240,15 +243,18 @@ siteInfo <- arrange(siteInfo,siteIndex)
 bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   nyear = length(unique(listlengthDF$yearIndex)),
                   nraum = length(unique(siteInfo$nnIndex)),
+                  nstate = length(unique(siteInfo$stateIndex)),
                   nmraum = length(unique(siteInfo$mnIndex)),
                   ncraum = length(unique(siteInfo$cnIndex)),
                   nvisit = nrow(listlengthDF),
                   site = listlengthDF$siteIndex,
+                  state = listlengthDF$stateIndex,
                   raum = listlengthDF$nnIndex,
                   mraum = listlengthDF$mnIndex,
                   craum = listlengthDF$cnIndex,
                   year = listlengthDF$yearIndex,
                   craumS = siteInfo$cnIndex,
+                  stateS = siteInfo$stateIndex,
                   raumS = siteInfo$nnIndex,
                   mraumS = siteInfo$mnIndex,
                   yday = listlengthDF$yday - median(listlengthDF$yday),
@@ -295,7 +301,21 @@ bugs.data$mrIdx <- StrIdx
 
 #number of sites per coarseroam
 nsite_mr <- ddply(siteInfo,.(mnIndex),summarise,nuSites = length(unique(siteIndex)))
-bugs.data$nsite_mr <- nsite_mr$nuSites  
+bugs.data$nsite_mr <- nsite_mr$nuSites 
+
+
+#index each MTB to state index
+StrIdx <- array(data=0, dim = c(bugs.data$nsite,
+                                bugs.data$nyear,
+                                bugs.data$nstate))
+for(i in 1:bugs.data$nsite){
+  StrIdx[i,,bugs.data$stateS[i]] <- 1
+}
+bugs.data$stateIdx <- StrIdx
+
+#number of sites per coarseroam
+nsite_states <- ddply(siteInfo,.(stateIndex),summarise,nuSites = length(unique(siteIndex)))
+bugs.data$nsite_states <- nsite_states$nuSites 
 
 #########################################################################
 
@@ -332,7 +352,7 @@ set.factory("bugs::Conjugate", FALSE, type="sampler")
 n.cores = as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1")) 
 
 #number of MCMC samples
-niterations = 30000
+niterations = 50000
 
 #############################################################################
 
@@ -340,23 +360,27 @@ niterations = 30000
 #modelfile="/data/idiv_ess/Odonata/BUGS_sparta_nation_naturraum.txt"
 #modelfile="/data/idiv_ess/Odonata/BUGS_sparta_regional_midnaturraum.txt"
 #modelfile="/data/idiv_ess/Odonata/BUGS_sparta_regional_midnaturraumtrends.txt"
-modelfile="/data/idiv_ess/Odonata/BUGS_sparta_regional_naturraum.txt"
+#modelfile="/data/idiv_ess/Odonata/BUGS_sparta_regional_naturraum.txt"
+modelfile="/data/idiv_ess/Odonata/BUGS_sparta_regional_state.txt"
 
 effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
 
 #specify parameters to monitor
-params <- c("mean.p","mup","cr.a","muZ.cra","regres.psi")
+params <- c("mean.p","mup","cr.a","muZ.cra","regres.psi","state.a","muZ.state")
 
 Sys.time()
 #run model
-out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=15,
+out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=10,
             n.chains=n.cores, n.burnin=round(niterations/2),
             n.iter=niterations,parallel=T)
 Sys.time()
 
 #save as output file - for regional/dynamic model
-saveRDS(out$summary,file=paste0("out_sparta_regional_nation_naturraum_",stage,"_",myspecies,".rds"))
+saveRDS(out$summary,file=paste0("outSummary_sparta_regional_nation_state_",stage,"_",myspecies,".rds"))
+
+#previous files
+#saveRDS(out$summary,file=paste0("out_sparta_regional_nation_naturraum_",stage,"_",myspecies,".rds"))
 #saveRDS(out,file=paste0("out_sparta_regional_nation_midnaturraumtrends_",stage,"_",myspecies,".rds"))
 #saveRDS(out,file=paste0("out_sparta_regional_nation_finenaturraum_",stage,"_",myspecies,".rds"))
 
