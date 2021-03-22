@@ -7,17 +7,9 @@ library(tidyverse)
 library(sf)
 library(tmap)
 library(boot)
+library(wesanderson)
 
 source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
-
-plotTS_regional <- function(x){
-  require(ggplot2)
-  g1 <- ggplot(data=x,aes(x=Year,y=mean,group=factor(Site)))+
-    geom_line(aes(x=Year,y=mean,colour=factor(Site)))+
-    geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.,fill=factor(Site)),alpha=0.5)+
-    facet_wrap(~Species)
-  print(g1)
-}
 
 ###Species list#############################################
 
@@ -32,7 +24,7 @@ nr <- st_read("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Spatial_data/Narur
 plot(nr)
 
 #simplify coarse naturraum column
-nr$CoarseNaturraum <- sapply(as.character(nr$FolderPath),function(x)strsplit(x,"/")[[1]][2])
+nr$CoarseNaturraum <- gdata::trim(sapply(as.character(nr$FolderPath),function(x)strsplit(x,"/")[[1]][2]))
 
 #dissolve 
 nr_dissolved <-
@@ -46,55 +38,54 @@ tm_shape(nr_dissolved)+
 
 
 #1:7 are:
+nr_dissolved$CoarseNaturraum
 CoarseRegions <- c("Alpen","Alpenvorland","Nordostdeutsches Tiefland","Nordwestdeutsches Tiefland", 
-                   "Oestliches Mittelgebirge","Suedwestdeutsches Mittelgebirge ",
+                   "Oestliches Mittelgebirge","Suedwestdeutsches Mittelgebirge",
                    "Westliches Mittelgebirge")
 
 ### ecoregion 1 (coarse) ##################################
 
-mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_sparta_regional/6869992"
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_regional_naturraum/76676"
 
 #do we have the models for all species?
 speciesFiles <- list.files(mdir)
 mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
 
-#missing these species:
-#[1] "Calopteryx splendens"     "Coenagrion hastulatum"    "Erythromma viridulum"     "Ischnura pumilio"    
-#[5] "Libellula fulva"          "Libellula quadrimaculata" "Orthetrum albistylum"     "Platycnemis pennipes"
-
 #read in model summaries
-modelDF <- getModelSummaries(mdir)
+modelDF <- getModels(mdir)
 modelDF <- getCodeFromFile(modelDF,myfile="out_sparta_regional_nation_naturraum_adult_")
 
-#annual time series - psi.fs
-annualDF <- getBUGSfitsII(modelDF,param="psi.fs")
-annualDF$Year <- annualDF$Year + 1979
+#annual time series for each coarse naturruam
+#pull out muZ.cra
+annualDF <- getBUGSfitsII(modelDF,param="muZ.cra")
+annualDF$Year <- annualDF$Year + 1989
 plotTS_regional(annualDF)
 table(annualDF$Rhat<1.1)
 #FALSE  TRUE 
-#1281 15960
+#633 14458
+
+#match region indices to actual names
+coarseRaums <- data.frame(Index=1:7,
+                          Names=c("Alpen",
+                 "Alpenvorland",
+                 "Nordostdeutsches Tiefland",
+                 "Nordwestdeutsches Tiefland",
+                 "Oestliches Mittelgebirge",
+                 "Suedwestdeutsches Mittelgebirge",
+                 "Westliches Mittelgebirge"))
+annualDF$Naturraum <- coarseRaums$Names[match(annualDF$Site,coarseRaums$Index)]
+plotTS_regional(annualDF)
 
 #plot just for two species
 ggplot(data=subset(annualDF,Species=="Anax imperator"))+
       geom_line(aes(x=Year,y=mean,))+
       geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
-      facet_wrap(~Site)
-#same for all of them...
+      facet_wrap(~Naturraum)
 
 ggplot(data=subset(annualDF,Species=="Crocothemis erythraea"))+
   geom_line(aes(x=Year,y=mean,))+
   geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
-  facet_wrap(~Site)
-#same for all of them
-
-#plot cr.a instead
-annualDF <- getBUGSfitsII(modelDF,param="cr.a")
-annualDF$Year <- annualDF$Year + 1979
-
-#run same plots as above
-
-#better!!
-#need to be back transformed...
+  facet_wrap(~Naturraum)
 
 #do we have 7 regions for all species??
 annualDF %>%
@@ -102,42 +93,60 @@ annualDF %>%
   summarise(nuSites = n_distinct(Site))
 #all 7
 
-#get mean per ecoregion:
+#density ridge plots
+library(ggridges)
+theme_set(theme_ridges())
 
+#change between first and last year
+occChange <- annualDF %>%
+  group_by(Species,Naturraum) %>%
+  summarise(occChange  = median(mean[Year==max(annualDF$Year)]/mean[Year==min(annualDF$Year)]))
+
+#extreme value
+summary(occChange$occChange)
+occChange$occChange[occChange$occChange>2] <- 2
+
+ggplot(occChange, aes(x = occChange, y = Naturraum)) +
+  geom_density_ridges(aes(fill = Naturraum)) +
+  theme(legend.position = "none")+
+  geom_vline(xintercept=1, linetype="dashed")
+#two humps???
+
+
+#trends - see if there is a regres.psi in the modelDF??
+occTrends <- annualDF %>%
+  group_by(Species,Naturraum) %>%
+  do(model = broom::tidy(lm(mean ~ Year, data = .))) %>% 
+  unnest(model) %>%
+  filter(term=="Year") %>%
+  rename(trend="estimate",trend_se="std.error")
+
+#order naturaum by proportion of trends bigger than zero
+
+ggplot(occTrends, aes(x = trend, y = reorder(Naturraum,desc(Naturraum)))) +
+  geom_density_ridges(aes(fill = Naturraum)) +
+  theme(legend.position = "none")+
+  geom_vline(xintercept=0, linetype="dashed")+
+  scale_fill_manual(values = wes_palette("Darjeeling1", n = 7,type = "continuous"))+
+  ylab("")
+
+### maps ####
+
+#plot mean per ecoregion:
 ecoregionMeans <- annualDF %>%
-  group_by(Site) %>%
-  summarise(meanOcc  = mean(inv.logit(mean)))
-ecoregionMeans$CoarseNaturraum <- CoarseRegions
-
-#plot it
+  group_by(Naturraum) %>%
+  summarise(meanOcc  = sum(mean)) %>%
+  rename(CoarseNaturraum=Naturraum)
 nr_dissolved  <- left_join(nr_dissolved,ecoregionMeans,by="CoarseNaturraum")
+tm_shape(nr_dissolved)+tm_polygons("meanOcc")
 
-tm_shape(nr_dissolved)+
-  tm_polygons("meanOcc")
-
-
-#mean change per lab
+#mean change per ecoregion
 ecoregionMeans <- annualDF %>%
-  group_by(Site) %>%
-  summarise(occChange  = mean(inv.logit(mean[Year==37]) - inv.logit(mean[Year==1])))
-ecoregionMeans$CoarseNaturraum <- CoarseRegions
-
+  group_by(Naturraum) %>%
+  summarise(occChange  = median(mean[Year==2017]/mean[Year==1990]))%>%
+  rename(CoarseNaturraum=Naturraum)
 nr_dissolved  <- left_join(nr_dissolved,ecoregionMeans,by="CoarseNaturraum")
-
-tm_shape(nr_dissolved)+
-  tm_polygons("occChange")
-
-#change for one species
-ecoregionMeans <- annualDF %>%
-  filter (Species=="Anax imperator") %>%
-  group_by(Site) %>%
-  summarise(spoccChange  = inv.logit(mean[Year==37]) - inv.logit(mean[Year==1]))
-ecoregionMeans$CoarseNaturraum <- CoarseRegions
-
-nr_dissolved  <- left_join(nr_dissolved,ecoregionMeans,by="CoarseNaturraum")
-
-tm_shape(nr_dissolved)+
-  tm_polygons("spoccChange")
+tm_shape(nr_dissolved)+tm_polygons("occChange")
 
 #### ecoregion 3 (finest) #################################
 
@@ -247,7 +256,64 @@ nr_dissolved_sp  <- left_join(nr_dissolved,speciesChange,by="MidNaturraum")
 tm_shape(nr_dissolved_sp)+
   tm_polygons("mean")
 
-### spline model ##########################################
+
+#### state model ##########################################
+
+mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_state/992948"
+
+#do we have the models for all species?
+speciesFiles <- list.files(mdir)
+mySpecies[!sapply(mySpecies,function(x)any(grepl(x,speciesFiles)))]
+
+#read in model summaries
+modelDF <- getModels(mdir)
+modelDF <- getCodeFromFile(modelDF,myfile="outSummary_sparta_regional_nation_state_adult_")
+
+#what parameters do we have?
+unique(modelDF$Param)
+
+#annual time series - psi.fs
+annualtrendsDF <- getBUGSfitsII(modelDF,param="muZ.state")
+
+#relabels sites as states
+myStates <- data.frame(ID=1:13,
+                       State=c("Baden-Württemberg","Bayern","Brandenburg","Hessen","Mecklenburg-Vorpommern", "Niedersachsen","Nordrhein-Westfalen","Rheinland-Pfalz","Saarland","Sachsen","Sachsen-Anhalt", "Schleswig-Holstein", "Thüringen")) 
+annualtrendsDF$State <- myStates$State[match(annualtrendsDF$Site,myStates$ID)]
+
+#format year
+annualtrendsDF$Year <- annualtrendsDF$Year+1989
+
+#plot data
+ggplot(annualtrendsDF)+
+  geom_line(aes(x=Year, y=mean, colour=State))+
+  facet_wrap(~Species)
+  
+#long-term trends
+annualtrendsDF <- getBUGSfits(modelDF,param="regres.psi")
+annualtrendsDF$State <- myStates$State[match(annualtrendsDF$ParamNu,myStates$ID)]
+
+#ridges
+library(ggridges)
+theme_set(theme_ridges())
+ggplot(annualtrendsDF, aes(x = mean, y = State)) +
+  geom_density_ridges(aes(fill = State)) +
+  theme(legend.position = "none")+
+  geom_vline(xintercept=0, linetype="dashed")
+
+#order by proportion of species with negative trends
+annualTrendsDF_Prop <- annualtrendsDF %>%
+  dplyr::group_by(State) %>%
+  dplyr::summarise(prop = mean(mean<0))%>%
+  arrange(.,desc(prop))
+annualtrendsDF$State <- factor(annualtrendsDF$State, 
+                               levels=annualTrendsDF_Prop$State)
+
+ggplot(annualtrendsDF, aes(x = mean, y = State)) +
+  geom_density_ridges(aes(fill = State)) +
+  theme(legend.position = "none")+
+  geom_vline(xintercept=0, linetype="dashed")
+
+n### spline model ##########################################
 
 
 ###end######################################################
