@@ -11,7 +11,7 @@ suppressMessages(library(plyr))
 #load the relational table of task ids and species
 speciesTaskID <- read.delim(paste0("/data/idiv_ess/Odonata/speciesTaskID_adult.txt"),as.is=T)
 #get task id
-task.id = as.integer(Sys.getenv("SGE_TASK_ID", "1")) 
+task.id = as.integer(Sys.getenv("SLURM_ARRAY_TASK_ID", "1")) 
 #get species for this task
 myspecies <- speciesTaskID$Species[which(speciesTaskID$TaskID==task.id)] 
 
@@ -30,11 +30,8 @@ Sys.time()
 #myfiles <- list.files("derived-data")
 myfiles <- list.files("/data/idiv_ess/Odonata")
 
-#read in and combine all adult files
-adultFiles <- myfiles[grepl("adult_datafile",myfiles)]
-
 #those that are updated
-adultFiles <- adultFiles[grepl("updated.rds",adultFiles)]
+adultFiles <- "adult_datafile_He_updated.rds"
 
 #combine these files
 adultData <- ldply(adultFiles,function(x){
@@ -48,7 +45,7 @@ adultData <- ldply(adultFiles,function(x){
 #extract state from file name
 adultData$State <- sapply(adultData$File,function(x)strsplit(x,"\\.rds")[[1]][1])
 adultData$State <- sapply(adultData$State,function(x)strsplit(x,"_")[[1]][3])
-nrow(adultData)#1023689
+nrow(adultData)#191572
 
 ##########################################################################################
 
@@ -84,12 +81,10 @@ adultData <- subset(adultData, !MTB_Q %in% c("51561","50561","49563","55484","63
 #filter to 1980 onwards
 
 #df <- subset(adultData, Year>=1980  & Year<2017)
-df <- subset(adultData, Year>=1980  & Year<2020)
-
-#and subset to Hessen
-df <- subset(df, File=="adult_datafile_He_updated.rds")
+df <- subset(adultData, Year>=2008  & Year<2020)
 
 ####################################################################################
+
 #get nationwide boxes
 #load("mtbqsDF.RData")
 load("/data/idiv_ess/Odonata/mtbqsDF.RData")
@@ -107,6 +102,10 @@ sum(is.na(df$Natur))
 mtbqsDF$CoarseNatur[is.na(mtbqsDF$CoarseNatur)] <- mtbqsDF$MTB_CoarseNatur[is.na(mtbqsDF$CoarseNatur)]
 df$CoarseNatur <- mtbqsDF$CoarseNatur[match(df$MTB_Q,mtbqsDF$MTB_Q)]
 sum(is.na(df$CoarseNatur))
+
+mtbqsDF$MTB_MidNatur <- gdata::trim(mtbqsDF$MTB_MidNatur)
+df$MidNatur <- mtbqsDF$MTB_MidNatur[match(df$MTB_Q,mtbqsDF$MTB_Q)]
+sum(is.na(df$MidNatur))
 
 #####################################################################################
 
@@ -191,6 +190,10 @@ listlengthDF$Naturraum <- mtbqsDF$Natur[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
 listlengthDF$nnIndex <- as.numeric(factor(listlengthDF$Naturraum))
 #subset(listlengthDF,is.na(Naturraum))
 
+listlengthDF$MidNaturraum <- mtbqsDF$MTB_MidNatur[match(listlengthDF$MTB_Q,mtbqsDF$MTB_Q)]
+listlengthDF$mnIndex <- as.numeric(factor(listlengthDF$MidNaturraum))
+#subset(listlengthDF,is.na(MidNaturraum))
+
 #get other effort variables
 listlengthDF$singleList <- ifelse(listlengthDF$nuSpecies==1,1,0)
 listlengthDF$shortList <- ifelse(listlengthDF$nuSpecies%in%2:3,1,0)
@@ -200,7 +203,7 @@ listlengthDF$longList <- ifelse(listlengthDF$nuSpecies>3,1,0)
 #get summary site info data
 
 siteInfo <- unique(listlengthDF[,c("stateIndex","mtbIndex","siteIndex","boxIndex",
-                                   "MTB_Q","nnIndex","cnIndex")])
+                                   "MTB_Q","nnIndex","cnIndex","mnIndex")])
 head(siteInfo)
 
 #######################################################################################
@@ -223,12 +226,14 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   nyear = length(unique(listlengthDF$yearIndex)),
                   nstate = length(unique(siteInfo$stateIndex)),
                   nraum = length(unique(siteInfo$nnIndex)),
+                  nmraum = length(unique(siteInfo$mnIndex)),
                   ncraum = length(unique(siteInfo$cnIndex)),
                   nbox = length(unique(siteInfo$boxIndex)),
                   nvisit = nrow(listlengthDF),
                   site = listlengthDF$siteIndex,
                   state = listlengthDF$stateIndex,
                   raum = listlengthDF$nnIndex,
+                  mraum = listlengthDF$mnIndex,
                   craum = listlengthDF$cnIndex,
                   box = listlengthDF$boxIndex,
                   year = listlengthDF$yearIndex,
@@ -236,6 +241,7 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   craumS = siteInfo$cnIndex,
                   craumR = raumInfo$cnIndex,
                   raumS = siteInfo$nnIndex,
+                  mraumS = siteInfo$mnIndex,
                   boxS = siteInfo$boxIndex,
                   yday = listlengthDF$yday - median(listlengthDF$yday),
                   yday2 = listlengthDF$yday^2 - median(listlengthDF$yday^2),
@@ -250,10 +256,6 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
 listlengthDF$Species <- bugs.data$y
 
 all(row.names(occMatrix)==listlengthDF$visit)
-
-#set prior to zero if species never recorded in that state??
-#temp <- ddply(listlengthDF,.(cnIndex),summarise,species=sum(Species))
-#bugs.data$priorS <- ifelse(temp$species>0,0.99999,0.05)
 
 #the below are used the linear regression model in the model file -see below
 bugs.data$sumX <- sum(1:bugs.data$nyear)
@@ -279,13 +281,6 @@ for(i in 1:nrow(zst)){
 
 inits <- function(){list(z = zst)}
 
-# inits <- function(){list(z = zst,
-#                          mu.p = runif(1,-2,2),
-#                          single.p = runif(1,0,0.001),
-#                          effort.p = runif(1,0,0.001),
-#                          mu.phenol = runif(1,-0.001,0.001),
-#                          mu.phenol2 = runif(1,-0.001,0.001))}
-
 ########################################################################################
 
 #JAGS setting b/c otherwise JAGS cannot build a sampler, rec. by M. Plummer
@@ -293,7 +288,7 @@ set.factory("bugs::Conjugate", FALSE, type="sampler")
 
 #get core info
 #n.cores = 3
-n.cores = as.integer(Sys.getenv("NSLOTS", "1")) 
+n.cores = as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1")) 
 
 ###########################################################################################
 

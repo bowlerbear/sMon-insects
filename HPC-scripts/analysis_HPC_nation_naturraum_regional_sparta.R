@@ -92,10 +92,6 @@ adultData <- subset(adultData, !MTB_Q %in% c("51561","50561","49563","55484","63
 
 df <- subset(adultData, Year>=1985  & Year<2017)
 
-
-#and subset to Hessen
-#df <- subset(df, File=="adult_datafile_He.rds")
-
 #write list of species###############################################################
 
 #summaryInfo <- ddply(df, .(Species), summarise, nuRecs=length(Species)) 
