@@ -14,11 +14,14 @@ ni <- 4000   ;   nb <- 2000   ;   nt <- 2   ;   nc <- 3
 library(rjags)
 library(jagsUI)
 
+#JAGS setting b/c otherwise JAGS cannot build a sampler, rec. by M. Plummer
+set.factory("bugs::Conjugate", FALSE, type="sampler")
+
 #get core info
 n.cores = as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1")) 
 #n.cores = 3
 
-modelfile=paste(myfolder,"BUGS_sparta_nation_naturraum_spline.txt",sep="/")
+modelfile=paste(myfolder,"BUGS_sparta_nation_spline_simple.txt",sep="/")
 
 #get inits
 zst <- readRDS(paste(myfolder,"zst.rds",sep="/"))
@@ -29,13 +32,15 @@ effort = "shortList"
 bugs.data$Effort <- bugs.data[[effort]]
 
 #specify parameters to monitor
-params <- c("psi")
+params <- c("psi_1","psi_n","year.effect")
 
 Sys.time()
+
 #run model
 out <- jags(bugs.data, inits=inits, params, modelfile, n.thin=nt,
             n.chains=n.cores, n.burnin=nb,n.iter=ni,parallel=T)
-Sys.time()
+
+#Sys.time()
 
 #save as output file
 if(class(out)=="jagsUI"){
