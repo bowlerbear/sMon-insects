@@ -21,10 +21,7 @@ stage="adult"
 #set seed
 set.seed(3)
 
-#number of MCMC samples
-#niterations = 1000
-
-Sys.time()
+#### read in data #######################################################
 
 #load in regional datasets
 myfiles <- list.files("derived-data")
@@ -42,7 +39,6 @@ updatedFiles <- adultFiles[grepl("updated",adultFiles)]
 updatedFiles <- gsub("_updated","",updatedFiles)
 adultFiles <- adultFiles[!adultFiles %in% updatedFiles]
 
-
 #combine these files
 adultData <- ldply(adultFiles,function(x){
   out<-readRDS(paste("derived-data",x,sep="/"))
@@ -51,23 +47,22 @@ adultData <- ldply(adultFiles,function(x){
   return(out)
 })
 
-
 #extract state from file name
 adultData$State <- sapply(adultData$File,function(x)strsplit(x,"\\.rds")[[1]][1])
 adultData$State <- sapply(adultData$State,function(x)strsplit(x,"_")[[1]][3])
-nrow(adultData)#1023689
+nrow(adultData)
 
-##########################################################################################
+#### combine data #########################################################
 
 #add gbif data to fill gaps
 gbifdata <- readRDS("derived-data/datafile_iNaturalist.rds")
 #gbifdata <- readRDS("/data/idiv_ess/Odonata/datafile_GBIF.rds")
-#nrow(gbifdata)#38191
+#nrow(gbifdata)
 
 #combine the two
 adultData <- rbind(adultData,gbifdata)
 
-##########################################################################################
+#### format date ###########################################################
 
 #format date
 adultData$Date<-as.Date(adultData$Date)
@@ -80,10 +75,9 @@ adultData <- subset(adultData,!is.na(Date))
 adultData <- subset(adultData,yday!=1)
 adultData$MTB_Q <- gsub("/","",adultData$MTB_Q)
 
-###################################################################################
-#filter to 1980 onwards
+#### filter ####################################################
 
-df <- subset(adultData, Year>=1990  & Year<=2016)
+df <- subset(adultData, Year>=2006  & Year<=2016)
 
 ### mtb #########################################################
 
@@ -93,13 +87,13 @@ df$MTB <- sapply(as.character(df$MTB_Q),function(x){
 
 df <- subset(df,!MTB %in% c("6301","5548","5156","5056","4956","4455"))
 
-#####################################################################################
+#### visited once ###############################################################
 
 #remove sites visited once
 # siteSummary <- ddply(df,.(MTB_Q),summarise,nuYears=length(unique(Year)))
 # df <- subset(df, MTB_Q %in% siteSummary$MTB_Q[siteSummary$nuYears>1])
 
-######################################################################################
+#### get naturraum #############################################################
 
 #get nationwide boxes
 load("mtbqsDF.RData")
@@ -123,19 +117,7 @@ mtbqsDF$CoarseNatur[is.na(mtbqsDF$CoarseNatur)] <- mtbqsDF$MTB_CoarseNatur[is.na
 df$CoarseNatur <- mtbqsDF$CoarseNatur[match(df$MTB,mtbqsDF$MTB)]
 unique(df$MTB[is.na(df$CoarseNatur)])
 
-#####################################################################################
-
-#subset by average phenology across whole germany
-
-# dfS <- subset(df, Species==myspecies)
-# 
-# #across all species
-# obsPhenolData <- summarise(df,
-#                            minDay = round(quantile(yday,0.05)),
-#                            maxDay = round(quantile(yday,0.95)))
-# df <- subset(df, yday > obsPhenolData$minDay & yday < obsPhenolData$maxDay)
-
-######################################################################################
+#### visit #################################################################
 
 #define a visit
 df$visit <- paste(df$MTB,df$Date,sep="_")
@@ -169,7 +151,7 @@ listlengthDF <- getListLength(df)
 #rows of occuMatrix match visits
 all(listlengthDF$visit==row.names(occMatrix))
 
-#######################################################################################
+#### indices ##############################################################
 
 #add on some indices
 listlengthDF$State <- mtbqsDF$Counties[match(listlengthDF$MTB,mtbqsDF$MTB)]
@@ -178,7 +160,6 @@ listlengthDF$Year <- year(listlengthDF$Date)
 listlengthDF$yday <- yday(listlengthDF$Date)
 listlengthDF$yearIndex <- as.numeric(factor(listlengthDF$Year))
 listlengthDF$stateIndex <- as.numeric(factor(listlengthDF$State))
-listlengthDF$boxIndex <- as.numeric(factor(paste0(listlengthDF$stateIndex,listlengthDF$km50)))
 
 #mtb as site
 listlengthDF$siteIndex <- as.numeric(factor(listlengthDF$MTB))
@@ -197,13 +178,12 @@ listlengthDF$singleList <- ifelse(listlengthDF$nuSpecies==1,1,0)
 listlengthDF$shortList <- ifelse(listlengthDF$nuSpecies%in%2:3,1,0)
 listlengthDF$longList <- ifelse(listlengthDF$nuSpecies>3,1,0)
 
-#######################################################################################
-#get summary site info data
+#### siteInfo ##############################################################
 
 siteInfo <- unique(listlengthDF[,c("siteIndex","MTB","nnIndex","cnIndex")])
 head(siteInfo)
 
-######################################################################################
+#### Species ################################################################
 
 #pick species
 
@@ -213,7 +193,7 @@ head(siteInfo)
 myspecies = "Sympetrum danae"
 #stage="adult"
 
-########################################################################################
+#### bugs.data ###############################################################
 
 #organise data for BUGS model
 bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
@@ -229,119 +209,92 @@ bugs.data <- list(nsite = length(unique(listlengthDF$siteIndex)),
                   raumS = siteInfo$nnIndex,
                   yday = listlengthDF$yday - median(listlengthDF$yday),
                   yday2 = listlengthDF$yday^2 - median(listlengthDF$yday^2),
-                  nuSpecies = log(listlengthDF$nuSpecies) - log(median(listlengthDF$nuSpecies)),
                   singleList = listlengthDF$singleList,
                   shortList = listlengthDF$shortList,
-                  nuRecs = log(listlengthDF$nuRecords) - log(median(listlengthDF$nuRecords)),
-                  nuSS = log(listlengthDF$samplingSites) - log(median(listlengthDF$samplingSites)),# up to 3
-                  expertise = log(listlengthDF$expertise)-median(log(listlengthDF$expertise)),
-                  RpS = log(listlengthDF$RpS) - median(log(listlengthDF$RpS)),
                   y = as.numeric(occMatrix[,myspecies]))
 
 #add species data
 listlengthDF$Species <- bugs.data$y
-saveRDS(listlengthDF,file="splines/listlengthDF_MTB_Sdanae.rds")
+#saveRDS(listlengthDF,file="splines/listlengthDF_MTB_Sdanae.rds")
 
 #check this is TRUE
 all(row.names(occMatrix)==listlengthDF$visit)
 
-#######################################################################################
+#### static spline #############################################################
 
 # #set up the spline info
 siteInfo$x <- mtbqsDF$x[match(siteInfo$MTB,mtbqsDF$MTB)]
 siteInfo$y <- mtbqsDF$y[match(siteInfo$MTB,mtbqsDF$MTB)]
 
-#centre and scale them?
-#medX <- median(siteInfo$x)
-#medY <- median(siteInfo$y)
-#siteInfo$x <- (siteInfo$x - medX)/10000
-#siteInfo$y <- (siteInfo$y - medY)/10000
-#summary(siteInfo$x)
-#summary(siteInfo$y)  
-#save(siteInfo,file="siteInfo.RData") 
-
-# #get info on whether species was seen at each site
+#get info on whether species was seen at each site
 speciesSite <- ddply(listlengthDF,.(siteIndex),summarise,
                      PA=max(Species,na.rm=T))
 siteInfo$obs <- speciesSite$PA[match(siteInfo$siteIndex,speciesSite$siteIndex)]
 
-# #fit normal gam
-# library(mgcv)
-# gam1 <- gam(obs ~ 1 + s(x,y), data=siteInfo, family=binomial)
-# siteInfo$fits <- gam1$fitted.values
-# library(ggplot2)
-# qplot(x,y,data=siteInfo,colour=fits)+
-#   scale_colour_gradient(low="blue",high="red")
-# 
-#######################################################################################
-
 #get BUGS code using jagam
 library(mgcv)
-jags.ready <- jagam(obs ~ 1 + s(x,y,k=8), data=siteInfo, family=binomial,file="splines/jagam.txt")
+jags.ready <- jagam(obs ~ 1 + s(x,y,k=5), data=siteInfo, family=binomial,file="splines/jagam.txt")
 
 #extract bits for the model
 bugs.data$X = jags.ready$jags.data$X
 bugs.data$S1 = jags.ready$jags.data$S1
 bugs.data$zero = jags.ready$jags.data$zero
-#bugs.data$nspline = length(bugs.data$zero)
-#bugs.data$nspline1 = length(bugs.data$zero)+1
-#bugs.data$nspline2 = (length(bugs.data$zero))*2
 
 saveRDS(bugs.data,file="splines/bugs.data.rds")
 
-#expand to include NA values ##########################################################
+#### include NAs #######################################################
 
-#take list of all MTBQ as the full data frame
-siteInfo_NAs <- mtbqsDF
-siteInfo_NAs <- subset(siteInfo_NAs,!duplicated(MTB))
-
-#remove without county or badenwuttenberg?
-#siteInfo_NAs <- subset(siteInfo_NAs,!is.na(Counties))
-#siteInfo_NAs <- subset(siteInfo_NAs,Counties!="Baden-Württemberg")
-
-#add on species observations
-siteInfo_NAs$obs <- siteInfo$obs[match(siteInfo_NAs$MTB,siteInfo$MTB)]
-table(siteInfo_NAs$obs)
-sum(is.na(siteInfo_NAs$obs))/nrow(siteInfo_NAs)
-
-#randomly insect 0 or 1 into the missing values
-siteInfo_NAs$obs[is.na(siteInfo_NAs$obs)] <- sample(c(0,1),size=sum(is.na(siteInfo_NAs$obs)),replace=T)
-
-#reorganise into same order as bugs.data object
-siteInfo_NAs$siteIndex <- siteInfo$siteIndex[match(siteInfo_NAs$MTB,siteInfo$MTB)]
-siteInfo_NAs <- arrange(siteInfo_NAs,siteIndex)
-siteInfo_NAs$siteIndex <- 1:nrow(siteInfo_NAs)#to give values to those with NAs
-
-saveRDS(siteInfo_NAs,file="splines/siteInfo_NAs.rds")
-
-library(mgcv)
-#scale coordinates
-siteInfo_NAs$x_MTB <- (siteInfo_NAs$x_MTB-medX)/10000
-siteInfo_NAs$y_MTB <- (siteInfo_NAs$y_MTB-medY)/10000
-
-gam.ready <- gam(obs ~ 1 + s(x_MTB,y_MTB,k=15), 
-                    data=siteInfo_NAs, family=binomial)
-jags.ready <- jagam(obs ~ 1 + s(x_MTB,y_MTB,k=15), 
-                    data=siteInfo_NAs, family=binomial,file="splines/jagam.txt")
-#jags.ready <- jagam(obs ~ 1 + s(x, y, k = 60, bs = 'ds', m = c(1, 0.5)), 
-#                    data=siteInfo_NAs, family=binomial,file="jagam.txt")
-
-saveRDS(jags.ready,file="splines/jags.ready_NAs.rds")
-
-bugs.data$nsite_Full <- nrow(siteInfo_NAs)
-bugs.data$X_Full = jags.ready$jags.data$X
-bugs.data$S1_Full = jags.ready$jags.data$S1
-bugs.data$zero_Full = jags.ready$jags.data$zero
-
-saveRDS(bugs.data,file="splines/bugs.data_NAs.rds")
-
-# ##########################################################################################
+# #take list of all MTBQ as the full data frame
+# siteInfo_NAs <- mtbqsDF
+# siteInfo_NAs <- subset(siteInfo_NAs,!duplicated(MTB))
 # 
+# #remove without county or badenwuttenberg?
+# #siteInfo_NAs <- subset(siteInfo_NAs,!is.na(Counties))
+# #siteInfo_NAs <- subset(siteInfo_NAs,Counties!="Baden-Württemberg")
+# 
+# #add on species observations
+# siteInfo_NAs$obs <- siteInfo$obs[match(siteInfo_NAs$MTB,siteInfo$MTB)]
+# table(siteInfo_NAs$obs)
+# sum(is.na(siteInfo_NAs$obs))/nrow(siteInfo_NAs)
+# 
+# #randomly insect 0 or 1 into the missing values
+# siteInfo_NAs$obs[is.na(siteInfo_NAs$obs)] <- sample(c(0,1),size=sum(is.na(siteInfo_NAs$obs)),replace=T)
+# 
+# #reorganise into same order as bugs.data object
+# siteInfo_NAs$siteIndex <- siteInfo$siteIndex[match(siteInfo_NAs$MTB,siteInfo$MTB)]
+# siteInfo_NAs <- arrange(siteInfo_NAs,siteIndex)
+# siteInfo_NAs$siteIndex <- 1:nrow(siteInfo_NAs)#to give values to those with NAs
+# 
+# saveRDS(siteInfo_NAs,file="splines/siteInfo_NAs.rds")
+# 
+# library(mgcv)
+# #scale coordinates
+# siteInfo_NAs$x_MTB <- (siteInfo_NAs$x_MTB-medX)/10000
+# siteInfo_NAs$y_MTB <- (siteInfo_NAs$y_MTB-medY)/10000
+# 
+# gam.ready <- gam(obs ~ 1 + s(x_MTB,y_MTB,k=15), 
+#                     data=siteInfo_NAs, family=binomial)
+# jags.ready <- jagam(obs ~ 1 + s(x_MTB,y_MTB,k=15), 
+#                     data=siteInfo_NAs, family=binomial,file="splines/jagam.txt")
+# #jags.ready <- jagam(obs ~ 1 + s(x, y, k = 60, bs = 'ds', m = c(1, 0.5)), 
+# #                    data=siteInfo_NAs, family=binomial,file="jagam.txt")
+# 
+# saveRDS(jags.ready,file="splines/jags.ready_NAs.rds")
+# 
+# bugs.data$nsite_Full <- nrow(siteInfo_NAs)
+# bugs.data$X_Full = jags.ready$jags.data$X
+# bugs.data$S1_Full = jags.ready$jags.data$S1
+# bugs.data$zero_Full = jags.ready$jags.data$zero
+# 
+# saveRDS(bugs.data,file="splines/bugs.data_NAs.rds")
+
+
+#### space-time #################################################################
+ 
 # set up space-time-spline info
 siteInfo <- unique(listlengthDF[,c("MTB","siteIndex","yearIndex")])
 siteInfo$x <- mtbqsDF$x_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
 siteInfo$y <- mtbqsDF$y_MTB[match(siteInfo$MTB,mtbqsDF$MTB)]
-
 
 #add species data
 listlengthDF$Species <- as.numeric(occMatrix[,myspecies])
@@ -355,7 +308,7 @@ siteInfo <- merge(siteInfo,speciesSite,by=c("siteIndex","yearIndex"))
 
 #fit normal gam
 library(mgcv)
-gam1 <- gam(obs ~ s(yearIndex) + s(x,y,yearIndex,k=50), #s(nuVisits,k=4) + s(nuSingles,k=4),
+gam1 <- gam(obs ~ s(yearIndex) + s(x,y,yearIndex,k=50) + log(nuVisits),
             data=siteInfo, family=binomial)
 siteInfo$fits <- gam1$fitted.values
 
@@ -375,6 +328,7 @@ siteInfo_NAs$yearIndex <- rep(1:length(unique(df$Year)),nuSites)
 siteInfo_NAs$nuVisits <- 5
 siteInfo_NAs$nuSingles <- 2
 siteInfo_NAs$preds <- predict(gam1,siteInfo_NAs,type="response")
+maxPred <- max(siteInfo_NAs$preds)
 
 # qplot(x,y,data=siteInfo_NAs,colour=preds)+
 #   facet_wrap(~yearIndex)+
@@ -388,8 +342,7 @@ for(i in 1:length(myYears)){
   qplot(x,y,data=subset(siteInfo_NAs,yearIndex==i),colour=preds)+
     scale_colour_viridis_c("Occupancy",
                            option = "magma",
-                           limits=c(0,0.8),
-                           #limits=c(0,0.45),
+                           limits=c(0,maxPred),
                            direction = -1)+
     theme_void()+
     ggtitle(myYears[i])
@@ -397,9 +350,8 @@ for(i in 1:length(myYears)){
   ggsave(paste0("gifs/year",i,".png"),width=3,height=2.6)
 }
 
-### space time function ###############################################################
+#### space time function ########################################################
 
-#for each species, predict 4 times
 library(mgcv)
 library(tidyverse)
 
@@ -459,13 +411,11 @@ saveRDS(output,file="model-outputs/simpleGAMS_1990_2017_k10.rds")
 saveRDS(output,file="model-outputs/simpleGAMS_1990_2017_k30.rds")
 saveRDS(output,file="model-outputs/simpleGAMS_1990_2017_k30-20.rds")
 
-########################################################################################
+#### inits #######################################################################
 
 #specify initial values
 library(reshape2)
 zst <- acast(listlengthDF, siteIndex~yearIndex, value.var="Species",fun=max)
-#zst [is.infinite(zst)] <- 0
-#inits <- function(){list(z = zst)}
 
 #fill in the blanks more cleverly
 zst [is.infinite(zst)] <- NA
@@ -489,24 +439,16 @@ saveRDS(zst,file="splines/zst.rds")
 #                          mu.phenol = runif(1,-0.01,0.01),
 #                          mu.phenol2 = runif(1,-0.01,0.01))}
 
-### initial values including NAs
-zst_NAs <- matrix(data=0,nrow=bugs.data$nsite,ncol=bugs.data$nyear)
-zst_NAs[1:dim(zst)[1],1:dim(zst)[2]] <- zst
-inits <- function(){list(z = zst)}
 
-saveRDS(zst_NAs,file="splines/zst_NAs.rds")
-
-### run model #########################################################################
+#### run model ##################################################################
 
 #see HPC_static_jagam or
 #HPC_tempcorr_jagam
 
-########################################################################################
-
 #get nationwide boxes
 load("mtbqsDF.RData")
 
-### static model #######################################################################
+#### static model ###############################################################
 
 #running HPC_static_jagam 
 out <- readRDS("C:/Users/db40fysa/Nextcloud/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Static_spline/6992005/outSummary_static_spline.rds")
@@ -535,7 +477,7 @@ ggplot(siteInfo)+
   scale_color_viridis_c()
 #looks nice!!!
 
-### dynamic model #################################################################
+#### dynamic model ##############################################################
 
 #temp corr model
 out <- readRDS("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/splines/outSummary_tempcorr_spline_NAs.rds")
@@ -557,4 +499,4 @@ ggplot(temp)+
 #for jagsUI basic
 out <- readRDS("C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/splines/outSummary_tempcorr_spline_NAs.rds")
 
-########################################################################################
+#### end #########################################################################
