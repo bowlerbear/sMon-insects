@@ -287,10 +287,13 @@ Save data
 
 ```{r}
 
+#remove / from MTBQ
+datafile$MTB_Q <- gsub("/","",datafile$MTB_Q)
+
 adult_datafile<- datafile[,c("Date","MTB_Q","Species","Expertise",
                            "Richness","lon","lat","Beobachter","zahl")]
 names(adult_datafile)[which(names(adult_datafile)=="zahl")] <- "Anzahl_min"
-save(adult_datafile,file="derived-data/adult_datafile_Bav.RData")
+#save(adult_datafile,file="derived-data/adult_datafile_Bav.RData")
 saveRDS(adult_datafile,file="derived-data/adult_datafile_Bav.rds")
 
 ```
