@@ -10,7 +10,7 @@
       z[i,t] ~ dbern(muZ[i,t]) 
 
     # model
-      logit(muZ[i,t]) <- mu.t[t] + r.a[raumS[i]] + eta[i]
+      logit(muZ[i,t]) <- mu.t[t] + r.a[mraumS[i]] + eta[i]
       
       }
     }   
@@ -23,8 +23,9 @@
     
     #detection model:
     logit(p[j]) <-  mup[year[j]] + 
+                    r.p[mraum[j]] +
                     mu.phenol * yday[j] + 
-                    mu.phenol2 * yday2[j]+
+                    mu.phenol2 * yday2[j] +
                     effort.p * Effort[j] +
                     single.p * singleList[j]
     } 
@@ -65,7 +66,7 @@
     sd.a ~ dt(0, pow(2.5,-2), 1)T(0,) 
     
     #r.a random effects for naturraum
-    for (s in 1:nraum) {
+    for (s in 1:nmraum) {
       r.a[s] ~ dnorm(0, tau.r.a)       
     } 
     tau.r.a <- 1/(sd.r.a * sd.r.a)
@@ -98,6 +99,13 @@
     mu.phenol ~ dnorm(0,0.01)
     mu.phenol2 ~ dnorm(0,0.01)
  
+    #r.a random effects for naturraum
+    for (s in 1:nmraum) {
+      r.p[s] ~ dnorm(0, tau.r.p)       
+    } 
+    tau.r.p <- 1/(sd.r.p * sd.r.p)
+    sd.r.p ~ dt(0, pow(2.5,-2), 1)T(0,)
+    
     
   }
     
