@@ -27,10 +27,9 @@ plot(nr)
 nr$CoarseNaturraum <- gdata::trim(sapply(as.character(nr$FolderPath),function(x)strsplit(x,"/")[[1]][2]))
 
 #dissolve 
-nr_dissolved <-
-  nr %>%
-  group_by(CoarseNaturraum) %>%
-  summarise()
+nr_dissolved <- nr %>%
+  dplyr::group_by(CoarseNaturraum) %>%
+  dplyr::summarise()
 
 #plot
 tm_shape(nr_dissolved)+
@@ -74,18 +73,37 @@ coarseRaums <- data.frame(Index=1:7,
                  "Suedwestdeutsches Mittelgebirge",
                  "Westliches Mittelgebirge"))
 annualDF$Naturraum <- coarseRaums$Names[match(annualDF$Site,coarseRaums$Index)]
+#put in geographic order
+annualDF <- subset(annualDF,Naturraum!="Alpen")
+annualDF$Naturraum <- factor(annualDF$Naturraum,levels=c("Nordwestdeutsches Tiefland","Nordostdeutsches Tiefland","Westliches Mittelgebirge","Oestliches Mittelgebirge",
+"Suedwestdeutsches Mittelgebirge","Alpenvorland"))
+
 plotTS_regional(annualDF)
 
 #plot just for two species
 ggplot(data=subset(annualDF,Species=="Anax imperator"))+
       geom_line(aes(x=Year,y=mean,))+
       geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
-      facet_wrap(~Naturraum)
+      facet_wrap(~Naturraum,ncol=2)+
+      theme_bw()+ylab("Predicted occupancy")+ggtitle("Anax imperator")
 
 ggplot(data=subset(annualDF,Species=="Crocothemis erythraea"))+
   geom_line(aes(x=Year,y=mean,))+
   geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
-  facet_wrap(~Naturraum)
+  facet_wrap(~Naturraum,ncol=2)+
+  theme_bw()+ylab("Predicted occupancy")+ggtitle("Crocothemis erythraea")
+
+ggplot(data=subset(annualDF,Species=="Sympetrum danae"))+
+  geom_line(aes(x=Year,y=mean,))+
+  geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
+  facet_wrap(~Naturraum,ncol=2)+
+  theme_bw()+ylab("Predicted occupancy")+ggtitle("Sympetrum danae")
+
+ggplot(data=subset(annualDF,Species=="Coenagrion hastulatum"))+
+  geom_line(aes(x=Year,y=mean,))+
+  geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.),alpha=0.5)+
+  facet_wrap(~Naturraum,ncol=2)+
+  theme_bw()+ylab("Predicted occupancy")+ggtitle("Coenagrion hastulatum")
 
 #do we have 7 regions for all species??
 annualDF %>%
@@ -93,60 +111,33 @@ annualDF %>%
   summarise(nuSites = n_distinct(Site))
 #all 7
 
-#density ridge plots
+#density ridge plots for trend plots
+trendsDF <- getBUGSfits(modelDF,param="regres.psi")
+table(annualDF$Rhat<1.1)
+trendsDF$Naturraum <- coarseRaums$Names[match(trendsDF$ParamNu,coarseRaums$Index)]
+#trendsDF <- subset(trendsDF,Naturraum!="Alpen")
+trendsDF$Naturraum <- factor(trendsDF$Naturraum,levels=rev(c("Nordwestdeutsches Tiefland","Nordostdeutsches Tiefland","Westliches Mittelgebirge","Oestliches Mittelgebirge", "Suedwestdeutsches Mittelgebirge","Alpenvorland","Alpen")))
+
 library(ggridges)
 theme_set(theme_ridges())
-
-#change between first and last year
-occChange <- annualDF %>%
-  group_by(Species,Naturraum) %>%
-  summarise(occChange  = median(mean[Year==max(annualDF$Year)]/mean[Year==min(annualDF$Year)]))
-
-#extreme value
-summary(occChange$occChange)
-occChange$occChange[occChange$occChange>2] <- 2
-
-ggplot(occChange, aes(x = occChange, y = Naturraum)) +
-  geom_density_ridges(aes(fill = Naturraum)) +
-  theme(legend.position = "none")+
-  geom_vline(xintercept=1, linetype="dashed")
-#two humps???
-
-
-#trends - see if there is a regres.psi in the modelDF??
-occTrends <- annualDF %>%
-  group_by(Species,Naturraum) %>%
-  do(model = broom::tidy(lm(mean ~ Year, data = .))) %>% 
-  unnest(model) %>%
-  filter(term=="Year") %>%
-  rename(trend="estimate",trend_se="std.error")
-
-#order naturaum by proportion of trends bigger than zero
-
-ggplot(occTrends, aes(x = trend, y = reorder(Naturraum,desc(Naturraum)))) +
+ggplot(trendsDF, aes(x = mean, y = Naturraum)) +
   geom_density_ridges(aes(fill = Naturraum)) +
   theme(legend.position = "none")+
   geom_vline(xintercept=0, linetype="dashed")+
-  scale_fill_manual(values = wes_palette("Darjeeling1", n = 7,type = "continuous"))+
-  ylab("")
+  scale_fill_manual(values = wes_palette("Darjeeling1", 
+                                         n = 7,type = "continuous"))+
+  ylab("")+xlab("Species trends")
 
 ### maps ####
 
 #plot mean per ecoregion:
-ecoregionMeans <- annualDF %>%
-  group_by(Naturraum) %>%
-  summarise(meanOcc  = sum(mean)) %>%
-  rename(CoarseNaturraum=Naturraum)
-nr_dissolved  <- left_join(nr_dissolved,ecoregionMeans,by="CoarseNaturraum")
-tm_shape(nr_dissolved)+tm_polygons("meanOcc")
+ecoregionMeans <- trendsDF %>%
+  dplyr::group_by(Naturraum) %>%
+  dplyr::summarise(proportionDeclining  = mean(mean<0)) %>%
+  dplyr::rename(CoarseNaturraum=Naturraum)
 
-#mean change per ecoregion
-ecoregionMeans <- annualDF %>%
-  group_by(Naturraum) %>%
-  summarise(occChange  = median(mean[Year==2017]/mean[Year==1990]))%>%
-  rename(CoarseNaturraum=Naturraum)
-nr_dissolved  <- left_join(nr_dissolved,ecoregionMeans,by="CoarseNaturraum")
-tm_shape(nr_dissolved)+tm_polygons("occChange")
+nr_dissolved_temp  <- left_join(nr_dissolved,ecoregionMeans,by="CoarseNaturraum")
+tm_shape(nr_dissolved_temp)+tm_polygons("proportionDeclining")
 
 #### ecoregion 3 (finest) #################################
 
