@@ -49,7 +49,7 @@ proj4string(sites) <- CRS("+init=epsg:31467")
 #plot(sites,add=T)
 
 #overlay the coordinates with the mtqb map
-sites <- spTransform(sites, CRS(proj4string(mtbqs)))
+sites <- sp::spTransform(sites, CRS(proj4string(mtbqs)))
 plot(mtbqs)
 plot(sites,add=T,col="red")
 
