@@ -123,12 +123,14 @@ plotTS_regional <- function(x){
     g1 <- ggplot(data=x,aes(x=Year,y=mean,group=factor(Site)))+
       geom_line(aes(x=Year,y=mean,colour=factor(Site)))+
       geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.,fill=factor(Site)),alpha=0.5)+
-      facet_wrap(~Species)
+      facet_wrap(~Code)+ylab("Predicted occupancy")+
+      theme(legend.position="none")
   }else{
     g1 <- ggplot(data=x,aes(x=Year,y=mean,group=Naturraum))+
       geom_line(aes(x=Year,y=mean,colour=Naturraum))+
       geom_ribbon(aes(x=Year,ymin=X2.5.,ymax=X97.5.,fill=Naturraum),alpha=0.5)+
-      facet_wrap(~Species)
+      facet_wrap(~Code)+ylab("Predicted occupancy")+
+      theme(legend.position="none")
   }
   
   print(g1)
