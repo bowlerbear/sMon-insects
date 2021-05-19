@@ -108,9 +108,15 @@ adultData$MTB <- sapply(as.character(adultData$MTB_Q),function(x){
 #state to MTBQ mapping
 stateDir <- unique(adultData[,c("MTB","MTB_Q","State")])
 
+
+#add on ecoregion
+df$Naturraum <- mtbqsDF$MTB_CoarseNatur[match(df$MTB,mtbqsDF$Value)]
+df$Naturraum <- sapply(df$Naturraum,function(x)
+  strsplit(x,"/")[[1]][2])
+
 ### define df ########################################################################
 
-df <- subset(adultData, Year>=1985  & Year<=2015)
+df <- subset(adultData, Year>=1990  & Year<=2016)
 
 ### remove sites visited once ########################################################
 
@@ -156,6 +162,27 @@ ggplot(annualVisits_byState)+
   facet_wrap(~State) +
   scale_y_log10()
   
+#### ecoregions effort ts #####################################################
+
+annualVisits_byEcoregion <- df %>%
+  group_by(Year,Naturraum) %>%
+  summarise(nuVisits = length(unique(visit)), 
+            nuDates = length(unique(Date)),
+            nuRecs = length(Date)) %>%
+  ungroup() %>%
+  complete(Year,Naturraum) %>%
+  replace(is.na(.),0)
+
+ggplot(annualVisits_byEcoregion)+
+  geom_line(aes(x = Year, y = nuVisits))+
+  facet_wrap(~Naturraum)
+
+ggplot(annualVisits_byEcoregion)+
+  geom_line(aes(x = Year, y = (nuVisits+1))) +
+  facet_wrap(~Naturraum) +
+  scale_y_log10()
+
+
 #### effort trend map #########################################################
 
 #get trends in effort
