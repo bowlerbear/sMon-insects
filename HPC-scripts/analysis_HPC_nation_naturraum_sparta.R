@@ -89,6 +89,7 @@ adultData$MTB_Q <- gsub("/","",adultData$MTB_Q)
 
 adultData <- subset(adultData, !MTB_Q %in% c("63012","55484","51561","50561","49563","44553"))
 
+#saveRDS(adultData,"derived-data/adultData.rds")
 ###################################################################################
 #filter to 1980 onwards
 
