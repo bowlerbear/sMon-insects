@@ -162,6 +162,8 @@ siteInfo_NAs <- arrange(siteInfo_NAs, siteIndex)
 library(brms)
 library(mgcv)
 
+#use make_stancode to get model code
+
 #original model
 #mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex)),
 #                                           data = siteInfo_NAs, 
@@ -169,11 +171,23 @@ library(mgcv)
 
 
 #more wiggly model(v2)
-mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex, d = c(2,1), k = c(50,8))),
-                                           data = siteInfo_NAs, 
-                                           family = bernoulli())
-                                           
-                                           
+#mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex, d = c(2,1), k = c(5,8))),
+#                                           data = siteInfo_NAs, 
+#                                           family = bernoulli())
+ 
+
+#v3                                           
+#mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex, d = c(2,1), 
+#                                                           k = c(5,5))),data = siteInfo_NAs, 
+#                                           family = bernoulli())
+
+
+#v4
+mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex, d = c(2,1), 
+                                                           bs = c("ts", "cs"),
+                                                           k = c(10,10))),data = siteInfo_NAs, 
+                                                           family = bernoulli())
+
 names(mydata_complete) <- sapply(names(mydata_complete), 
                                  function(x) paste0("complete_",x))
 
@@ -289,13 +303,17 @@ stan_d <- c(stan_d,mydata_complete)
 
 #select model
 m_init <- stan_model(paste(myfolder,
-                           'bernoulli-occupancy-long-spline-complete_space_time_v2.stan',sep="/"))
+                           'bernoulli-occupancy-long-spline-complete_space_time_v4.stan',sep="/"))
 
 #get cores
-n.cores = as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1")) 
+# try to get SLURM_CPUS_PER_TASK from submit script, otherwise fall back to 1
+cpus_per_task = as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1"))
+rstan_options(auto_write = TRUE)
+options(mc.cores = cpus_per_task)
+
 
 m_fit <- sampling(m_init, 
-                  chains = n.cores,
+                  chains = 4,
                   data = stan_d, 
                   pars = c('b_Intercept','beta_p','psi'))
 
