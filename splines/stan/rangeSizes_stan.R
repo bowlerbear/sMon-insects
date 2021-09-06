@@ -4,6 +4,11 @@
 #range filler or range expander, and 
 #change in number of occupied sites versus change in areas of convex hull
 
+#https://help.natureserve.org/biotics/content/record_management/Element_Files/Element_Ranking/ERANK_Definitions_of_Extent_of_Occurrence_and_Area_of_Occupancy.htm
+#The range extent will be overestimated by using a minimum convex polygon (also called a convex hull) to calculate the area. In these cases, the α-hull is recommended. The α-hull can be estimated by making a Delauney triangulation of the points in a sample (connect the points with lines, constrained so that no lines intersect), and then deleting lines that are longer than two times the average line length. The range extent is then the sum of enclosed areas. 
+#https://www.ala.org.au/spatial-portal-help/aoo/
+
+
 #function to get get range area and extent for each species
 modelSummaries_Limits <- subset(modelSummaries, Year %in% c(1990,2016))
 allspecies <- sort(unique(modelSummaries_Limits$Species))
