@@ -3,8 +3,11 @@
 #based on 
 #https://github.com/r-glennie/occuR
 #https://r-glennie.github.io/occuR/
+#remotes::install_github("r-glennie/occuR")
 library(occuR)
 library(tidyverse)
+
+#myfolder
 
 visit_data <- readRDS("splines/JAGS/listlengthDF_MTB_Sdanae.rds")
 
@@ -37,20 +40,20 @@ visit_data$occasion <- as.numeric(as.factor(visit_data$occasion))
 site_data <- unique(visit_data[,c("site","occasion","CoarseNaturraum","x","y")])
 
 #basic model
-m0 <- fit_occu(list(psi ~ 1, p ~ 1), as.data.table(visit_data), as.data.table(site_data)) 
+m0 <- fit_occu(list(psi ~ 1, p ~ 1), as.data.table(visit_data), as.data.table(site_data))
 m0
 
 #fixed effect model
-m_s <- fit_occu(list(psi ~ CoarseNaturraum, p ~ singleList), 
+m_s <- fit_occu(list(psi ~ CoarseNaturraum, p ~ singleList),
                      as.data.table(visit_data), as.data.table(site_data))
 m_s
 
 #year effects
-m_t <- fit_occu(list(psi ~ -1 + factor(occasion), p ~ occasion + singleList), 
+m_t <- fit_occu(list(psi ~ -1 + factor(occasion), p ~ occasion + singleList),
                      as.data.table(visit_data), as.data.table(site_data))
 m_t
 
-modelSummary <- data.frame(parameter = names(m_t$res$par.fixed), 
+modelSummary <- data.frame(parameter = names(m_t$res$par.fixed),
                            estimate = plogis(as.numeric(m_t$res$par.fixed)),
                            index = 1: length(names(m_t$res$par.fixed)))
 
@@ -63,20 +66,17 @@ qplot(index, estimate, data = psiSummary, geom = "line")
 #only splines with basis of “cs” or “ts” are well defined for this package
 
 #one dimention
-m_spline <- fit_occu(list(psi ~ s(x,bs = "cs"), p ~ 1), 
+m_spline <- fit_occu(list(psi ~ s(x,bs = "cs"), p ~ 1),
                      as.data.table(visit_data), as.data.table(site_data))
 m_spline
 
-m_spline2d <- fit_occu(list(psi ~ s(x,y,bs = "ts"), p ~ 1), 
+#two dimension
+m_spline2d <- fit_occu(list(psi ~ t2(x,y,bs = "ts", k=10), p ~ 1),
                      as.data.table(visit_data), as.data.table(site_data))
 m_spline2d
-
-
-#spatio-temporal
-
-m_psi_xyt <- fit_occu(list(psi ~ t2(x, y, occasion, bs = c("ts", "cs"), d = c(2, 1)) + hab, 
-                           p ~ s(temp, bs = "cs") + s(occasion, bs = "cs", k = 5)), visit_data, site_data)
-
+#k=5 worked pretty well
+#k=10 more wiggly.
+#k=15 strange lines
 
 #predictions
 siteInfo_NAs <- readRDS("splines/siteInfo_NAs.rds")
@@ -84,34 +84,36 @@ siteInfo_NAs <- readRDS("splines/siteInfo_NAs.rds")
 siteInfo_NAs$x <- siteInfo_NAs$x_MTB/10000
 siteInfo_NAs$y <- siteInfo_NAs$y_MTB/1000000
 
-
-# spatial effect 
-pred_xy <- predict(m_spline2d, 
-                   as.data.table(visit_data), 
-                   data.table(occasion = 1, x = siteInfo_NAs$x, y = siteInfo_NAs$y), 
+pred_xy <- predict(m_spline2d,
+                   as.data.table(visit_data),
+                   data.table(occasion = 1, x = siteInfo_NAs$x, y = siteInfo_NAs$y),
                    nboot = 1000)
 
 summary(pred_xy$psi)
 siteInfo_NAs$preds <- pred_xy$psi[,1]
 
-
-ggplot(siteInfo_NAs) + 
-  geom_point(aes(x = x_MTB, y = y_MTB, colour = preds)) + 
-  theme_bw() + 
+ggplot(siteInfo_NAs) +
+  geom_point(aes(x = x, y = y, colour = preds)) +
+  theme_bw() +
   scale_colour_viridis_c("Occupancy")
 
 
-# spatio-temporal effect 
+# spatio-temporal effect
+
+m_spline3d <- fit_occu(list(psi ~ t2(x, y, occasion, bs = c("ts", "cs"), k=c(5,2)), p ~ 1),
+                       as.data.table(visit_data), as.data.table(site_data))
+
+
 xgr <- rep(gr[,1], nocc)
 ygr <- rep(gr[,2], nocc)
 tgr <- rep(1:nocc, each = nrow(gr))
 pred_xyt <- predict(m_spline2d, visit_data, data.table(occasion = tgr, x = xgr, y = ygr, hab = "arable"), nboot = 1000)
 
-ggplot(data.frame(x = xgr, y = ygr, t = tgr, psi = pred_xyt$psi)) + 
-  geom_tile(aes(x = x, y = y, group = t, fill = psi)) + 
-  theme_bw() + 
-  facet_wrap(~t) + 
-  scale_x_continuous("x") + 
-  scale_y_continuous("y") + 
+ggplot(data.frame(x = xgr, y = ygr, t = tgr, psi = pred_xyt$psi)) +
+  geom_tile(aes(x = x, y = y, group = t, fill = psi)) +
+  theme_bw() +
+  facet_wrap(~t) +
+  scale_x_continuous("x") +
+  scale_y_continuous("y") +
   scale_fill_viridis_c("Occupancy")
 
