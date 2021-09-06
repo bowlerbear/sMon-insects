@@ -5,4 +5,4 @@ mtbqTrends_k30.rds
 mtbqTrends_k30-20.rds
 zst.rds
 splineSummaries.R
-splines/adultData.rds
+splines/*.rds
