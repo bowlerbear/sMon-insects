@@ -6,3 +6,5 @@ mtbqTrends_k30-20.rds
 zst.rds
 splineSummaries.R
 splines/*.rds
+adultData.rds
+siteInfo_NAs.rds
