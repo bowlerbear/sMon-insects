@@ -1,8 +1,19 @@
 library(tidyverse)
 library(ggthemes)
 
+#### choose model ####
+
 #get list of stan models
-modelDirectory <- "model-outputs/=Odonata_stan_spline"
+#original using default spline properties
+modelDirectory <- "model-outputs/Odonata_stan_spline/v1"
+
+#with 2/1 dimension on spline
+modelDirectory <- "model-outputs/Odonata_stan_spline/v2"
+
+#with 2/1 dimension on spline and k = c(5,5)
+modelDirectory <- "model-outputs/Odonata_stan_spline/v3"
+
+
 stanFiles <- list.files(modelDirectory) %>% str_subset("m_fit")
 
 #function to apply to each file
@@ -26,40 +37,87 @@ modelSummaries <- stanFiles %>%
   map_df(readStanModel) %>%
   mutate(siteIndex = parse_number(Param))
 
+#### add siteInfo ####
 
 #get site and year information
-siteInfo_NAs <- readRDS("stan/siteInfo_NAs.rds") %>%#see the HPC_spline_stan_MTB script
-                select(!c("Species","SpeciesOrig"))
+siteInfo_NAs <- readRDS("splines/siteInfo_NAs.rds") %>%
+  select(!c(Species,SpeciesOrig))
 modelSummaries <- left_join(modelSummaries,siteInfo_NAs, by="siteIndex")
 
+
+#### time-series ####
 
 #analyse nationwide time series for each species
 nuMTBs <- length(unique(siteInfo_NAs$MTB))
 myspecies <- sort(unique(modelSummaries$Species))
 annualTS <- modelSummaries %>%
-            group_by(Species,Year) %>%
-            summarise(total = sum(mean)/nuMTBs)
+            dplyr::group_by(Species,Year) %>%
+            dplyr::summarise(total = sum(mean)/nuMTBs)
 
 ggplot(annualTS)+
   geom_line(aes(x=Year, y=total))+
   facet_wrap(~Species)+
   theme_bw()
-#very smooth time-series... maybe try with more knots
+
+#very smooth time-series with v1... maybe try with more knots
+#more wiggly with v2
+#very smooth again with v3
+
+#### spatial maps ####
 
 #plot spatial maps
+
 #just compare the start and the end for each species
 modelSummaries_Limits <- filter(modelSummaries, Year %in% c(1990,2016))
 ggplot(filter(modelSummaries_Limits, Species %in% myspecies[1:10]))+
-  geom_point(aes(x=x_MTB, y=y, colour=mean))+
+  geom_point(aes(x=x_MTB, y=y_MTB, colour=mean))+
     facet_grid(Year~Species)+
   scale_color_viridis_c()
 
 ggplot(filter(modelSummaries_Limits, Species %in% myspecies[11:20]))+
-  geom_point(aes(x=x_MTB, y=y, colour=mean))+
+  geom_point(aes(x=x_MTB, y=y_MTB, colour=mean))+
   facet_grid(Year~Species)+
   scale_color_viridis_c()
 
 ggplot(filter(modelSummaries_Limits, Species %in% myspecies[21:30]))+
-  geom_point(aes(x=x_MTB, y=y, colour=mean))+
+  geom_point(aes(x=x_MTB, y=y_MTB, colour=mean))+
   facet_grid(Year~Species)+
   scale_color_viridis_c()
+
+#plot each year for each species
+myYears <- 1991:2016
+
+#mean
+for(s in unique(modelSummaries$Species)){
+  
+  myMax <- max(modelSummaries$mean[modelSummaries$Species==s])
+  
+for(i in 1:length(myYears)){
+  
+    ggplot(subset(modelSummaries, Species == s & Year == myYears[i]))+
+      geom_point(aes( x=x_MTB, y = y_MTB, colour = mean), size = 3)+
+      scale_color_viridis_c("Occupancy",option = "A", direction = -1, limits=c(0,myMax))+
+      theme_void()
+    
+ggsave(file=paste0("plots/species/spatial_maps/Map_",myYears[i],"_",s,".png"), width=5.5, height=6)    
+       
+  }
+}
+
+#and error maps
+for(s in unique(modelSummaries$Species)){
+  
+  myMax <- max(modelSummaries$sd[modelSummaries$Species==s])
+  myMin <- min(modelSummaries$sd[modelSummaries$Species==s])
+  
+  for(i in 1:length(myYears)){
+    
+    ggplot(subset(modelSummaries, Species == s & Year == myYears[i]))+
+      geom_point(aes( x=x_MTB, y = y_MTB, colour = sd), size = 3)+
+      scale_color_viridis_c("Occupancy_error",option = "A", direction = -1, limits=c(myMin,myMax))+
+      theme_void()
+    
+    ggsave(file=paste0("plots/species/spatial_maps/error/Map_error_",myYears[i],"_",s,".png"), width=5.5, height=6)    
+    
+  }
+}
