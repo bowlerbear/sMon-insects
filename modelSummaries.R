@@ -3,6 +3,7 @@ library(rgdal)
 library(ggplot2)
 library(plyr)
 library(reshape2)
+library(ggthemes)
 
 source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/R/sparta_wrapper_functions.R')
 
@@ -479,7 +480,6 @@ source('C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/
 #updated another 20,000 iterations - used for revisions
 mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs/Odonata_adult_nation_naturraum_sparta/7503029/7578391"
 
-
 #again with wide normal priors dnorm(0,0.001) and 50,000 iter (on slurm)
 #mdir <- "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Odonata_Git/sMon-insects/model-outputs#/Odonata_adult_nation_naturraum_sparta/slurm/=Odonata_adult_nation_naturraum/55297"
 #"Erythromma lindenii" (33) "Ischnura elegans"  (39)   "Lestes sponsa"(43)        
@@ -587,6 +587,24 @@ ggplot(detprobDF)+
   coord_flip()
 ggsave("plots/mean_detection.png",height=10,width=5)
   
+
+### plot time series separately #############################
+
+#used for shiny app by Edwin
+
+head(annualDF)
+
+for(i in mySpecies){
+ggplot(subset(annualDF, Species == i))+
+  #geom_point(aes(x = Year, y = mean))+
+  geom_line(aes(x = Year, y = mean))+
+  geom_ribbon(aes(x = Year, ymin = X2.5., ymax = X97.5.), alpha = 0.7)+
+  theme_few()+ylab("Occupancy proportion")+ylim(0,1)
+  
+  ggsave(file=paste0("plots/species/",i,"_ts.png"),width = 5,height = 4)
+}
+
+
 ###Posterior draws############################################
 
 library(rjags)
