@@ -4,7 +4,10 @@
 #https://github.com/r-glennie/occuR
 #https://r-glennie.github.io/occuR/
 #remotes::install_github("r-glennie/occuR")
+
 library(occuR)
+library(occuR, lib.loc="/gpfs0/home/bowler")
+
 library(tidyverse)
 
 #myfolder
