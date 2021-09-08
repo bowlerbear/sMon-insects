@@ -13,6 +13,8 @@ modelDirectory <- "model-outputs/Odonata_stan_spline/v2"
 #with 2/1 dimension on spline and k = c(5,5)
 modelDirectory <- "model-outputs/Odonata_stan_spline/v3"
 
+#with 2/1 dimension on spline and k = c(5,5) and bs/cs
+modelDirectory <- "model-outputs/Odonata_stan_spline/v4"
 
 stanFiles <- list.files(modelDirectory) %>% str_subset("m_fit")
 
@@ -62,6 +64,7 @@ ggplot(annualTS)+
 #very smooth time-series with v1... maybe try with more knots
 #more wiggly with v2
 #very smooth again with v3
+#more wiggly with v4
 
 #### spatial maps ####
 
