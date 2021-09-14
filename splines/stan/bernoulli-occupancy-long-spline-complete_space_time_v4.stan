@@ -107,5 +107,5 @@ generated quantities {
   
   //psi on original scale
   vector[complete_N] psi = inv_logit(Intercept + rep_vector(0.0, complete_N) + complete_Zs_1_1 * s_1_1);
-  
+  vector[n_site] fits = inv_logit(Intercept + rep_vector(0.0,n_site) + Zs_1_1 * s_1_1);
 }
