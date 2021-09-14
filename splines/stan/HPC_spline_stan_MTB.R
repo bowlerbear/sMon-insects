@@ -160,6 +160,7 @@ siteInfo_NAs <- arrange(siteInfo_NAs, siteIndex)
 
 ### fit model ####
 
+library(rstan)
 library(brms)
 library(mgcv)
 
