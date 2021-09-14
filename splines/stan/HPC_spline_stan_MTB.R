@@ -156,6 +156,7 @@ siteInfo_NAs$y <- siteInfo_NAs$y_MTB/1000000 - medY
 #arrange file
 siteInfo_NAs$siteIndex <- as.numeric(as.factor(paste0(siteInfo_NAs$MTB,siteInfo_NAs$Year)))
 siteInfo_NAs <- arrange(siteInfo_NAs, siteIndex)
+#saveRDS(siteInfo_NAs, file="splines/siteInfo_NAs.rds")
 
 ### fit model ####
 
@@ -183,10 +184,24 @@ library(mgcv)
 
 
 #v4
-mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex, d = c(2,1), 
-                                                           bs = c("ts", "cs"),
-                                                           k = c(10,10))),data = siteInfo_NAs, 
-                                                           family = bernoulli())
+# mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex, d = c(2,1), 
+#                                                            bs = c("ts", "cs"),
+#                                                            k = c(10,10))),data = siteInfo_NAs, 
+#                                                            family = bernoulli())
+
+#v5
+# mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex, d = c(2,1), 
+#                                                            bs = c("ts", "cs"),
+#                                                            k = c(15,10))),data = siteInfo_NAs, 
+#                                                           family = bernoulli())
+
+
+#v6
+mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex, 
+                                                           d = c(2,1),k = c(8,5))),
+                                           data = siteInfo_NAs,
+                                           family = bernoulli())
+                                                           
 
 names(mydata_complete) <- sapply(names(mydata_complete), 
                                  function(x) paste0("complete_",x))
@@ -208,12 +223,6 @@ mydata$Zs_1_4 <- mydata_complete$complete_Zs_1_4[presentData,]
 mydata$Zs_1_5 <- mydata_complete$complete_Zs_1_5[presentData,]
 mydata$Zs_1_6 <- mydata_complete$complete_Zs_1_6[presentData,]
 mydata$Zs_1_7 <- mydata_complete$complete_Zs_1_7[presentData,]
-
-# Settings -----------------------------------------------------------------
-
-library(rstan)
-options(mc.cores = parallel::detectCores())
-#rstan_options(auto_write = TRUE)
 
 # Occupancy states ------------------------------------------
 
@@ -248,6 +257,10 @@ m_p <- ncol(X_p)
 X_p_new <- df[,c("singleList","shortList")]
 X_p <- as.matrix(cbind(X_p,X_p_new))
 m_p <- ncol(X_p)
+
+#save for examining predictions
+#saveRDS(unique(df[,c("MTB","Year")]), file="splines/fitDF.rds")
+
 
 # indices ---------------------------------------------------------
 
@@ -303,12 +316,12 @@ stan_d <- c(stan_d,mydata_complete)
 
 #select model
 m_init <- stan_model(paste(myfolder,
-                           'bernoulli-occupancy-long-spline-complete_space_time_v4.stan',sep="/"))
+                           'bernoulli-occupancy-long-spline-complete_space_time_v6.stan',sep="/"))
 
 #get cores
 # try to get SLURM_CPUS_PER_TASK from submit script, otherwise fall back to 1
 cpus_per_task = as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1"))
-rstan_options(auto_write = TRUE)
+rstan_options(auto_write = FALSE)
 options(mc.cores = cpus_per_task)
 
 
