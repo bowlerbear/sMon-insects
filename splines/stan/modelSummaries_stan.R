@@ -5,7 +5,7 @@ load("splines/mtbqsDF.RData")
 names(mtbqsDF)[2] <- "MTB"
 mtbsDF <- subset(mtbqsDF,!duplicated(MTB))
 
-#### choose model ####
+#### choose model directory ####
 
 #get list of stan models
 #original using default spline properties
@@ -26,38 +26,40 @@ modelDirectory <- "model-outputs/Odonata_stan_spline/v5"
 #with 2/1 dimension on spline and k = c(8,5)
 modelDirectory <- "model-outputs/Odonata_stan_spline/v6"
 
+### get list of models ####
+
 stanFiles <- list.files(modelDirectory) %>% str_subset("m_fit")
 
 ### model fits ####
 
-readStanModel <- function(file, get="fits"){
-  
-  temp <- as.data.frame(readRDS(paste(modelDirectory,file,sep="/")))
-  
-  #get rows for the parameter of interest
-  temp$Param <- row.names(temp)
-  temp <- subset(temp, grepl(get,temp$Param))
-  
-  #get species name
-  temp$File <- file
-  temp$Species <- gsub("m_fit_summary_spacetime_","",temp$File)
-  temp$Species <- gsub(".rds","",temp$Species)
-  
-  return(temp)
-}
-
-modelSummaries <- stanFiles %>%
-  map_df(readStanModel) %>%
-  mutate(siteIndex = parse_number(Param))
-
-#get site and year information
-fitDF <- readRDS("splines/fitDF.rds")
-fitDF$siteIndex <- 1:nrow(fitDF)
-modelSummaries <- left_join(modelSummaries,fitDF, by="siteIndex") 
-
-#add coordinates
-modelSummaries <- left_join(modelSummaries,mtbsDF, by="MTB")
-nuMTBs <- length(unique(modelSummaries$MTB))
+# readStanModel <- function(file, get="fits"){
+#   
+#   temp <- as.data.frame(readRDS(paste(modelDirectory,file,sep="/")))
+#   
+#   #get rows for the parameter of interest
+#   temp$Param <- row.names(temp)
+#   temp <- subset(temp, grepl(get,temp$Param))
+#   
+#   #get species name
+#   temp$File <- file
+#   temp$Species <- gsub("m_fit_summary_spacetime_","",temp$File)
+#   temp$Species <- gsub(".rds","",temp$Species)
+#   
+#   return(temp)
+# }
+# 
+# modelSummaries <- stanFiles %>%
+#   map_df(readStanModel) %>%
+#   mutate(siteIndex = parse_number(Param))
+# 
+# #get site and year information
+# fitDF <- readRDS("splines/fitDF.rds")
+# fitDF$siteIndex <- 1:nrow(fitDF)
+# modelSummaries <- left_join(modelSummaries,fitDF, by="siteIndex") 
+# 
+# #add coordinates
+# modelSummaries <- left_join(modelSummaries,mtbsDF, by="MTB")
+# nuMTBs <- length(unique(modelSummaries$MTB))
 
 ### national predictions ####
 
@@ -103,17 +105,18 @@ ggplot(annualTS)+
   facet_wrap(~Species)+
   theme_bw()
 
-#very smooth time-series with v1... maybe try with more knots
-#more wiggly with v2 - only ran for 20 species
-#very smooth again with v3
-#more wiggly with v4
-#more wiggly with v5
+#v1 - very smooth time-series with v1... maybe try with more knots
+#v2 - more wiggly with v2 - only ran for 20 species
+#v3 - very smooth again with v3
+#v4 - more wiggly with v4
+#v5 - more wiggly with v5
+#v6 - very smooth
 
 #### spatial maps ####
 allspecies <- sort(unique(modelSummaries$Species))
 
 #plot all years for one species
-selectspecies <- allspecies[69]
+selectspecies <- allspecies[11]
 ggplot(filter(modelSummaries, Species==selectspecies))+
   geom_point(aes(x=x_MTB, y=y_MTB, colour=mean))+
   facet_wrap(~Year) +
@@ -139,10 +142,11 @@ ggplot(filter(modelSummaries_Limits, Species %in% allspecies[21:30]))+
   scale_color_viridis_c()
 
 #v1 - not stripey
-#v2
-#v3 - very smooth - not stripey
+#v2 - some stripey
+#v3 - very smooth - stripey
 #v4 - stripey for some
 #v5 - stripey for some
+#v6 - stripey
 
 #plot each year for each species
 myYears <- 1991:2016
