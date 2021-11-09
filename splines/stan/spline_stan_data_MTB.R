@@ -125,17 +125,21 @@ spData$y_MTB <- mtbsDF$y_MTB[match(spData$MTB, mtbsDF$MTB)]
 
 myYears <- sort(unique(spData$Year))
 
+
+library(scales)
+
 for(s in allspecies){
   for(i in 1:length(myYears)){
     
     ggplot(subset(spData, Species == s & Year == myYears[i]))+
       geom_point(aes( x=x_MTB, y = y_MTB, colour = nuVisits),size = 2.5, shape=15)+
-      scale_color_viridis_c("Number of Visits",option = "A", direction = -1)+
+      scale_color_viridis_c("Number of Visits",option = "C", direction = -1,
+                            trans = log2_trans(), limits=c(1,324))+
       geom_point(data = subset(spData, Detected =="Yes" & Species == s & Year == myYears[i]),
-                 aes(x=x_MTB, y = y_MTB), size = 2.5, shape=22)+
+                 aes(x=x_MTB, y = y_MTB), size = 3.5, shape=4)+
       theme_void()
     
-    ggsave(file=paste0("plots/species/spatial_maps/data/Data_",myYears[i],"_",s,".png"), width=5.5, height=6)    
+    ggsave(file=paste0("plots/species/Data_",myYears[i],"_",s,".png"), width=5.5, height=6)    
     
   }
 }
