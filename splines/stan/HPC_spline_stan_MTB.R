@@ -205,10 +205,28 @@ library(mgcv)
                                                            
 
 #v7 - spatial only model
-mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, k=15)),
-                              data = siteInfo_NAs, 
-                              family = bernoulli())
+# mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, k=15)),
+#                               data = siteInfo_NAs, 
+#                               family = bernoulli())
+
+
+#v8
+#mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex, k=8)),
+#                                           data = siteInfo_NAs, 
+#                                           family = bernoulli())
                                            
+
+#v9
+mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex, k=12)),
+                                           data = siteInfo_NAs, 
+                                           family = bernoulli())
+
+
+
+#v10 include covariates on the detection model
+# year term - as a factor
+# effort term - short and long list
+# yday and yday2
 
 names(mydata_complete) <- sapply(names(mydata_complete), 
                                  function(x) paste0("complete_",x))
@@ -226,10 +244,10 @@ mydata$Xs <- mydata_complete$complete_Xs[presentData,]
 mydata$Zs_1_1 <- mydata_complete$complete_Zs_1_1[presentData,]
 mydata$Zs_1_2 <- mydata_complete$complete_Zs_1_2[presentData,]
 mydata$Zs_1_3 <- mydata_complete$complete_Zs_1_3[presentData,]
-#mydata$Zs_1_4 <- mydata_complete$complete_Zs_1_4[presentData,]
-#mydata$Zs_1_5 <- mydata_complete$complete_Zs_1_5[presentData,]
-#mydata$Zs_1_6 <- mydata_complete$complete_Zs_1_6[presentData,]
-#mydata$Zs_1_7 <- mydata_complete$complete_Zs_1_7[presentData,]
+mydata$Zs_1_4 <- mydata_complete$complete_Zs_1_4[presentData,]
+mydata$Zs_1_5 <- mydata_complete$complete_Zs_1_5[presentData,]
+mydata$Zs_1_6 <- mydata_complete$complete_Zs_1_6[presentData,]
+mydata$Zs_1_7 <- mydata_complete$complete_Zs_1_7[presentData,]
 
 # Occupancy states ------------------------------------------
 
@@ -323,7 +341,7 @@ stan_d <- c(stan_d,mydata_complete)
 
 #select model
 m_init <- stan_model(paste(myfolder,
-                           'bernoulli-occupancy-long-spline-complete_space_time_v7.stan',sep="/"))
+                           'bernoulli-occupancy-long-spline-complete_space_time_v9.stan',sep="/"))
 
 #get cores
 # try to get SLURM_CPUS_PER_TASK from submit script, otherwise fall back to 1
