@@ -8,6 +8,10 @@
 
 #Joppa, L. N., Butchart, S. H. M., Hoffmann, M., Bachman, S. P., Akçakaya, H. R., Moat, J. F., Böhm, M., #Holland, R. A., Newton, A., Polidoro, B. and Hughes, A. (2016), Impact of alternative metrics on #estimates of extent of occurrence for extinction risk assessment. Conservation Biology, 30: 362–370. doi:10.1111/cobi.12591
 
+#dealing with outliers
+#https://search.r-project.org/CRAN/refmans/CoordinateCleaner/html/cc_outl.html
+
+
 ### get data ####
 
 #run the modelSummaries_stan
