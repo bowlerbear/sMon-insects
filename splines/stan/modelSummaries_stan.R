@@ -26,6 +26,15 @@ modelDirectory <- "model-outputs/Odonata_stan_spline/v5"
 #with 2/1 dimension on spline and k = c(8,5)
 modelDirectory <- "model-outputs/Odonata_stan_spline/v6"
 
+#spatial only and k = 10
+modelDirectory <- "model-outputs/Odonata_stan_spline/v7"
+
+#spatial-temporal and k = 8
+modelDirectory <- "model-outputs/Odonata_stan_spline/v8"
+
+#spatial-temporal and k = 12
+modelDirectory <- "model-outputs/Odonata_stan_spline/v9"
+
 ### get list of models ####
 
 stanFiles <- list.files(modelDirectory) %>% str_subset("m_fit")
@@ -111,12 +120,18 @@ ggplot(annualTS)+
 #v4 - more wiggly with v4
 #v5 - more wiggly with v5
 #v6 - very smooth
+#v7 - constant - spatial only model
+#v8 - looks good
+#v9 - wiggly and look good
 
 #### spatial maps ####
 allspecies <- sort(unique(modelSummaries$Species))
 
 #plot all years for one species
 selectspecies <- allspecies[11]
+
+selectspecies <- allspecies[28]
+
 ggplot(filter(modelSummaries, Species==selectspecies))+
   geom_point(aes(x=x_MTB, y=y_MTB, colour=mean))+
   facet_wrap(~Year) +
@@ -147,9 +162,10 @@ ggplot(filter(modelSummaries_Limits, Species %in% allspecies[21:30]))+
 #v4 - stripey for some
 #v5 - stripey for some
 #v6 - stripey
+#v7 - spatial only
 
 #plot each year for each species
-myYears <- 1991:2016
+myYears <- 1990:2016
 
 #mean
 for(s in unique(modelSummaries$Species)){
@@ -163,7 +179,7 @@ for(i in 1:length(myYears)){
       scale_color_viridis_c("Occupancy",option = "A", direction = -1, limits=c(0,myMax))+
       theme_void()
     
-ggsave(file=paste0("plots/species/spatial_maps/Map_",myYears[i],"_",s,".png"), width=5.5, height=6)    
+ggsave(file=paste0("plots/species/spatial_maps/v9/Map_",s,"_",myYears[i],".png"), width=5.5, height=6)    
        
   }
 }
