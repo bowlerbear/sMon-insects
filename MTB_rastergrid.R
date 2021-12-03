@@ -80,7 +80,7 @@ mtbs_raster <- raster(mtbs_raster)
 #ideal extent of new raster
 mtbs_raster_extend <- extend(mtbs_raster, 10, value=NA)
 plot(mtbs_raster_extend)
-mtbs_raster_buffer <- raster::buffer(mtbs_raster_extend, width = 100000)#just to be sure
+mtbs_raster_buffer <- raster::buffer(mtbs_raster_extend, width = 150000)#just to be sure
 plot(mtbs_raster_buffer)
 
 #see how new points compare with old points
@@ -113,10 +113,10 @@ tm_shape(mtbs_raster_buffer_pointsS)+
 #              st_union(.,by_feature = TRUE) %>% 
 #              st_difference(.,nr_buffer_dissolve)
 
-tm_shape(nr)+
-  tm_polygons("Coarsenaturraum")+
-tm_shape(nr_buffer50)+
-  tm_polygons("Coarsenaturraum")
+# tm_shape(nr)+
+#   tm_polygons("Coarsenaturraum")+
+# tm_shape(nr_buffer50)+
+#   tm_polygons("Coarsenaturraum")
 
 #st_write(nr_buffer50,"nc.shp")
 
