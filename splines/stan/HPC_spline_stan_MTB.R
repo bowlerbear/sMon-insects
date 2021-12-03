@@ -7,9 +7,10 @@ myfolder <- "/data/idiv_ess/Odonata"#HPC
 ### load in the full dataset ####
 
 adultData <- readRDS(paste(myfolder,"adultData.rds",sep="/"))
-load(paste(myfolder,"mtbqsDF.RData",sep="/"))
-names(mtbqsDF)[2] <- "MTB"
-mtbsDF <- subset(mtbqsDF,!duplicated(MTB))
+#load(paste(myfolder,"mtbqsDF.RData",sep="/"))
+mtbsDF_extended <- readRDS(paste(myfolder,"MTB_extendedpoints.rds",sep="/"))
+names(mtbsDF_extended)[1] <- "MTB"
+mtbsDF <- subset(mtbsDF_extended, !is.na(MTB))
 
 # subset  
 
@@ -31,23 +32,15 @@ df$MTB <- sapply(as.character(df$MTB_Q),function(x){
 
 ### function to get data for a species ####
 
-all(df$MTB %in% mtbqsDF$MTB)
+all(df$MTB %in% mtbsDF$MTB)
 
-df$State <- mtbsDF$Counties[match(df$MTB,mtbsDF$MTB)]
-sum(is.na(df$State))
-
-#check missing naturruam data
-mtbsDF$Natur[is.na(mtbsDF$Natur)] <- mtbsDF$MTB_Natur[is.na(mtbsDF$Natur)]
-df$Natur <- mtbsDF$Natur[match(df$MTB,mtbsDF$MTB)]
-sum(is.na(df$Natur))
-
-mtbsDF$CoarseNatur[is.na(mtbsDF$CoarseNatur)] <- mtbsDF$MTB_CoarseNatur[is.na(mtbsDF$CoarseNatur)]
-df$CoarseNatur <- mtbsDF$CoarseNatur[match(df$MTB,mtbsDF$MTB)]
+#mtbsDF$CoarseNatur[is.na(mtbsDF$CoarseNatur)] <- mtbsDF$MTB_CoarseNatur[is.na(mtbsDF$CoarseNatur)]
+df$CoarseNatur <- mtbsDF$Coarsenaturraum[match(df$MTB,mtbsDF$MTB)]
 sum(is.na(df$CoarseNatur))
 
-mtbsDF$MTB_MidNatur <- gdata::trim(mtbsDF$MTB_MidNatur)
-df$MidNatur <- mtbsDF$MTB_MidNatur[match(df$MTB,mtbsDF$MTB)]
-sum(is.na(df$MidNatur))
+#mtbsDF$MTB_MidNatur <- gdata::trim(mtbsDF$MTB_MidNatur)
+#df$MidNatur <- mtbsDF$MTB_MidNatur[match(df$MTB,mtbsDF$MTB)]
+#sum(is.na(df$MidNatur))
 
 #define a visit
 df$visit <- paste(df$MTB,df$Date,df$Beobachter,sep="_")
@@ -63,8 +56,8 @@ occMatrix <- getOccurrenceMatrix(df)
 #get list length
 getListLength<-function(df){
   df %>% 
-    group_by(visit,Date,MTB) %>%
-    summarise(nuSpecies=length(unique(Species)),
+    dplyr::group_by(visit,Date,MTB) %>%
+    dplyr::summarise(nuSpecies=length(unique(Species)),
                     nuRecords=length(Species)) %>%
     arrange(.,visit)
 }
@@ -80,17 +73,13 @@ listlengthDF$yday <- lubridate::yday(listlengthDF$Date)
 listlengthDF$yearIndex <- as.numeric(factor(listlengthDF$Year))
 
 #add natur raum
-listlengthDF$CoarseNaturraum <- mtbqsDF$CoarseNatur[match(listlengthDF$MTB,mtbsDF$MTB)]
+listlengthDF$CoarseNaturraum <- mtbsDF$Coarsenaturraum[match(listlengthDF$MTB,mtbsDF$MTB)]
 listlengthDF$cnIndex <- as.numeric(factor(listlengthDF$CoarseNaturraum))
 subset(listlengthDF,is.na(CoarseNaturraum))
 
-listlengthDF$Naturraum <- mtbqsDF$Natur[match(listlengthDF$MTB,mtbsDF$MTB)]
-listlengthDF$nnIndex <- as.numeric(factor(listlengthDF$Naturraum))
-subset(listlengthDF,is.na(Naturraum))
-
-listlengthDF$MidNaturraum <- mtbqsDF$MTB_MidNatur[match(listlengthDF$MTB,mtbsDF$MTB)]
-listlengthDF$mnIndex <- as.numeric(factor(listlengthDF$MidNaturraum))
-subset(listlengthDF,is.na(MidNaturraum))
+# listlengthDF$MidNaturraum <- mtbqsDF$MTB_MidNatur[match(listlengthDF$MTB,mtbsDF$MTB)]
+# listlengthDF$mnIndex <- as.numeric(factor(listlengthDF$MidNaturraum))
+# subset(listlengthDF,is.na(MidNaturraum))
 
 #get other effort variables
 listlengthDF$singleList <- ifelse(listlengthDF$nuSpecies==1,1,0)
@@ -117,8 +106,8 @@ df <- arrange(df,siteIndex,visit)
 nrow(df)
 
 #add on geographic coordinates
-df$x <- mtbsDF$x_MTB[match(df$MTB, mtbsDF$MTB)]
-df$y <- mtbsDF$y_MTB[match(df$MTB, mtbsDF$MTB)]
+df$x <- mtbsDF$x[match(df$MTB, mtbsDF$MTB)]
+df$y <- mtbsDF$y[match(df$MTB, mtbsDF$MTB)]
 
 #make values smaller
 medX <- median(df$x/10000)
@@ -130,6 +119,7 @@ df$y <- df$y/1000000 - medY
 site_df <- df %>%
   group_by(siteIndex,x,y,MTB,Year) %>%
   summarise(Species = max(Species, na.rm=T))
+table(site_df$Species)
 
 #few checks
 nrow(site_df)#27606
@@ -138,7 +128,7 @@ nrow(site_df)==length(unique(df$siteIndex))#should be TRUE
 #qplot(x, y, color = Species, data = site_df, alpha=0.5,facets=~Year)+theme(legend.position="none")
 
 # expand to whole range 
-siteInfo_NAs <- mtbsDF
+siteInfo_NAs <- mtbsDF_extended
 nuSites <- nrow(siteInfo_NAs)
 siteInfo_NAs <- siteInfo_NAs %>% slice(rep(1:n(), each = length(unique(df$Year))))
 siteInfo_NAs$Year <- rep(sort(unique(df$Year)),nuSites)
@@ -148,10 +138,11 @@ siteInfo_NAs$yearIndex <- rep(1:length(unique(df$Year)),nuSites)
 siteInfo_NAs$Species <- siteInfo_NAs$SpeciesOrig  <- site_df$Species[match(interaction(siteInfo_NAs$MTB,siteInfo_NAs$Year),
                                                                            interaction(site_df$MTB,site_df$Year))]
 siteInfo_NAs$Species[is.na(siteInfo_NAs$Species)] <- 0
+table(siteInfo_NAs$Species)
 
 #sort coordinates
-siteInfo_NAs$x <- siteInfo_NAs$x_MTB/10000 - medX
-siteInfo_NAs$y <- siteInfo_NAs$y_MTB/1000000 - medY
+siteInfo_NAs$x <- siteInfo_NAs$x/10000 - medX
+siteInfo_NAs$y <- siteInfo_NAs$y/1000000 - medY
 
 #arrange file
 siteInfo_NAs$siteIndex <- as.numeric(as.factor(paste0(siteInfo_NAs$MTB,siteInfo_NAs$Year)))
@@ -217,16 +208,29 @@ library(mgcv)
                                            
 
 #v9
-mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex, k=12)),
-                                           data = siteInfo_NAs, 
-                                           family = bernoulli())
+#mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex, k=12)),
+#                                           data = siteInfo_NAs, 
+#                                           family = bernoulli())
 
 
 
 #v10 include covariates on the detection model
-# year term - as a factor
 # effort term - short and long list
 # yday and yday2
+# extended MTB frame
+#mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex, k=8)),
+#                                           data = siteInfo_NAs, 
+#                                           family = bernoulli())
+
+
+#v11 include covariates on the detection model
+# effort term - short and long list
+# yday and yday2
+# extended MTB frame
+mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex, k=7)),
+                                           data = siteInfo_NAs, 
+                                           family = bernoulli())
+
 
 names(mydata_complete) <- sapply(names(mydata_complete), 
                                  function(x) paste0("complete_",x))
@@ -261,6 +265,10 @@ length(mydata$Y)==n_site
 X_psi <- matrix(c(rep(1, n_site)))
 m_psi <- ncol(X_psi)    # m_psi is the number of columns in the site level design matrix
 
+#include naturraum as a fixed effect?? interaction with year
+#X_psi <- mydata$X
+#m_psi <- ncol(X_psi) 
+
 # Survey data --------------------------
 
 # get observations
@@ -279,13 +287,17 @@ X_p <- matrix(c(rep(1, total_surveys)))
 m_p <- ncol(X_p)
 
 #or covariate model
+#effort terms
 X_p_new <- df[,c("singleList","shortList")]
+#phenology terms
+X_p_new$yday <- as.numeric(scale(df$yday))
+X_p_new$yday2 <- as.numeric(scale(df$yday^2))
+#combine all
 X_p <- as.matrix(cbind(X_p,X_p_new))
 m_p <- ncol(X_p)
 
 #save for examining predictions
 #saveRDS(unique(df[,c("MTB","Year")]), file="splines/fitDF.rds")
-
 
 # indices ---------------------------------------------------------
 
@@ -319,8 +331,6 @@ stan_d <- list(n_site = length(unique(df$siteIndex)),
                m_psi = m_psi, #number of parameters
                X_psi = X_psi, #design matrix for occupancy 
                total_surveys = nrow(df), 
-               #RandomEffect = siteInfo$MidNaturraumIndex,
-               #n_effects = length(unique(siteInfo$MidNaturraumIndex)),
                m_p = m_p, #number of parameters
                X_p = X_p, #design matrix for detection
                site = df$siteIndex, #site indices
@@ -352,7 +362,8 @@ options(mc.cores = cpus_per_task)
 
 m_fit <- sampling(m_init, 
                   chains = 4,
+                  iter = 2000,
                   data = stan_d, 
-                  pars = c('b_Intercept','beta_p','psi'))
+                  pars = c('beta_p','psi'))#'beta_psi'
 
 saveRDS(summary(m_fit)$summary,file=paste0("m_fit_summary_spacetime_",myspecies,".rds"))
