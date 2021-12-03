@@ -54,27 +54,35 @@ paShape2 <- st_buffer(paShape2,dist=0)
 #pa_Union <- st_union(paShape,paShape2)#memory issues
 
 #read in Netras object
-pa_Union <- sf::read_sf(dsn = "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Spatial_bias/MTBQ_data/ProtectedAreas_DE/pre-processing/protected_area",
+pa_Union <- sf::read_sf(dsn = "C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/Spatial_bias/bias_template/MTBQ_data/ProtectedAreas_DE/pre-processing/protected_area",
                        layer = "pa_union")
 pa_Union <- st_transform(pa_Union,crs=st_crs(mtbqs))
-
+pa_Union$area <- st_area(pa_Union)
+sum(pa_Union$area) #29348526878 [m^2]
 
 #get area of each MTB_Q
 mtbqs$mtbq_area <- st_area(mtbqs)
+sum(mtbqs$mtbq_area) #390641923430 [m^2]
+#7.5%
 
 #get area per MTBQ
-MTBQ_pa  <-  st_intersection(mtbqs,st_make_valid(pa_Union))
-MTBQ_pa$area <- st_area(MTBQ_pa)
-
+MTBQ_pa  <-  st_intersection(mtbqs[,"MTB_Q"],st_make_valid(pa_Union))
+MTBQ_pa$pa_area <- st_area(MTBQ_pa)
+sum(duplicated(MTBQ_pa$MTB_Q))
+sum(MTBQ_pa$pa_area)
 #sum per MTBQ
-MTBQ_pa <- MTBQ_pa %>% 
-            group_by(MTB_Q) %>%
-            summarise(area = sum(area), mtbq_area = mean(mtbq_area)) %>%
-            mutate(pa_perc = as.numeric(area/mtbq_area))
-  
-  
+MTBQ_pa <- MTBQ_pa %>%
+            dplyr::group_by(MTB_Q) %>%
+            dplyr::summarise(pa_area = sum(pa_area))
+
+
+#combine
+mtbqs$pa_area <- MTBQ_pa$pa_area[match(mtbqs$MTB_Q,MTBQ_pa$MTB_Q)]
+mtbqs$pa_area[is.na(mtbqs$pa_area)] <- 0
+
+
 #put into a data frame
-protected_area <- data.frame(MTB_Q = MTBQ_pa$MTB_Q, PA_area = MTBQ_pa$pa_perc)
+protected_area <- data.frame(MTB_Q = mtbqs$MTB_Q, PA_area = as.numeric(mtbqs$pa_area/mtbqs$mtbq_area))
 saveRDS(protected_area,file="environ-data/protectedarea_MTBQ.rds")
 
 #old
