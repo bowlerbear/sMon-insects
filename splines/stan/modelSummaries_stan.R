@@ -35,6 +35,9 @@ modelDirectory <- "model-outputs/Odonata_stan_spline/v8"
 #spatial-temporal and k = 12
 modelDirectory <- "model-outputs/Odonata_stan_spline/v9"
 
+#spatial-temporal and k = 8 + expanded grid
+modelDirectory <- "model-outputs/Odonata_stan_spline/v10"
+
 ### get list of models ####
 
 stanFiles <- list.files(modelDirectory) %>% str_subset("m_fit")
@@ -80,7 +83,8 @@ readStanModel <- function(file, get="psi"){
   #get rows for the parameter of interest
   temp$Param <- row.names(temp)
   temp <- subset(temp, grepl(get,temp$Param))
-  
+  temp <- subset(temp, !grepl("beta_psi",temp$Param))
+                 
   #get species name
   temp$File <- file
   temp$Species <- gsub("m_fit_summary_spacetime_","",temp$File)
@@ -93,12 +97,18 @@ modelSummaries <- stanFiles %>%
   map_df(readStanModel) %>%
   mutate(siteIndex = parse_number(Param))
 
-#get site and year information
-siteInfo_NAs <- readRDS("splines/siteInfo_NAs.rds") %>%
-  select(!c(Species,SpeciesOrig))
-modelSummaries <- left_join(modelSummaries,siteInfo_NAs, by="siteIndex")
+#get site and year information - using only MTBQ as the siteInfo
+#siteInfo_NAs <- readRDS("splines/siteInfo_NAs.rds") %>%
+#  select(!c(Species,SpeciesOrig))
+siteInfo_NAs <- readRDS("splines/siteInfo_NAs.rds") %>% #using the MTBQ data frame
+    select(!c(Species,SpeciesOrig)) %>%
+    filter(type!="extension")
 
+#merge
+modelSummaries <- inner_join(modelSummaries,siteInfo_NAs, by="siteIndex")
 nuMTBs <- length(unique(siteInfo_NAs$MTB))
+modelSummaries$x_MTB <- modelSummaries$x
+modelSummaries$y_MTB <- modelSummaries$y
 
 #### time-series ####
 
@@ -123,6 +133,7 @@ ggplot(annualTS)+
 #v7 - constant - spatial only model
 #v8 - looks good
 #v9 - wiggly and look good
+#v10 - looks good
 
 #### spatial maps ####
 allspecies <- sort(unique(modelSummaries$Species))
@@ -179,7 +190,7 @@ for(i in 1:length(myYears)){
       scale_color_viridis_c("Occupancy",option = "A", direction = -1, limits=c(0,myMax))+
       theme_void()
     
-ggsave(file=paste0("plots/species/spatial_maps/v9/Map_",s,"_",myYears[i],".png"), width=5.5, height=6)    
+ggsave(file=paste0("plots/species/spatial_maps/v8/Map_",s,"_",myYears[i],".png"), width=5.5, height=6)    
        
   }
 }
