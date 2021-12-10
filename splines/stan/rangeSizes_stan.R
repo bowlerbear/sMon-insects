@@ -16,15 +16,26 @@
 
 #run the modelSummaries_stan
 
+### GIS data ####
+
+mtbqs <- rgdal::readOGR(dsn="C:/Users/db40fysa/Nextcloud/sMon/sMon-Analyses/MTB_Q Informations/MTBQ_shapefile",layer="MTB_25832")
+#Projected CRS: ETRS89 / UTM zone 32N
+
+#get germany outline
+germanOutline <- raster::getData(name='GADM', country='DE',level=0)
+germanOutline <- sp::spTransform(germanOutline, CRS(proj4string(mtbqs)))
+
 ### subset data #####
 
 #just to test below code
 modelSummaries$PA <- sapply(modelSummaries$mean, function(x) rbinom(1,1,x))
 
-#are we subsetting?
+#are we subsetting? options
 modelSummaries_Limits <- subset(modelSummaries, Year %in% c(1990,2016))
 
 allspecies <- sort(unique(modelSummaries$Species))
+
+species = allspecies[69]
 
 allYears <- 1990:2016
 
@@ -76,14 +87,18 @@ getConvexHull <- function(species, modelSummaries_Limits){
     rangeHull <- sapply(allYears,function(x){
       
       ydat <- dat[dat$Year==x,c("x_MTB","y_MTB")]
+      
       if(nrow(ydat)>0 & length(unique(ydat$x_MTB))>2){
         ch <- chull(ydat)
         coords <- ydat[c(ch, ch[1]), ] 
         plot(ydat, pch=19, main = species)
         lines(coords, col="red")
         sp_poly <- SpatialPolygons(list(Polygons(list(Polygon(coords)), ID=1)),
-                                 proj4string=CRS("+proj=utm +zone=33 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
-        rangeSize <- raster::area(sp_poly)
+                                 proj4string=CRS("+proj=utm +zone=32 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
+        
+          sp_poly_cut <- raster::intersect(sp_poly,germanOutline)#make sense or not??
+          rangeSize <- raster::area(sp_poly_cut)
+        
         return(rangeSize)
     }else {
           return(0)
@@ -146,11 +161,13 @@ getConcaveMan <- function(species, modelSummaries_Limits){
     
     if(nrow(ydat)>0 & length(unique(ydat$x_MTB))>2){
       
-      ydat <- st_as_sf(ydat, coords =c("x_MTB", "y_MTB"),
-                       crs = 25833)
+      ydat <- sf::st_as_sf(ydat, coords =c("x_MTB", "y_MTB"),crs = 25832)
       sp_poly <- concaveman(ydat)
+      germanOutline_sf <- st_as_sf(germanOutline)
+      germanOutline_sf <- st_transform(germanOutline_sf, 25832)
+      sp_poly_cut <- st_intersection(sp_poly, germanOutline_sf)
       plot(ydat, main = species)
-      plot(sp_poly,add=T)
+      plot(sp_poly_cut,add=T)
       rangeSize <- as.numeric(st_area(sp_poly))#m2 units
       return(rangeSize)
       
