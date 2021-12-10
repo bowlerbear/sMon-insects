@@ -140,6 +140,10 @@ siteInfo_NAs$Species <- siteInfo_NAs$SpeciesOrig  <- site_df$Species[match(inter
 siteInfo_NAs$Species[is.na(siteInfo_NAs$Species)] <- 0
 table(siteInfo_NAs$Species)
 
+#keep original coordinates
+siteInfo_NAs$x_MTB <- siteInfo_NAs$x
+siteInfo_NAs$y_MTB <- siteInfo_NAs$y
+
 #sort coordinates
 siteInfo_NAs$x <- siteInfo_NAs$x/10000 - medX
 siteInfo_NAs$y <- siteInfo_NAs$y/1000000 - medY
