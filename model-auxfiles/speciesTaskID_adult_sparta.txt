@@ -1,0 +1,23 @@
+"Species"	"TaskID"
+"Aeshna cyanea"	1
+"Aeshna grandis"	2
+"Aeshna juncea"	3
+"Aeshna mixta"	4
+"Aeshna subarctica"	5
+"Chalcolestes viridis"	6
+"Enallagma cyathigerum"	7
+"Ischnura elegans"	8
+"Ischnura pumilio"	9
+"Lestes barbarus"	10
+"Lestes sponsa"	11
+"Lestes virens"	12
+"Nehalennia speciosa"	13
+"Sympecma fusca"	14
+"Sympecma paedisca"	15
+"Sympetrum danae"	16
+"Sympetrum depressiusculum"	17
+"Sympetrum flaveolum"	18
+"Sympetrum fonscolombii"	19
+"Sympetrum sanguineum"	20
+"Sympetrum striolatum"	21
+"Sympetrum vulgatum"	22
