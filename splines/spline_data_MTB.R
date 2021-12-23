@@ -1,4 +1,3 @@
-#code to work out number of knots for each species
 library(tidyverse)
 
 ### load in the full dataset ####
