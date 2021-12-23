@@ -37,4 +37,6 @@ splines/bugs.data.rds
 splines/adultData.rds
 splines/simpleGAMS/*
 splines/siteInfo_NAs.rds
+splines/stan/models/*
+
 
