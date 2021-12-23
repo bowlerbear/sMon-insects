@@ -9,6 +9,7 @@ raw-data/*
 derived-data/*
 model-outputs/*
 
+#random stuff
 mtbqsDF.RData
 siteInfo.RData
 HPC_play.R
@@ -25,9 +26,15 @@ allSpeciesSites.RData
 vert.txt
 old/*
 occMatrix.RData
-splines/zst.rds
-splines/jagam.txt
-splines/bugs.data.rds
 siteInfo_midnaturraum.rds
 traits_trends_Odonata_Jan2020.csv
 siteInfo_mtb.rds
+
+
+splines/zst.rds
+splines/jagam.txt
+splines/bugs.data.rds
+splines/adultData.rds
+splines/simpleGAMS/*
+splines/siteInfo_NAs.rds
+
