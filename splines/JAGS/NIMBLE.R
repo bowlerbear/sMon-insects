@@ -1,0 +1,1 @@
+#https://r-nimble.org/quick-guide-for-converting-from-jags-or-bugs-to-nimble#
