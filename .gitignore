@@ -22,7 +22,7 @@ old/*
 environ-data/esacci_MTBQ.rds
 environ-data/ESACCIlanduse_MTBQ.txt
 environ-data/nr_order2.csv
-environ-data/protectedarea_MTBQ.rdss
+environ-data/protectedarea_MTBQ.rds
 
 #big spline files
 splines/zst.rds
@@ -32,5 +32,6 @@ splines/adultData.rds
 splines/simpleGAMS/*
 splines/siteInfo_NAs.rds
 splines/stan/models/*
+splines/mtbqsDF.RData
 
 
