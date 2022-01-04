@@ -1,0 +1,7 @@
+country	Trend	nuSpecies	comment
+UK	increase	14	https://british-dragonflies.org.uk/content/new-atlas-reveals-trends-british-dragonfly-species
+UK	decrease	8	https://british-dragonflies.org.uk/content/new-atlas-reveals-trends-british-dragonfly-species
+UK	stable	20	https://british-dragonflies.org.uk/content/new-atlas-reveals-trends-british-dragonfly-species
+Netherlands	increase	18	https://assets.vlinderstichting.nl/docs/6d51f174-b497-4777-b84a-362e344c3528.pdf
+Netherlands	stable	7	https://assets.vlinderstichting.nl/docs/6d51f174-b497-4777-b84a-362e344c3528.pdf
+Netherlands	decrease	9	https://assets.vlinderstichting.nl/docs/6d51f174-b497-4777-b84a-362e344c3528.pdf
