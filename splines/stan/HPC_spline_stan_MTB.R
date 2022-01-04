@@ -14,7 +14,8 @@ mtbsDF <- subset(mtbsDF_extended, !is.na(MTB))
 
 # subset  
 
-df <- subset(adultData, Year>=1990  & Year<2017)
+#df <- subset(adultData, Year>=1990  & Year<2017)
+df <- subset(adultData, Year>=2000  & Year<2017)
 #table(df$Month)
 df <- subset(df, Month %in% 4:10)
 
@@ -73,9 +74,9 @@ listlengthDF$yday <- lubridate::yday(listlengthDF$Date)
 listlengthDF$yearIndex <- as.numeric(factor(listlengthDF$Year))
 
 #add natur raum
-listlengthDF$CoarseNaturraum <- mtbsDF$Coarsenaturraum[match(listlengthDF$MTB,mtbsDF$MTB)]
-listlengthDF$cnIndex <- as.numeric(factor(listlengthDF$CoarseNaturraum))
-subset(listlengthDF,is.na(CoarseNaturraum))
+#listlengthDF$CoarseNaturraum <- mtbsDF$Coarsenaturraum[match(listlengthDF$MTB,mtbsDF$MTB)]
+#listlengthDF$cnIndex <- as.numeric(factor(listlengthDF$CoarseNaturraum))
+#subset(listlengthDF,is.na(CoarseNaturraum))
 
 # listlengthDF$MidNaturraum <- mtbqsDF$MTB_MidNatur[match(listlengthDF$MTB,mtbsDF$MTB)]
 # listlengthDF$mnIndex <- as.numeric(factor(listlengthDF$MidNaturraum))
@@ -239,6 +240,7 @@ mydata_complete <- mydata <- make_standata(bf(Species ~ t2(x, y, yearIndex, k=7)
 names(mydata_complete) <- sapply(names(mydata_complete), 
                                  function(x) paste0("complete_",x))
 
+
 # subset code to sites with data -----------------------------------------------------------------
 
 #define sites with data
@@ -256,6 +258,33 @@ mydata$Zs_1_4 <- mydata_complete$complete_Zs_1_4[presentData,]
 mydata$Zs_1_5 <- mydata_complete$complete_Zs_1_5[presentData,]
 mydata$Zs_1_6 <- mydata_complete$complete_Zs_1_6[presentData,]
 mydata$Zs_1_7 <- mydata_complete$complete_Zs_1_7[presentData,]
+
+
+# # simple brms within the range
+# -----------------------------------------------------------------
+#   
+# temp <- subset(siteInfo_NAs,!is.na(SpeciesOrig))
+# 
+# simpleModels <- brm(bf(Species ~ t2(x, y, k=7)),
+#                                            data = temp, 
+#                                            family = bernoulli())
+# 
+# preds <- predict(simpleModels)
+# temp$preds <- preds[,1]  
+# 
+# 
+# # predict gam outside of range 
+# -----------------------------------------------------------------
+# 
+# temp <- subset(siteInfo_NAs,!is.na(SpeciesOrig))
+# gam1 <- gam(Species ~ t2(x,y,k=7),
+#             family="binomial",data = temp)
+# 
+# temp$preds <- predict(gam1,type="response")
+# qplot(x,y,data=temp,colour=preds)+scale_colour_viridis_c()
+# 
+# siteInfo_NAs$preds <- predict(gam1,newdata = siteInfo_NAs[,c("x","y")],type="response")
+# qplot(x,y,data=siteInfo_NAs,colour=preds)+scale_colour_viridis_c()
 
 # Occupancy states ------------------------------------------
 
@@ -355,7 +384,7 @@ stan_d <- c(stan_d,mydata_complete)
 
 #select model
 m_init <- stan_model(paste(myfolder,
-                           'bernoulli-occupancy-long-spline-complete_space_time_v9.stan',sep="/"))
+                           'bernoulli-occupancy-long-spline-complete_space_time_v10.stan',sep="/"))
 
 #get cores
 # try to get SLURM_CPUS_PER_TASK from submit script, otherwise fall back to 1
@@ -366,7 +395,7 @@ options(mc.cores = cpus_per_task)
 
 m_fit <- sampling(m_init, 
                   chains = 4,
-                  iter = 2000,
+                  iter = 1000,
                   data = stan_d, 
                   pars = c('beta_p','psi'))#'beta_psi'
 
