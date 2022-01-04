@@ -4,33 +4,27 @@
 .RData
 .Ruserdata
 
+
+#ignore large files
 plots/*
 raw-data/*
 derived-data/*
 model-outputs/*
+model-auxfiles/*
+gadm36_DEU_0_sp.rds
+state-analysis/*
 
-#random stuff
-mtbqsDF.RData
-siteInfo.RData
-HPC_play.R
-play.R
-naturraum_Saarland.rds
-atlasGrid.csv
-gifs/*
-mtbqsDF.RData
-*.png
-stateIndices.RData
-randomMatrix*
-df_sparta.rds
-allSpeciesSites.RData
-vert.txt
+#random stuff - mostly data files
 old/*
-occMatrix.RData
-siteInfo_midnaturraum.rds
-traits_trends_Odonata_Jan2020.csv
-siteInfo_mtb.rds
 
 
+#ignore large files with environ data
+environ-data/esacci_MTBQ.rds
+environ-data/ESACCIlanduse_MTBQ.txt
+environ-data/nr_order2.csv
+environ-data/protectedarea_MTBQ.rdss
+
+#big spline files
 splines/zst.rds
 splines/jagam.txt
 splines/bugs.data.rds
