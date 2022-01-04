@@ -409,7 +409,6 @@ saveRDS(out,file=paste0("out_sparta_nation_naturraum_",stage,"_",myspecies,".rds
 #saveRDS(out,file=paste0("out_sparta_nation_naturraum_detModel_",stage,"_",myspecies,".rds"))
 #saveRDS(out,file=paste0("out_sparta_nation_naturraum_statesOnly_",stage,"_",myspecies,".rds"))
 #saveRDS(out,file=paste0("out_sparta_nation_naturraum_phenologyChange_",stage,"_",myspecies,".rds"))
-#saveRDS(out,file=paste0("out_sparta_nation_naturraum_ppc_",stage,"_",myspecies,".rds"))
 
 ########################################################################################
 
